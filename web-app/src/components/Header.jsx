@@ -1,13 +1,13 @@
-// src/components/Header.jsx
 import * as React from "react";
 import { styled, alpha } from "@mui/material/styles";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   AppBar, Toolbar, Box, Avatar, IconButton, InputBase, Badge,
   MenuItem, Menu, Divider, Button, Switch, Typography, Paper, List,
-  ListItem, ListItemAvatar, ListItemText, Popper, ClickAwayListener
+  ListItem, ListItemAvatar, ListItemText, Popper, ClickAwayListener,
+  ListItemButton, Chip, Tooltip
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import MailIcon from "@mui/icons-material/Mail";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MoreIcon from "@mui/icons-material/MoreVert";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
@@ -16,6 +16,13 @@ import WbSunnyOutlined from "@mui/icons-material/WbSunnyOutlined";
 import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import HistoryIcon from "@mui/icons-material/History";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import CommentIcon from "@mui/icons-material/Comment";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import HomeIcon from "@mui/icons-material/Home";
+import GroupsIcon from "@mui/icons-material/Groups";
+import PeopleIcon from "@mui/icons-material/People";
+import ChatBubbleIcon from "@mui/icons-material/ChatBubble";
 import { isAuthenticated, logOut } from "../services/authenticationService";
 
 const SEARCH_SUGGESTIONS = [
@@ -26,31 +33,75 @@ const SEARCH_SUGGESTIONS = [
   { id: 5, type: "recent", name: "JavaScript Tutorial", subtitle: "Recent search" },
 ];
 
-const SearchRoot = styled("div")(({ theme }) => {
+const NOTIFICATIONS = [
+  { 
+    id: 1, 
+    type: "like", 
+    user: "Sarah Johnson", 
+    avatar: "https://i.pravatar.cc/150?img=1", 
+    message: "liked your post", 
+    time: "5m ago",
+    read: false
+  },
+  { 
+    id: 2, 
+    type: "comment", 
+    user: "Mike Chen", 
+    avatar: "https://i.pravatar.cc/150?img=2", 
+    message: "commented on your photo", 
+    time: "1h ago",
+    read: false
+  },
+  { 
+    id: 3, 
+    type: "friend", 
+    user: "Emma Wilson", 
+    avatar: "https://i.pravatar.cc/150?img=3", 
+    message: "sent you a friend request", 
+    time: "2h ago",
+    read: false
+  },
+  { 
+    id: 4, 
+    type: "like", 
+    user: "John Doe", 
+    avatar: "https://i.pravatar.cc/150?img=4", 
+    message: "and 12 others liked your photo", 
+    time: "5h ago",
+    read: true
+  },
+];
+
+const NAV_TABS = [
+  { label: "Home", value: "/", icon: HomeIcon },
+  { label: "Group", value: "/groups", icon: GroupsIcon },
+  { label: "Friends", value: "/friends", icon: PeopleIcon },
+  { label: "Messages", value: "/chat", icon: ChatBubbleIcon },
+];
+
+const CompactSearch = styled("div")(({ theme }) => {
   const isDark = theme.palette.mode === "dark";
-  const baseBg = isDark ? alpha(theme.palette.common.white, 0.10) : alpha(theme.palette.common.black, 0.04);
-  const hoverBg = isDark ? alpha(theme.palette.common.white, 0.16) : alpha(theme.palette.common.black, 0.06);
-  const focusBg = isDark ? alpha(theme.palette.common.white, 0.20) : alpha(theme.palette.common.black, 0.08);
+  const baseBg = isDark ? alpha(theme.palette.common.white, 0.08) : alpha(theme.palette.common.black, 0.04);
+  const hoverBg = isDark ? alpha(theme.palette.common.white, 0.12) : alpha(theme.palette.common.black, 0.06);
+  const focusBg = isDark ? alpha(theme.palette.common.white, 0.16) : alpha(theme.palette.common.black, 0.08);
   return {
     position: "relative",
-    borderRadius: 24,
+    borderRadius: 20,
     backgroundColor: baseBg,
     border: `1px solid ${theme.palette.divider}`,
-    transition: "all .25s ease",
+    transition: "all .2s ease",
     "&:hover": { backgroundColor: hoverBg },
     "&:focus-within": {
       backgroundColor: focusBg,
-      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}`,
-      borderColor: alpha(theme.palette.primary.main, 0.35),
+      borderColor: alpha(theme.palette.primary.main, 0.5),
     },
-    marginLeft: theme.spacing(2),
-    width: "100%",
-    [theme.breakpoints.up("sm")]: { width: "auto" },
+    width: 240,
+    [theme.breakpoints.down("md")]: { width: 180 },
   };
 });
 
 const SearchIconWrapper = styled("div")(({ theme }) => ({
-  padding: theme.spacing(0, 2),
+  padding: theme.spacing(0, 1.5),
   height: "100%",
   position: "absolute",
   pointerEvents: "none",
@@ -61,11 +112,40 @@ const SearchIconWrapper = styled("div")(({ theme }) => ({
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
   color: "inherit",
+  width: "100%",
   "& .MuiInputBase-input": {
-    padding: theme.spacing(1.1, 1.1, 1.1, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    width: "100%",
-    [theme.breakpoints.up("md")]: { width: "22ch" },
+    padding: theme.spacing(0.875, 1, 0.875, 0),
+    paddingLeft: `calc(1em + ${theme.spacing(3)})`,
+    fontSize: 14,
+  },
+}));
+
+const NavTabLink = styled(Link)(({ theme, active }) => ({
+  position: "relative",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 8,
+  padding: theme.spacing(1.5, 3),
+  color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+  textDecoration: "none",
+  transition: "all .2s ease",
+  "&:hover": {
+    backgroundColor: alpha(theme.palette.action.hover, 0.6),
+  },
+  "&::after": active ? {
+    content: '""',
+    position: "absolute",
+    bottom: 0,
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: 48,
+    height: 2,
+    backgroundColor: theme.palette.primary.main,
+    borderRadius: "2px 2px 0 0",
+  } : {},
+  [theme.breakpoints.down("md")]: {
+    padding: theme.spacing(1.5, 2),
   },
 }));
 
@@ -74,28 +154,56 @@ export default function Header({
   onToggleTheme = () => {},
   isDarkMode = false,
 }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchAnchor, setSearchAnchor] = React.useState(null);
+  const [notificationAnchor, setNotificationAnchor] = React.useState(null);
   const searchRef = React.useRef(null);
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
   const isSearchOpen = Boolean(searchAnchor) && searchQuery.trim().length > 0;
+  const isNotificationOpen = Boolean(notificationAnchor);
+
+  const currentTab = NAV_TABS.find(tab => tab.value === location.pathname)?.value || false;
 
   const handleProfileMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMobileMenuOpen = (e) => setMobileMoreAnchorEl(e.currentTarget);
   const handleMobileMenuClose = () => setMobileMoreAnchorEl(null);
   const handleMenuClose = () => { setAnchorEl(null); handleMobileMenuClose(); };
 
-  const handleOpenProfile = () => { handleMenuClose(); window.location.href = "/profile"; };
-  const handleLogout = () => { handleMenuClose(); logOut(); window.location.href = "/login"; };
+  const handleOpenProfile = () => { handleMenuClose(); navigate("/profile/1"); };
+  const handleLogout = () => { handleMenuClose(); logOut(); navigate("/login"); };
 
   const handleSearchFocus = (e) => setSearchAnchor(e.currentTarget);
   const handleSearchChange = (e) => setSearchQuery(e.target.value);
   const handleSearchClose = () => {
     setSearchAnchor(null);
     setSearchQuery("");
+  };
+
+  const handleNotificationClick = (e) => setNotificationAnchor(e.currentTarget);
+  const handleNotificationClose = () => setNotificationAnchor(null);
+
+  const handleTabClick = (value) => {
+    navigate(value);
+  };
+
+  const unreadNotifications = NOTIFICATIONS.filter(n => !n.read).length;
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "like":
+        return <FavoriteIcon fontSize="small" sx={{ color: "error.main" }} />;
+      case "comment":
+        return <CommentIcon fontSize="small" sx={{ color: "primary.main" }} />;
+      case "friend":
+        return <PersonAddIcon fontSize="small" sx={{ color: "success.main" }} />;
+      default:
+        return <NotificationsIcon fontSize="small" />;
+    }
   };
 
   const filteredSuggestions = SEARCH_SUGGESTIONS.filter((item) =>
@@ -159,7 +267,7 @@ export default function Header({
           <Divider sx={{ my: 1 }} />
 
           <MenuItem
-            onClick={() => { handleMenuClose(); window.location.href = "/settings"; }}
+            onClick={() => { handleMenuClose(); navigate("/settings"); }}
             sx={{ py: 1.2, borderRadius: 2, mx: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
           >
             <SettingsOutlined sx={{ mr: 1 }} fontSize="small" />
@@ -188,13 +296,115 @@ export default function Header({
         </>
       ) : (
         <Box sx={{ p: 1 }}>
-          <Button fullWidth variant="contained" onClick={() => (window.location.href = "/login")}
+          <Button fullWidth variant="contained" onClick={() => navigate("/login")}
             sx={{ textTransform: "none", borderRadius: 2 }}>
             Login
           </Button>
         </Box>
       )}
     </Menu>
+  );
+
+  const NotificationMenu = (
+    <Popper
+      open={isNotificationOpen}
+      anchorEl={notificationAnchor}
+      placement="bottom-end"
+      sx={{ zIndex: (t) => t.zIndex.modal + 1 }}
+    >
+      <ClickAwayListener onClickAway={handleNotificationClose}>
+        <Paper
+          elevation={8}
+          sx={(t) => ({
+            mt: 1.5,
+            width: 380,
+            maxWidth: "calc(100vw - 32px)",
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+            overflow: "hidden",
+            bgcolor: "background.paper",
+            backdropFilter: "blur(20px)",
+            boxShadow: t.palette.mode === "dark"
+              ? "0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5)"
+              : "0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08)",
+            backgroundImage: t.palette.mode === "dark"
+              ? "linear-gradient(180deg, rgba(28, 30, 36, 0.98) 0%, rgba(28, 30, 36, 1) 100%)"
+              : "linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%)",
+          })}
+        >
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
+              Notifications
+            </Typography>
+            {unreadNotifications > 0 && (
+              <Chip 
+                label={`${unreadNotifications} new`} 
+                size="small" 
+                color="primary" 
+                sx={{ borderRadius: 2, fontWeight: 600 }}
+              />
+            )}
+          </Box>
+          <List sx={{ py: 0, maxHeight: 400, overflowY: "auto" }}>
+            {NOTIFICATIONS.map((notification) => (
+              <ListItemButton
+                key={notification.id}
+                onClick={handleNotificationClose}
+                sx={{
+                  py: 1.5,
+                  px: 2,
+                  bgcolor: notification.read ? "transparent" : (t) => alpha(t.palette.primary.main, 0.05),
+                  borderLeft: notification.read ? "none" : "3px solid",
+                  borderLeftColor: "primary.main",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                <ListItemAvatar sx={{ position: "relative" }}>
+                  <Avatar src={notification.avatar} sx={{ width: 48, height: 48 }} />
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      bottom: 0,
+                      right: 0,
+                      bgcolor: "background.paper",
+                      borderRadius: "50%",
+                      p: 0.3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {getNotificationIcon(notification.type)}
+                  </Box>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Typography sx={{ fontSize: 14, fontWeight: 600 }}>
+                      {notification.user}{" "}
+                      <Typography component="span" sx={{ fontSize: 14, fontWeight: 400 }}>
+                        {notification.message}
+                      </Typography>
+                    </Typography>
+                  }
+                  secondary={notification.time}
+                  secondaryTypographyProps={{ fontSize: 12, color: "text.secondary" }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+          <Box sx={{ p: 1.5, borderTop: 1, borderColor: "divider" }}>
+            <Button 
+              fullWidth 
+              sx={{ textTransform: "none", borderRadius: 2, fontWeight: 600 }}
+              onClick={() => { handleNotificationClose(); navigate("/notifications"); }}
+            >
+              See all notifications
+            </Button>
+          </Box>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
   );
 
   const MobileMenu = (
@@ -216,15 +426,9 @@ export default function Header({
     >
       {isAuthenticated() ? (
         <>
-          <MenuItem sx={{ py: 1.2 }}>
+          <MenuItem onClick={(e) => { handleMobileMenuClose(); handleNotificationClick(e); }} sx={{ py: 1.2 }}>
             <IconButton size="large" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
-              <Badge badgeContent={2} color="error"><MailIcon /></Badge>
-            </IconButton>
-            <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Messages</Typography>
-          </MenuItem>
-          <MenuItem sx={{ py: 1.2 }}>
-            <IconButton size="large" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
-              <Badge badgeContent={4} color="error"><NotificationsIcon /></Badge>
+              <Badge badgeContent={unreadNotifications} color="error"><NotificationsIcon /></Badge>
             </IconButton>
             <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Notifications</Typography>
           </MenuItem>
@@ -234,7 +438,7 @@ export default function Header({
           </MenuItem>
         </>
       ) : (
-        <MenuItem onClick={() => { handleMobileMenuClose(); window.location.href = "/login"; }} sx={{ py: 1.2 }}>
+        <MenuItem onClick={() => { handleMobileMenuClose(); navigate("/login"); }} sx={{ py: 1.2 }}>
           <Avatar sx={{ width: 28, height: 28 }} />
           <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Login</Typography>
         </MenuItem>
@@ -244,161 +448,183 @@ export default function Header({
 
   return (
     <AppBar
-      position="fixed"
+      position="sticky"
       elevation={0}
       color="transparent"
       sx={(t) => ({
-        // full-bleed: thoát khỏi mọi Container/maxWidth
         width: "100vw",
         left: 0, right: 0,
         ml: "calc(50% - 50vw)",
         mr: "calc(50% - 50vw)",
-        // nền xám đậm mờ ở dark, paper mờ ở light
         bgcolor: t.palette.mode === "dark"
           ? alpha(t.palette.grey[900], 0.85)
           : alpha(t.palette.background.paper, 0.9),
         backdropFilter: "saturate(180%) blur(10px)",
         borderBottom: "1px solid",
         borderColor: "divider",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
         zIndex: t.zIndex.appBar,
       })}
     >
-      <Toolbar sx={{ minHeight: 64, px: { xs: 1.5, md: 3 } }}>
-        {/* Logo */}
-        <IconButton
-          size="large"
-          edge="start"
-          color="inherit"
-          aria-label="logo"
-          onClick={() => (window.location.href = "/")}
-          sx={{ "&:hover": { backgroundColor: "action.hover" } }}
-        >
-          <Box component="img" src="../assets/logos/logo.png" alt="logo" sx={{ width: 42, height: 42, borderRadius: 1.25 }} />
-        </IconButton>
+      <Toolbar sx={{ minHeight: "60px !important", height: 60, px: { xs: 2, md: 3 }, gap: { xs: 1, md: 2 } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <IconButton
+            size="medium"
+            edge="start"
+            color="inherit"
+            aria-label="logo"
+            onClick={() => navigate("/")}
+            sx={{ p: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
+          >
+            <Box component="img" src="../assets/logos/logo.png" alt="logo" sx={{ width: 36, height: 36, borderRadius: 1 }} />
+          </IconButton>
 
-        {/* Search */}
-        <SearchRoot ref={searchRef}>
-          <SearchIconWrapper><SearchIcon /></SearchIconWrapper>
-          <StyledInputBase
-            placeholder="Search..."
-            inputProps={{ "aria-label": "search" }}
-            value={searchQuery}
-            onChange={handleSearchChange}
-            onFocus={handleSearchFocus}
-          />
-        </SearchRoot>
+          <CompactSearch ref={searchRef}>
+            <SearchIconWrapper><SearchIcon fontSize="small" /></SearchIconWrapper>
+            <StyledInputBase
+              placeholder="Search…"
+              inputProps={{ "aria-label": "search" }}
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={handleSearchFocus}
+            />
+          </CompactSearch>
 
-        {/* Search Suggestions Popper */}
-        <Popper
-          open={isSearchOpen}
-          anchorEl={searchAnchor}
-          placement="bottom-start"
-          sx={{ zIndex: (t) => t.zIndex.modal + 1, width: searchRef.current?.offsetWidth || 350 }}
-        >
-          <ClickAwayListener onClickAway={handleSearchClose}>
-            <Paper
-              elevation={8}
-              sx={(t) => ({
-                mt: 1,
-                borderRadius: 3,
-                border: "1px solid",
-                borderColor: "divider",
-                overflow: "hidden",
-                maxHeight: 400,
-                overflowY: "auto",
-                bgcolor: "background.paper",
-                backdropFilter: "blur(20px)",
-                boxShadow: t.palette.mode === "dark"
-                  ? "0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5)"
-                  : "0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08)",
-                backgroundImage: t.palette.mode === "dark"
-                  ? "linear-gradient(180deg, rgba(28, 30, 36, 0.98) 0%, rgba(28, 30, 36, 1) 100%)"
-                  : "linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%)",
-              })}
-            >
-              <List sx={{ py: 1 }}>
-                {filteredSuggestions.length > 0 ? (
-                  filteredSuggestions.map((item) => (
-                    <ListItem
-                      key={item.id}
-                      button
-                      onClick={handleSearchClose}
-                      sx={{
-                        py: 1.5,
-                        "&:hover": { bgcolor: "action.hover" },
-                      }}
-                    >
-                      <ListItemAvatar>
-                        {item.type === "user" ? (
-                          <Avatar src={item.avatar} sx={{ width: 40, height: 40 }} />
-                        ) : item.type === "trending" ? (
-                          <Avatar sx={{ width: 40, height: 40, bgcolor: "primary.main" }}>
-                            <TrendingUpIcon fontSize="small" />
-                          </Avatar>
-                        ) : (
-                          <Avatar sx={{ width: 40, height: 40, bgcolor: "action.selected" }}>
-                            <HistoryIcon fontSize="small" />
-                          </Avatar>
-                        )}
-                      </ListItemAvatar>
+          <Popper
+            open={isSearchOpen}
+            anchorEl={searchAnchor}
+            placement="bottom-start"
+            sx={{ zIndex: (t) => t.zIndex.modal + 1, width: searchRef.current?.offsetWidth || 240 }}
+          >
+            <ClickAwayListener onClickAway={handleSearchClose}>
+              <Paper
+                elevation={8}
+                sx={(t) => ({
+                  mt: 1,
+                  borderRadius: 3,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  overflow: "hidden",
+                  maxHeight: 400,
+                  overflowY: "auto",
+                  bgcolor: "background.paper",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: t.palette.mode === "dark"
+                    ? "0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5)"
+                    : "0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08)",
+                  backgroundImage: t.palette.mode === "dark"
+                    ? "linear-gradient(180deg, rgba(28, 30, 36, 0.98) 0%, rgba(28, 30, 36, 1) 100%)"
+                    : "linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%)",
+                })}
+              >
+                <List sx={{ py: 1 }}>
+                  {filteredSuggestions.length > 0 ? (
+                    filteredSuggestions.map((item) => (
+                      <ListItem
+                        key={item.id}
+                        button
+                        onClick={handleSearchClose}
+                        sx={{
+                          py: 1.5,
+                          "&:hover": { bgcolor: "action.hover" },
+                        }}
+                      >
+                        <ListItemAvatar>
+                          {item.type === "user" ? (
+                            <Avatar src={item.avatar} sx={{ width: 36, height: 36 }} />
+                          ) : item.type === "trending" ? (
+                            <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main" }}>
+                              <TrendingUpIcon fontSize="small" />
+                            </Avatar>
+                          ) : (
+                            <Avatar sx={{ width: 36, height: 36, bgcolor: "action.selected" }}>
+                              <HistoryIcon fontSize="small" />
+                            </Avatar>
+                          )}
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={item.name}
+                          secondary={item.subtitle}
+                          primaryTypographyProps={{ fontWeight: 600, fontSize: 13 }}
+                          secondaryTypographyProps={{ fontSize: 11 }}
+                        />
+                      </ListItem>
+                    ))
+                  ) : (
+                    <ListItem>
                       <ListItemText
-                        primary={item.name}
-                        secondary={item.subtitle}
-                        primaryTypographyProps={{ fontWeight: 600, fontSize: 14 }}
-                        secondaryTypographyProps={{ fontSize: 12 }}
+                        primary="No results found"
+                        secondary={`Try searching for "${searchQuery}"`}
+                        primaryTypographyProps={{ fontSize: 13, color: "text.secondary" }}
+                        secondaryTypographyProps={{ fontSize: 11 }}
                       />
                     </ListItem>
-                  ))
-                ) : (
-                  <ListItem>
-                    <ListItemText
-                      primary="No results found"
-                      secondary={`Try searching for "${searchQuery}"`}
-                      primaryTypographyProps={{ fontSize: 14, color: "text.secondary" }}
-                      secondaryTypographyProps={{ fontSize: 12 }}
-                    />
-                  </ListItem>
-                )}
-              </List>
-            </Paper>
-          </ClickAwayListener>
-        </Popper>
+                  )}
+                </List>
+              </Paper>
+            </ClickAwayListener>
+          </Popper>
+        </Box>
 
-        <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ display: { xs: "none", md: "flex" }, flex: 1, justifyContent: "center", gap: { xs: 1, md: 2 } }}>
+          {isAuthenticated() && NAV_TABS.map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = currentTab === tab.value;
+            return (
+              <Tooltip key={tab.value} title={tab.label} arrow placement="bottom">
+                <NavTabLink
+                  to={tab.value}
+                  active={isActive ? 1 : 0}
+                  aria-label={tab.label}
+                >
+                  <IconComponent fontSize="medium" />
+                </NavTabLink>
+              </Tooltip>
+            );
+          })}
+        </Box>
 
-        {/* Desktop actions */}
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 0.5 }}>
+        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 1 }}>
           {isAuthenticated() ? (
             <>
-              <IconButton size="large" aria-label="mails" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
-                <Badge badgeContent={4} color="error"><MailIcon /></Badge>
-              </IconButton>
-              <IconButton size="large" aria-label="notifications" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
-                <Badge badgeContent={17} color="error"><NotificationsIcon /></Badge>
-              </IconButton>
-              <IconButton
-                size="large"
-                edge="end"
-                aria-label="account of current user"
-                aria-controls={menuId}
-                aria-haspopup="true"
-                onClick={handleProfileMenuOpen}
-                color="inherit"
-                sx={{ "&:hover": { backgroundColor: "action.hover" } }}
-              >
-                <Avatar src={user.avatar} alt={user.name} sx={{ width: 34, height: 34 }} />
-              </IconButton>
+              <Tooltip title="Notifications" arrow placement="bottom">
+                <IconButton 
+                  size="medium" 
+                  aria-label="notifications" 
+                  color="inherit" 
+                  onClick={handleNotificationClick}
+                  sx={{ "&:hover": { backgroundColor: "action.hover" } }}
+                >
+                  <Badge badgeContent={unreadNotifications} color="error"><NotificationsIcon /></Badge>
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Profile" arrow placement="bottom">
+                <IconButton
+                  size="medium"
+                  edge="end"
+                  aria-label="account of current user"
+                  aria-controls={menuId}
+                  aria-haspopup="true"
+                  onClick={handleProfileMenuOpen}
+                  color="inherit"
+                  sx={{ "&:hover": { backgroundColor: "action.hover" } }}
+                >
+                  <Avatar src={user.avatar} alt={user.name} sx={{ width: 32, height: 32 }} />
+                </IconButton>
+              </Tooltip>
             </>
           ) : (
             <Button
-              onClick={() => (window.location.href = "/login")}
+              onClick={() => navigate("/login")}
               variant="outlined"
               sx={(t) => ({
                 borderColor: alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.35 : 0.45),
                 color: "inherit",
                 textTransform: "none",
                 borderRadius: 2,
-                px: 1.5,
+                px: 2,
+                fontSize: 14,
+                fontWeight: 600,
                 "&:hover": {
                   backgroundColor: "action.hover",
                   borderColor: alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.55 : 0.65),
@@ -410,7 +636,6 @@ export default function Header({
           )}
         </Box>
 
-        {/* Mobile more */}
         <Box sx={{ display: { xs: "flex", md: "none" } }}>
           <IconButton
             size="large"
@@ -428,6 +653,7 @@ export default function Header({
 
       {MobileMenu}
       {ProfileCardMenu}
+      {NotificationMenu}
     </AppBar>
   );
 }
