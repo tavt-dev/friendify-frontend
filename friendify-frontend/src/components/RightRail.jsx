@@ -12,7 +12,7 @@ import {
   Button,
   Chip,
 } from '@mui/material'
-import { useFriendSuggestions, useGroups } from '@/hooks/useApi'
+import { useFriendSuggestions, useGroups } from '../hooks/useApi'
 import { useNavigate } from 'react-router-dom'
 
 export default function RightRail() {
@@ -35,7 +35,7 @@ export default function RightRail() {
             Friend Suggestions
           </Typography>
           <List dense>
-            {suggestions?.slice(0, 5).map((suggestion) => (
+            {(suggestions ?? []).slice(0, 5).map((suggestion) => (
               <ListItem
                 key={suggestion.id}
                 disablePadding
@@ -86,7 +86,7 @@ export default function RightRail() {
             Your Groups
           </Typography>
           <List dense>
-            {groups?.filter(g => g.isMember).slice(0, 3).map((group) => (
+            {(groups ?? []).filter(g => g.isMember).slice(0, 3).map((group) => (
               <ListItem key={group.id} disablePadding>
                 <ListItemButton onClick={() => navigate(`/groups/${group.id}`)}>
                   <ListItemAvatar>

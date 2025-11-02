@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import * as React from "react";
 import { styled, alpha } from "@mui/material/styles";
 import {
@@ -27,23 +28,20 @@ const SEARCH_SUGGESTIONS = [
 
 const SearchRoot = styled("div")(({ theme }) => {
   const isDark = theme.palette.mode === "dark";
-  const baseBg = isDark ? alpha(theme.palette.common.white, 0.08) : alpha(theme.palette.common.black, 0.04);
-  const hoverBg = isDark ? alpha(theme.palette.common.white, 0.12) : alpha(theme.palette.common.black, 0.06);
-  const focusBg = isDark ? alpha(theme.palette.common.white, 0.15) : alpha(theme.palette.common.black, 0.08);
+  const baseBg = isDark ? alpha(theme.palette.common.white, 0.10) : alpha(theme.palette.common.black, 0.04);
+  const hoverBg = isDark ? alpha(theme.palette.common.white, 0.16) : alpha(theme.palette.common.black, 0.06);
+  const focusBg = isDark ? alpha(theme.palette.common.white, 0.20) : alpha(theme.palette.common.black, 0.08);
   return {
     position: "relative",
     borderRadius: 24,
     backgroundColor: baseBg,
     border: `1px solid ${theme.palette.divider}`,
-    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-    "&:hover": {
-      backgroundColor: hoverBg,
-      borderColor: alpha(theme.palette.primary.main, 0.2),
-    },
+    transition: "all .25s ease",
+    "&:hover": { backgroundColor: hoverBg },
     "&:focus-within": {
       backgroundColor: focusBg,
-      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.15)}`,
-      borderColor: alpha(theme.palette.primary.main, 0.4),
+      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}`,
+      borderColor: alpha(theme.palette.primary.main, 0.35),
     },
     marginLeft: theme.spacing(2),
     width: "100%",
@@ -59,21 +57,15 @@ const SearchIconWrapper = styled("div")(({ theme }) => ({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: theme.palette.text.secondary,
 }));
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
   color: "inherit",
-  width: "100%",
   "& .MuiInputBase-input": {
-    padding: theme.spacing(1.25, 1.25, 1.25, 0),
+    padding: theme.spacing(1.1, 1.1, 1.1, 0),
     paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    transition: theme.transitions.create("width"),
     width: "100%",
-    [theme.breakpoints.up("md")]: { width: "24ch" },
-    "&::placeholder": {
-      opacity: 0.7,
-    },
+    [theme.breakpoints.up("md")]: { width: "22ch" },
   },
 }));
 
@@ -125,20 +117,15 @@ export default function Header({
         elevation: 0,
         sx: (t) => ({
           mt: 1.5,
-          borderRadius: 4,
-          minWidth: 320,
+          borderRadius: 3,
+          minWidth: 300,
           border: `1px solid ${t.palette.divider}`,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
+          boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
           overflow: "visible",
-          p: 2,
+          p: 1.5,
           "&:before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            right: 20,
-            width: 12,
-            height: 12,
-            bgcolor: "background.paper",
+            content: '""', position: "absolute", top: 0, right: 18,
+            width: 12, height: 12, bgcolor: "background.paper",
             transform: "translateY(-50%) rotate(45deg)",
             borderLeft: `1px solid ${t.palette.divider}`,
             borderTop: `1px solid ${t.palette.divider}`,
@@ -148,112 +135,54 @@ export default function Header({
     >
       {isAuthenticated() ? (
         <>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, mb: 1.5 }}>
-            <Avatar src={user.avatar} alt={user.name} sx={{ width: 44, height: 44 }} />
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography noWrap sx={{ fontWeight: 700, fontSize: 16, color: "text.primary" }}>{user.name}</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 0.5, mb: 1 }}>
+            <Avatar src={user.avatar} alt={user.name} sx={{ width: 40, height: 40 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography noWrap sx={{ fontWeight: 700, fontSize: 16 }}>{user.name}</Typography>
               <Typography noWrap sx={{ color: "text.secondary", fontSize: 13 }}>{user.title}</Typography>
             </Box>
+            <Box sx={{ ml: "auto" }}>
+              <Button size="small" onClick={handleOpenProfile} variant="contained" disableElevation
+                sx={{ textTransform: "none", borderRadius: 2, px: 1.2, py: 0.5 }}>
+                View profile
+              </Button>
+            </Box>
           </Box>
-          <Button
-            fullWidth
-            size="small"
-            onClick={handleOpenProfile}
-            variant="outlined"
-            sx={(t) => ({
-              textTransform: "none",
-              borderRadius: 2.5,
-              fontWeight: 600,
-              mb: 1.5,
-              py: 1,
-              fontSize: 14,
-              borderColor: "divider",
-              "&:hover": {
-                borderColor: "primary.main",
-                bgcolor: alpha(t.palette.primary.main, 0.08),
-              },
-            })}
-          >
-            View Profile
-          </Button>
 
-          <Divider sx={{ my: 1.5 }} />
+          <Divider sx={{ my: 1 }} />
 
           <MenuItem
             onClick={() => { handleMenuClose(); window.location.href = "/settings"; }}
-            sx={(t) => ({
-              py: 1.5,
-              px: 1.5,
-              borderRadius: 2.5,
-              mb: 0.5,
-              transition: "all 0.2s",
-              "&:hover": {
-                backgroundColor: t.palette.action.hover,
-                transform: "translateX(4px)",
-              },
-            })}
+            sx={{ py: 1.2, borderRadius: 2, mx: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
           >
-            <SettingsOutlined sx={{ mr: 1.5, fontSize: 20 }} />
-            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Settings & Privacy</Typography>
+            <SettingsOutlined sx={{ mr: 1 }} fontSize="small" />
+            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Settings & Privacy</Typography>
           </MenuItem>
 
           <MenuItem
             onClick={handleLogout}
-            sx={(t) => ({
-              py: 1.5,
-              px: 1.5,
-              borderRadius: 2.5,
-              color: "error.main",
-              transition: "all 0.2s",
-              "&:hover": {
-                backgroundColor: alpha(t.palette.error.main, 0.1),
-                transform: "translateX(4px)",
-              },
-            })}
+            sx={{
+              py: 1.2, borderRadius: 2, mx: 0.5, color: "error.main",
+              "&:hover": { backgroundColor: (t) => alpha(t.palette.error.main, 0.08) },
+            }}
           >
-            <LogoutOutlined sx={{ mr: 1.5, fontSize: 20 }} />
+            <LogoutOutlined sx={{ mr: 1 }} fontSize="small" />
             <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Sign Out</Typography>
           </MenuItem>
 
-          <Divider sx={{ my: 1.5 }} />
+          <Divider sx={{ my: 1 }} />
 
-          <Box
-            sx={(t) => ({
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              px: 1.5,
-              py: 1.25,
-              borderRadius: 2.5,
-              bgcolor: t.palette.action.hover,
-            })}
-          >
-            <WbSunnyOutlined fontSize="small" sx={{ color: "text.secondary" }} />
-            <Typography sx={{ fontSize: 14, fontWeight: 600, flex: 1, color: "text.primary" }}>Dark mode</Typography>
-            <Switch
-              edge="end"
-              checked={isDarkMode}
-              onChange={(e) => onToggleTheme?.(e.target.checked)}
-              sx={(t) => ({
-                "& .MuiSwitch-switchBase.Mui-checked": {
-                  color: t.palette.primary.main,
-                },
-                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                  backgroundColor: t.palette.primary.main,
-                },
-              })}
-            />
-            <DarkModeOutlined fontSize="small" sx={{ color: "text.secondary" }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, py: 0.5 }}>
+            <WbSunnyOutlined fontSize="small" />
+            <Typography sx={{ fontSize: 14, fontWeight: 500, flex: 1 }}>Dark mode</Typography>
+            <DarkModeOutlined fontSize="small" />
+            <Switch edge="end" checked={isDarkMode} onChange={(e) => onToggleTheme?.(e.target.checked)} />
           </Box>
         </>
       ) : (
         <Box sx={{ p: 1 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => (window.location.href = "/login")}
-            sx={{ textTransform: "none", borderRadius: 2.5, fontWeight: 600 }}
-          >
+          <Button fullWidth variant="contained" onClick={() => (window.location.href = "/login")}
+            sx={{ textTransform: "none", borderRadius: 2 }}>
             Login
           </Button>
         </Box>
@@ -272,74 +201,35 @@ export default function Header({
       PaperProps={{
         sx: (t) => ({
           mt: 1.5,
-          borderRadius: 4,
+          borderRadius: 3,
           border: `1px solid ${t.palette.divider}`,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
-          minWidth: 240,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
         }),
       }}
     >
       {isAuthenticated() ? (
         <>
-          <MenuItem
-            sx={(t) => ({
-              py: 1.5,
-              px: 2,
-              transition: "all 0.2s",
-              "&:hover": { bgcolor: t.palette.action.hover },
-            })}
-          >
-            <IconButton
-              size="large"
-              color="inherit"
-              sx={{ mr: 1.5, p: 0 }}
-            >
+          <MenuItem sx={{ py: 1.2 }}>
+            <IconButton size="large" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
               <Badge badgeContent={2} color="error"><MailIcon /></Badge>
             </IconButton>
-            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Messages</Typography>
+            <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Messages</Typography>
           </MenuItem>
-          <MenuItem
-            sx={(t) => ({
-              py: 1.5,
-              px: 2,
-              transition: "all 0.2s",
-              "&:hover": { bgcolor: t.palette.action.hover },
-            })}
-          >
-            <IconButton
-              size="large"
-              color="inherit"
-              sx={{ mr: 1.5, p: 0 }}
-            >
+          <MenuItem sx={{ py: 1.2 }}>
+            <IconButton size="large" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
               <Badge badgeContent={4} color="error"><NotificationsIcon /></Badge>
             </IconButton>
-            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Notifications</Typography>
+            <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Notifications</Typography>
           </MenuItem>
-          <MenuItem
-            onClick={(e) => { handleMobileMenuClose(); handleProfileMenuOpen(e); }}
-            sx={(t) => ({
-              py: 1.5,
-              px: 2,
-              transition: "all 0.2s",
-              "&:hover": { bgcolor: t.palette.action.hover },
-            })}
-          >
-            <Avatar src={user.avatar} sx={{ width: 32, height: 32, mr: 1.5 }} />
-            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Profile</Typography>
+          <MenuItem onClick={(e) => { handleMobileMenuClose(); handleProfileMenuOpen(e); }} sx={{ py: 1.2 }}>
+            <Avatar src={user.avatar} sx={{ width: 28, height: 28 }} />
+            <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Profile</Typography>
           </MenuItem>
         </>
       ) : (
-        <MenuItem
-          onClick={() => { handleMobileMenuClose(); window.location.href = "/login"; }}
-          sx={(t) => ({
-            py: 1.5,
-            px: 2,
-            transition: "all 0.2s",
-            "&:hover": { bgcolor: t.palette.action.hover },
-          })}
-        >
-          <Avatar sx={{ width: 32, height: 32, mr: 1.5 }} />
-          <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Login</Typography>
+        <MenuItem onClick={() => { handleMobileMenuClose(); window.location.href = "/login"; }} sx={{ py: 1.2 }}>
+          <Avatar sx={{ width: 28, height: 28 }} />
+          <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Login</Typography>
         </MenuItem>
       )}
     </Menu>
@@ -351,47 +241,37 @@ export default function Header({
       elevation={0}
       color="transparent"
       sx={(t) => ({
+        // full-bleed: thoát khỏi mọi Container/maxWidth
         width: "100vw",
-        left: 0,
-        right: 0,
+        left: 0, right: 0,
         ml: "calc(50% - 50vw)",
         mr: "calc(50% - 50vw)",
+        // nền xám đậm mờ ở dark, paper mờ ở light
         bgcolor: t.palette.mode === "dark"
-          ? alpha(t.palette.grey[900], 0.9)
-          : alpha(t.palette.background.paper, 0.95),
-        backdropFilter: "saturate(180%) blur(20px)",
+          ? alpha(t.palette.grey[900], 0.85)
+          : alpha(t.palette.background.paper, 0.9),
+        backdropFilter: "saturate(180%) blur(10px)",
         borderBottom: "1px solid",
         borderColor: "divider",
         zIndex: t.zIndex.appBar,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
       })}
     >
-      <Toolbar sx={{ minHeight: { xs: 64, md: 72 }, px: { xs: 2, md: 4 } }}>
+      <Toolbar sx={{ minHeight: 64, px: { xs: 1.5, md: 3 } }}>
+        {/* Logo */}
         <IconButton
           size="large"
           edge="start"
           color="inherit"
           aria-label="logo"
           onClick={() => (window.location.href = "/")}
-          sx={(t) => ({
-            mr: 2,
-            transition: "all 0.2s",
-            "&:hover": {
-              backgroundColor: t.palette.action.hover,
-              transform: "scale(1.05)",
-            },
-          })}
+          sx={{ "&:hover": { backgroundColor: "action.hover" } }}
         >
-          <Box
-            component="img"
-            src="/logo/logo.png"
-            alt="logo"
-            sx={{ width: { xs: 38, md: 44 }, height: { xs: 38, md: 44 }, borderRadius: 2 }}
-          />
+          <Box component="img" src="../assets/logos/logo.png" alt="logo" sx={{ width: 42, height: 42, borderRadius: 1.25 }} />
         </IconButton>
 
+        {/* Search */}
         <SearchRoot ref={searchRef}>
-          <SearchIconWrapper><SearchIcon fontSize="small" /></SearchIconWrapper>
+          <SearchIconWrapper><SearchIcon /></SearchIconWrapper>
           <StyledInputBase
             placeholder="Search..."
             inputProps={{ "aria-label": "search" }}
@@ -401,6 +281,7 @@ export default function Header({
           />
         </SearchRoot>
 
+        {/* Search Suggestions Popper */}
         <Popper
           open={isSearchOpen}
           anchorEl={searchAnchor}
@@ -412,20 +293,12 @@ export default function Header({
               elevation={8}
               sx={(t) => ({
                 mt: 1,
-                borderRadius: 4,
+                borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
                 overflow: "hidden",
-                maxHeight: 420,
+                maxHeight: 400,
                 overflowY: "auto",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
-                "&::-webkit-scrollbar": {
-                  width: "6px",
-                },
-                "&::-webkit-scrollbar-thumb": {
-                  backgroundColor: alpha(t.palette.text.primary, 0.2),
-                  borderRadius: "3px",
-                },
               })}
             >
               <List sx={{ py: 1 }}>
@@ -435,24 +308,20 @@ export default function Header({
                       key={item.id}
                       button
                       onClick={handleSearchClose}
-                      sx={(t) => ({
+                      sx={{
                         py: 1.5,
-                        px: 2,
-                        transition: "all 0.2s",
-                        "&:hover": {
-                          bgcolor: t.palette.action.hover,
-                        },
-                      })}
+                        "&:hover": { bgcolor: "action.hover" },
+                      }}
                     >
                       <ListItemAvatar>
                         {item.type === "user" ? (
-                          <Avatar src={item.avatar} sx={{ width: 42, height: 42 }} />
+                          <Avatar src={item.avatar} sx={{ width: 40, height: 40 }} />
                         ) : item.type === "trending" ? (
-                          <Avatar sx={{ width: 42, height: 42, bgcolor: "primary.main" }}>
+                          <Avatar sx={{ width: 40, height: 40, bgcolor: "primary.main" }}>
                             <TrendingUpIcon fontSize="small" />
                           </Avatar>
                         ) : (
-                          <Avatar sx={{ width: 42, height: 42, bgcolor: "action.selected" }}>
+                          <Avatar sx={{ width: 40, height: 40, bgcolor: "action.selected" }}>
                             <HistoryIcon fontSize="small" />
                           </Avatar>
                         )}
@@ -466,12 +335,12 @@ export default function Header({
                     </ListItem>
                   ))
                 ) : (
-                  <ListItem sx={{ py: 3 }}>
+                  <ListItem>
                     <ListItemText
                       primary="No results found"
                       secondary={`Try searching for "${searchQuery}"`}
-                      primaryTypographyProps={{ fontSize: 14, color: "text.secondary", textAlign: "center" }}
-                      secondaryTypographyProps={{ fontSize: 12, textAlign: "center" }}
+                      primaryTypographyProps={{ fontSize: 14, color: "text.secondary" }}
+                      secondaryTypographyProps={{ fontSize: 12 }}
                     />
                   </ListItem>
                 )}
@@ -482,35 +351,14 @@ export default function Header({
 
         <Box sx={{ flexGrow: 1 }} />
 
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 1 }}>
+        {/* Desktop actions */}
+        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 0.5 }}>
           {isAuthenticated() ? (
             <>
-              <IconButton
-                size="large"
-                aria-label="mails"
-                color="inherit"
-                sx={(t) => ({
-                  transition: "all 0.2s",
-                  "&:hover": {
-                    backgroundColor: t.palette.action.hover,
-                    transform: "scale(1.08)",
-                  },
-                })}
-              >
+              <IconButton size="large" aria-label="mails" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
                 <Badge badgeContent={4} color="error"><MailIcon /></Badge>
               </IconButton>
-              <IconButton
-                size="large"
-                aria-label="notifications"
-                color="inherit"
-                sx={(t) => ({
-                  transition: "all 0.2s",
-                  "&:hover": {
-                    backgroundColor: t.palette.action.hover,
-                    transform: "scale(1.08)",
-                  },
-                })}
-              >
+              <IconButton size="large" aria-label="notifications" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
                 <Badge badgeContent={17} color="error"><NotificationsIcon /></Badge>
               </IconButton>
               <IconButton
@@ -521,16 +369,9 @@ export default function Header({
                 aria-haspopup="true"
                 onClick={handleProfileMenuOpen}
                 color="inherit"
-                sx={(t) => ({
-                  ml: 1,
-                  transition: "all 0.2s",
-                  "&:hover": {
-                    backgroundColor: t.palette.action.hover,
-                    transform: "scale(1.08)",
-                  },
-                })}
+                sx={{ "&:hover": { backgroundColor: "action.hover" } }}
               >
-                <Avatar src={user.avatar} alt={user.name} sx={{ width: 36, height: 36 }} />
+                <Avatar src={user.avatar} alt={user.name} sx={{ width: 34, height: 34 }} />
               </IconButton>
             </>
           ) : (
@@ -538,18 +379,14 @@ export default function Header({
               onClick={() => (window.location.href = "/login")}
               variant="outlined"
               sx={(t) => ({
-                borderColor: t.palette.divider,
-                color: "text.primary",
+                borderColor: alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.35 : 0.45),
+                color: "inherit",
                 textTransform: "none",
-                fontWeight: 600,
-                borderRadius: 3,
-                px: 3,
-                py: 1,
-                transition: "all 0.2s",
+                borderRadius: 2,
+                px: 1.5,
                 "&:hover": {
-                  backgroundColor: t.palette.action.hover,
-                  borderColor: t.palette.primary.main,
-                  transform: "translateY(-1px)",
+                  backgroundColor: "action.hover",
+                  borderColor: alpha(t.palette.common.white, t.palette.mode === "dark" ? 0.55 : 0.65),
                 },
               })}
             >
@@ -558,6 +395,7 @@ export default function Header({
           )}
         </Box>
 
+        {/* Mobile more */}
         <Box sx={{ display: { xs: "flex", md: "none" } }}>
           <IconButton
             size="large"
@@ -566,12 +404,7 @@ export default function Header({
             aria-haspopup="true"
             onClick={handleMobileMenuOpen}
             color="inherit"
-            sx={(t) => ({
-              transition: "all 0.2s",
-              "&:hover": {
-                backgroundColor: t.palette.action.hover,
-              },
-            })}
+            sx={{ "&:hover": { backgroundColor: "action.hover" } }}
           >
             <MoreIcon />
           </IconButton>

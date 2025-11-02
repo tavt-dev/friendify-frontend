@@ -18,8 +18,8 @@ import {
   TextField,
   Snackbar,
   Alert,
-  alpha,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import MessageIcon from "@mui/icons-material/Message";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";

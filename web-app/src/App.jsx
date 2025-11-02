@@ -1,45 +1,47 @@
-import React from "react";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import AppRoutes from "./routes/AppRoutes";
-import { ColorModeContext, getInitialMode } from "./shared/contexts/ColorModeContext";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { AuthProvider } from './contexts/AuthContext'
 
-export default function App() {
-  const [mode, setMode] = React.useState(getInitialMode);
+import Home from './pages/Home'
+import Profile from './pages/Profile'
+import ChatPage from './pages/ChatPage'
+import FriendsPage from './pages/FriendsPage'
+import GroupPage from './pages/GroupPage'
+import Marketplace from './pages/Marketplace'
+import Pages from './pages/Pages'
+import Saved from './pages/Saved'
+import Settings from './pages/Settings'
+import SearchPage from './pages/SearchPage'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 
-  const colorMode = React.useMemo(
-    () => ({
-      mode,
-      toggle: () =>
-        setMode((prev) => {
-          const next = prev === "light" ? "dark" : "light";
-          localStorage.setItem("color-mode", next);
-          return next;
-        }),
-    }),
-    [mode]
-  );
-
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          background: {
-            default: mode === "dark" ? "#0b0c10" : "#f7f7fb",
-            paper: mode === "dark" ? "#111319" : "#ffffff",
-          },
-        },
-        shape: { borderRadius: 12 },
-      }),
-    [mode]
-  );
-
+function App() {
   return (
-    <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AppRoutes />
-      </ThemeProvider>
-    </ColorModeContext.Provider>
-  );
+    <ThemeProvider>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/profile/:id" element={<Profile />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/groups" element={<GroupPage />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/pages" element={<Pages />} />
+            <Route path="/saved" element={<Saved />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/search" element={<SearchPage />} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
+  )
 }
+
+export default App

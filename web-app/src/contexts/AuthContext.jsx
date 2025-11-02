@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react'
-import { currentUser } from '../data/constants'
+import { getCurrentUser } from '../utils/mockAuth'
 
 const AuthContext = createContext(null)
 
@@ -12,16 +12,16 @@ export const useAuth = () => {
 }
 
 export function AuthProvider({ children }) {
-  const [user] = useState(currentUser)
+  const [user] = useState(getCurrentUser())
   const [token] = useState('static-auth-token')
   const [loading] = useState(false)
 
   const login = async () => {
-    return { user: currentUser, token: 'static-auth-token' }
+    return { user: getCurrentUser(), token: 'static-auth-token' }
   }
 
   const register = async () => {
-    return { user: currentUser, token: 'static-auth-token' }
+    return { user: getCurrentUser(), token: 'static-auth-token' }
   }
 
   const logout = () => {}

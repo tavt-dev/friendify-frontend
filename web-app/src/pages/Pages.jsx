@@ -11,10 +11,10 @@ import {
   InputAdornment,
   Stack,
   Paper,
-  alpha,
   Tabs,
   Tab,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import VerifiedIcon from "@mui/icons-material/Verified";

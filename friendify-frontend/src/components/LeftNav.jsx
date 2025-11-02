@@ -18,7 +18,7 @@ import {
   Bookmark,
   Event,
 } from '@mui/icons-material'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '../contexts/AuthContext'
 
 const menuItems = [
   { icon: Home, label: 'Feed', path: '/' },

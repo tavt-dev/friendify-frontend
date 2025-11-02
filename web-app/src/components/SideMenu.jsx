@@ -1,3 +1,4 @@
+// src/components/SideMenu.jsx
 import * as React from "react";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
@@ -6,8 +7,6 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
-import Box from "@mui/material/Box";
-import { alpha } from "@mui/material/styles";
 import HomeIcon from "@mui/icons-material/Home";
 import PeopleIcon from "@mui/icons-material/People";
 import GroupsIcon from "@mui/icons-material/Groups";
@@ -52,73 +51,38 @@ function SideMenu() {
   ];
 
   return (
-    <Box
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "background.paper",
-      }}
-    >
-      <Toolbar sx={{ minHeight: { xs: 64, md: 72 } }} />
-      <List sx={{ px: 2.5, py: 2, flex: 1 }}>
+    <>
+      <Toolbar />
+      <List sx={{ px: 2, py: 2 }}>
         {menuItems.map((item) => {
           const isActive = activeItem === item.key;
           return (
-            <ListItem key={item.key} disablePadding sx={{ mb: 0.75 }}>
+            <ListItem key={item.key} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
                 component={Link}
                 to={item.to}
-                onClick={() => setActiveItem(item.key)}
-                selected={isActive}
-                sx={(t) => ({
+                onClick={() => setActiveItem(item.key)} // giữ để UX mượt ngay khi click
+                selected={isActive} // MUI selected support
+                sx={{
                   borderRadius: 3,
-                  py: 1.75,
-                  px: 2,
-                  transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                  position: "relative",
-                  overflow: "hidden",
+                  py: 2,
+                  transition: "all 0.25s ease",
                   background: isActive
-                    ? `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.12)} 0%, ${alpha(
-                        t.palette.primary.main,
-                        0.08
-                      )} 100%)`
+                    ? "linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)"
                     : "transparent",
-                  "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    left: 0,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 4,
-                    height: isActive ? "70%" : "0%",
-                    bgcolor: "primary.main",
-                    borderRadius: "0 4px 4px 0",
-                    transition: "height 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  },
                   "&:hover": {
                     background: isActive
-                      ? `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.15)} 0%, ${alpha(
-                          t.palette.primary.main,
-                          0.1
-                        )} 100%)`
-                      : t.palette.action.hover,
+                      ? "linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)"
+                      : "rgba(0, 0, 0, 0.04)",
                     transform: "translateX(4px)",
-                    "& .menu-icon": {
-                      transform: "scale(1.1)",
-                    },
                   },
-                  "&:active": {
-                    transform: "translateX(2px) scale(0.98)",
-                  },
-                })}
+                }}
               >
                 <ListItemIcon
-                  className="menu-icon"
                   sx={{
-                    minWidth: 48,
-                    color: isActive ? "primary.main" : "text.secondary",
-                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    minWidth: 44,
+                    color: isActive ? "#667eea" : "text.secondary",
+                    transition: "all 0.25s ease",
                   }}
                 >
                   {item.icon}
@@ -128,8 +92,7 @@ function SideMenu() {
                   primaryTypographyProps={{
                     fontWeight: isActive ? 700 : 600,
                     fontSize: 15,
-                    color: isActive ? "primary.main" : "text.primary",
-                    transition: "all 0.25s",
+                    color: isActive ? "#667eea" : "text.primary",
                   }}
                 />
               </ListItemButton>
@@ -137,20 +100,8 @@ function SideMenu() {
           );
         })}
       </List>
-      <Divider sx={{ mx: 2.5 }} />
-      <Box sx={{ p: 2.5, textAlign: "center" }}>
-        <Box
-          component="span"
-          sx={{
-            fontSize: 12,
-            color: "text.secondary",
-            fontWeight: 500,
-          }}
-        >
-          © 2024 SocialApp
-        </Box>
-      </Box>
-    </Box>
+      <Divider sx={{ mx: 2 }} />
+    </>
   );
 }
 

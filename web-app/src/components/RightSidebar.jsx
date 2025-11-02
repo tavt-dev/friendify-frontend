@@ -9,8 +9,8 @@ import {
   Chip,
   Stack,
   IconButton,
-  alpha,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import EventIcon from "@mui/icons-material/Event";
@@ -38,11 +38,11 @@ const FRIEND_SUGGESTIONS = [
 ];
 
 const TRENDING_TOPICS = [
-  { id: 1, tag: "#ReactJS", posts: "2.5k posts", color: "#61dafb" },
-  { id: 2, tag: "#WebDevelopment", posts: "1.8k posts", color: "#f7df1e" },
-  { id: 3, tag: "#AI", posts: "3.2k posts", color: "#ff6b6b" },
-  { id: 4, tag: "#Design", posts: "1.2k posts", color: "#a78bfa" },
-  { id: 5, tag: "#Startup", posts: "950 posts", color: "#34d399" },
+  { id: 1, tag: "#ReactJS", posts: "2.5k posts" },
+  { id: 2, tag: "#WebDevelopment", posts: "1.8k posts" },
+  { id: 3, tag: "#AI", posts: "3.2k posts" },
+  { id: 4, tag: "#Design", posts: "1.2k posts" },
+  { id: 5, tag: "#Startup", posts: "950 posts" },
 ];
 
 const UPCOMING_EVENTS = [
@@ -83,155 +83,112 @@ export default function RightSidebar() {
   return (
     <Box
       sx={{
-        width: 340,
+        width: 320,
         display: { xs: "none", lg: "block" },
         position: "sticky",
-        top: 88,
-        height: "calc(100vh - 112px)",
+        top: 80,
+        height: "calc(100vh - 96px)",
         overflowY: "auto",
-        overflowX: "hidden",
-        pl: 2,
-        pr: 1,
-        py: 1,
+        px: 2,
+        py: 3,
         "&::-webkit-scrollbar": {
           width: "6px",
         },
-        "&::-webkit-scrollbar-track": {
-          backgroundColor: "transparent",
-        },
         "&::-webkit-scrollbar-thumb": {
-          backgroundColor: (t) => alpha(t.palette.text.primary, 0.15),
-          borderRadius: "3px",
-          "&:hover": {
-            backgroundColor: (t) => alpha(t.palette.text.primary, 0.25),
-          },
+          backgroundColor: (t) => alpha(t.palette.text.primary, 0.2),
+          borderRadius: 3,
         },
       }}
     >
+      {/* Friend Suggestions */}
       <Paper
         elevation={0}
         sx={(t) => ({
           borderRadius: 4,
           p: 2.5,
-          mb: 2.5,
+          mb: 3,
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "background.paper",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          transition: "all 0.3s",
-          "&:hover": {
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-          },
         })}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
-          <Box
-            sx={(t) => ({
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: 2,
-              bgcolor: alpha(t.palette.primary.main, 0.1),
-            })}
-          >
-            <PersonAddIcon sx={{ fontSize: 18, color: "primary.main" }} />
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, flex: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <PersonAddIcon sx={{ mr: 1, color: "primary.main" }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
             Friend Suggestions
           </Typography>
         </Box>
 
         {friendSuggestions.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center", fontSize: 14 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
             No suggestions available
           </Typography>
         ) : (
           <Stack spacing={2}>
-            {friendSuggestions.map((friend, index) => (
+            {friendSuggestions.map((friend) => (
               <Box key={friend.id}>
-                <Box
-                  sx={(t) => ({
-                    p: 1.5,
-                    borderRadius: 3,
-                    position: "relative",
-                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                    bgcolor: "transparent",
-                    "&:hover": {
-                      bgcolor: t.palette.action.hover,
-                      transform: "translateX(2px)",
-                    },
-                  })}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
-                    <Avatar
-                      src={friend.avatar}
-                      sx={{
-                        width: 48,
-                        height: 48,
-                        border: "2px solid",
-                        borderColor: "divider",
-                      }}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 700, fontSize: 14, mb: 0.25 }}
-                        noWrap
-                      >
-                        {friend.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ fontSize: 12, color: "text.secondary" }}>
-                        {friend.mutualFriends} mutual friends
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleRemoveSuggestion(friend.id)}
-                      sx={(t) => ({
-                        width: 24,
-                        height: 24,
-                        color: "text.secondary",
-                        transition: "all 0.2s",
-                        "&:hover": {
-                          bgcolor: t.palette.action.selected,
-                          color: "error.main",
-                          transform: "scale(1.1)",
-                        },
-                      })}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, position: "relative" }}>
+                  <Avatar
+                    src={friend.avatar}
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      border: "2px solid",
+                      borderColor: "divider",
+                    }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 700, fontSize: 14, mb: 0.3 }}
+                      noWrap
                     >
-                      <CloseIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
+                      {friend.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {friend.mutualFriends} mutual friends
+                    </Typography>
                   </Box>
-                  <Button
-                    fullWidth
+                  <IconButton
                     size="small"
-                    variant="contained"
-                    onClick={() => handleAddFriend(friend.id)}
-                    sx={(t) => ({
-                      textTransform: "none",
-                      fontWeight: 600,
-                      fontSize: 13,
-                      borderRadius: 2.5,
-                      py: 0.75,
-                      background: `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${alpha(
-                        t.palette.primary.main,
-                        0.85
-                      )} 100%)`,
-                      boxShadow: "none",
-                      transition: "all 0.2s",
-                      "&:hover": {
-                        boxShadow: `0 4px 12px ${alpha(t.palette.primary.main, 0.35)}`,
-                        transform: "translateY(-1px)",
-                      },
-                    })}
+                    onClick={() => handleRemoveSuggestion(friend.id)}
+                    sx={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      bgcolor: "background.default",
+                      width: 20,
+                      height: 20,
+                      "&:hover": { bgcolor: "action.hover" },
+                    }}
                   >
-                    Add Friend
-                  </Button>
+                    <CloseIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
                 </Box>
-                {index < friendSuggestions.length - 1 && (
-                  <Divider sx={{ mt: 2, borderColor: "divider" }} />
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  onClick={() => handleAddFriend(friend.id)}
+                  sx={{
+                    mt: 1.5,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    borderRadius: 2,
+                    py: 0.7,
+                    borderColor: "divider",
+                    color: "primary.main",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  Add Friend
+                </Button>
+                {friend.id !== friendSuggestions[friendSuggestions.length - 1].id && (
+                  <Divider sx={{ mt: 2 }} />
                 )}
               </Box>
             ))}
@@ -239,103 +196,68 @@ export default function RightSidebar() {
         )}
       </Paper>
 
+      {/* Trending Topics */}
       <Paper
         elevation={0}
         sx={(t) => ({
           borderRadius: 4,
           p: 2.5,
-          mb: 2.5,
+          mb: 3,
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "background.paper",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          transition: "all 0.3s",
-          "&:hover": {
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-          },
         })}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
-          <Box
-            sx={(t) => ({
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: 2,
-              bgcolor: alpha(t.palette.primary.main, 0.1),
-            })}
-          >
-            <TrendingUpIcon sx={{ fontSize: 18, color: "primary.main" }} />
-          </Box>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <TrendingUpIcon sx={{ mr: 1, color: "primary.main" }} />
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
             Trending Topics
           </Typography>
         </Box>
 
-        <Stack spacing={1}>
+        <Stack spacing={1.5}>
           {TRENDING_TOPICS.map((topic) => (
             <Box
               key={topic.id}
-              sx={(t) => ({
+              sx={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: 2.5,
                 cursor: "pointer",
-                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                bgcolor: "transparent",
-                border: "1px solid transparent",
+                transition: "all 0.2s ease",
                 "&:hover": {
-                  bgcolor: t.palette.action.hover,
-                  borderColor: alpha(topic.color, 0.3),
+                  bgcolor: "action.hover",
                   transform: "translateX(4px)",
-                  "& .topic-icon": {
-                    transform: "scale(1.2) rotate(5deg)",
-                  },
                 },
-              })}
+              }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box
-                  className="topic-icon"
+              <Box>
+                <Typography
+                  variant="body2"
                   sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    bgcolor: topic.color,
-                    transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    color: "primary.main",
+                    mb: 0.3,
                   }}
-                />
-                <Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: 14,
-                      color: "text.primary",
-                      mb: 0.25,
-                    }}
-                  >
-                    {topic.tag}
-                  </Typography>
-                  <Typography variant="caption" sx={{ fontSize: 12, color: "text.secondary" }}>
-                    {topic.posts}
-                  </Typography>
-                </Box>
+                >
+                  {topic.tag}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {topic.posts}
+                </Typography>
               </Box>
               <Chip
-                label="Hot"
+                label="Trending"
                 size="small"
                 sx={(t) => ({
                   height: 22,
                   fontSize: 11,
-                  fontWeight: 700,
-                  bgcolor: alpha(topic.color, 0.15),
-                  color: topic.color,
-                  border: `1px solid ${alpha(topic.color, 0.3)}`,
+                  fontWeight: 600,
+                  bgcolor: alpha(t.palette.primary.main, 0.1),
+                  color: "primary.main",
                 })}
               />
             </Box>
@@ -343,6 +265,7 @@ export default function RightSidebar() {
         </Stack>
       </Paper>
 
+      {/* Upcoming Events */}
       <Paper
         elevation={0}
         sx={(t) => ({
@@ -351,27 +274,10 @@ export default function RightSidebar() {
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "background.paper",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          transition: "all 0.3s",
-          "&:hover": {
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-          },
         })}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
-          <Box
-            sx={(t) => ({
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: 2,
-              bgcolor: alpha(t.palette.primary.main, 0.1),
-            })}
-          >
-            <EventIcon sx={{ fontSize: 18, color: "primary.main" }} />
-          </Box>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <EventIcon sx={{ mr: 1, color: "primary.main" }} />
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
             Upcoming Events
           </Typography>
@@ -381,65 +287,59 @@ export default function RightSidebar() {
           {UPCOMING_EVENTS.map((event) => (
             <Box
               key={event.id}
-              sx={(t) => ({
+              sx={{
                 p: 2,
                 borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
                 cursor: "pointer",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                bgcolor: "transparent",
+                transition: "all 0.25s ease",
                 "&:hover": {
-                  bgcolor: t.palette.action.hover,
-                  borderColor: alpha(t.palette.primary.main, 0.3),
+                  bgcolor: "action.hover",
+                  borderColor: "primary.main",
                   transform: "translateY(-2px)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                  boxShadow: (t) => t.shadows[2],
                 },
-              })}
+              }}
             >
               <Typography
                 variant="body2"
-                sx={{ fontWeight: 700, fontSize: 14, mb: 1.25, color: "text.primary" }}
+                sx={{ fontWeight: 700, fontSize: 14, mb: 1 }}
               >
                 {event.title}
               </Typography>
               <Stack spacing={0.5} sx={{ mb: 1.5 }}>
-                <Typography variant="caption" sx={{ fontSize: 12, color: "text.secondary" }}>
+                <Typography variant="caption" color="text.secondary">
                   📅 {event.date}
                 </Typography>
-                <Typography variant="caption" sx={{ fontSize: 12, color: "text.secondary" }}>
+                <Typography variant="caption" color="text.secondary">
                   🕐 {event.time}
                 </Typography>
               </Stack>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Chip
                   label={`${event.interested} interested`}
                   size="small"
-                  sx={(t) => ({
-                    height: 24,
+                  sx={{
+                    height: 22,
                     fontSize: 11,
                     fontWeight: 600,
-                    bgcolor: t.palette.action.selected,
+                    bgcolor: "action.selected",
                     color: "text.secondary",
-                  })}
+                  }}
                 />
                 <Button
                   size="small"
                   variant="text"
-                  sx={(t) => ({
+                  sx={{
                     textTransform: "none",
                     fontSize: 12,
                     fontWeight: 600,
                     minWidth: "auto",
-                    px: 2,
+                    px: 1.5,
                     py: 0.5,
-                    borderRadius: 2,
-                    color: "primary.main",
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      bgcolor: alpha(t.palette.primary.main, 0.1),
-                    },
-                  })}
+                    borderRadius: 1.5,
+                  }}
                 >
                   Interested
                 </Button>

@@ -28,9 +28,9 @@ import {
   Brightness7,
   Menu as MenuIcon,
 } from '@mui/icons-material'
-import { useAuth } from '@/contexts/AuthContext'
-import { useColorMode } from '@/contexts/ThemeContext'
-import { useNotifications } from '@/hooks/useApi'
+import { useAuth } from '../contexts/AuthContext'
+import { useColorMode } from '../contexts/ThemeContext'
+import { useNotifications } from '../hooks/useApi'
 
 const SearchBar = styled('div')(({ theme }) => ({
   position: 'relative',

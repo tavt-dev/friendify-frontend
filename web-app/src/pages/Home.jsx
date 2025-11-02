@@ -2,15 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box, Card, CircularProgress, Typography, Fab, Popover, TextField,
-  Button, Snackbar, Alert, IconButton
+  Button, Snackbar, Alert
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
-import { isAuthenticated, logOut } from "../services/authenticationService";
+import { logOut } from "../services/authenticationService";
+import { getPosts, createPost as createPostMock } from "../utils/mockData";
 import Scene from "./Scene";
 import Post from "../components/Post";
-import { getMyPosts, createPost } from "../services/postService";
-import MediaUpload from "../components/MediaUpload";
 import CreatePostComposer from "../components/CreatePostComposer";
 import RightSidebar from "../components/RightSidebar";
 
@@ -27,8 +25,6 @@ export default function Home() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  const [mediaFiles, setMediaFiles] = useState([]);
-  const mediaUploadRef = useRef(null);
 
   const navigate = useNavigate();
 
@@ -37,8 +33,6 @@ export default function Home() {
   const handleClosePopover = () => {
     setAnchorEl(null);
     setNewPostContent("");
-    if (mediaUploadRef.current?.clear) mediaUploadRef.current.clear();
-    setMediaFiles([]);
   };
 
   const handleSnackbarClose = (_, r) => {
@@ -63,22 +57,20 @@ export default function Home() {
   const popoverId = open ? "post-popover" : undefined;
 
   useEffect(() => {
-    if (isAuthenticated()) loadPosts(page);
+    loadPosts(page);
   }, [page]);
 
   const loadPosts = (page) => {
     setLoading(true);
-    getMyPosts(page)
+    getPosts(page, 10)
       .then((res) => {
-        setTotalPages(res.data.result.totalPages);
-        setPosts((prev) => [...prev, ...res.data.result.data]);
-        setHasMore(res.data.result.data.length > 0);
+        setTotalPages(res.totalPages);
+        setPosts((prev) => [...prev, ...res.data]);
+        setHasMore(res.data.length > 0);
       })
-      .catch((error) => {
-        if (error.response?.status === 401) {
-          logOut();
-          navigate("/login");
-        }
+      .catch(() => {
+        logOut();
+        navigate("/login");
       })
       .finally(() => setLoading(false));
   };
@@ -93,30 +85,18 @@ export default function Home() {
     setHasMore(false);
   }, [hasMore, page, totalPages]);
 
-  const handleMediaFilesChange = (files) => {
-    setMediaFiles(files || []);
-  };
-
   const handlePostContent = () => {
-    const formData = new FormData();
-    formData.append('content', newPostContent);
-
-    const filesFromRef = mediaUploadRef.current?.getFiles?.() ?? mediaFiles;
-    (filesFromRef || []).forEach((file) => {
-      formData.append('media', file);
-    });
+    if (!newPostContent.trim()) return;
 
     setAnchorEl(null);
 
-    createPost(formData)
-      .then((res) => {
-        setPosts((prev) => [res.data.result, ...prev]);
+    createPostMock(newPostContent)
+      .then((newPost) => {
+        setPosts((prev) => [newPost, ...prev]);
         setNewPostContent("");
         setSnackbarMessage("Post created successfully!");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
-        if (mediaUploadRef.current?.clear) mediaUploadRef.current.clear();
-        setMediaFiles([]);
       })
       .catch(() => {
         setSnackbarMessage("Failed to create post. Please try again.");
@@ -131,35 +111,16 @@ export default function Home() {
         sx={{
           display: "flex",
           justifyContent: "center",
-          alignItems: "flex-start",
           width: "100%",
-          maxWidth: 1600,
-          gap: { xs: 0, lg: 3 },
-          mx: "auto",
+          gap: 3,
+          px: { xs: 0, md: 2 },
         }}
       >
         <Box
           sx={{
             width: "100%",
-            maxWidth: { xs: "100%", lg: 680 },
+            maxWidth: 680,
             flex: "1 1 auto",
-            minHeight: "calc(100vh - 120px)",
-            overflowY: "auto",
-            overflowX: "hidden",
-            pr: { xs: 0, lg: 2 },
-            "&::-webkit-scrollbar": {
-              width: "8px",
-            },
-            "&::-webkit-scrollbar-track": {
-              backgroundColor: "transparent",
-            },
-            "&::-webkit-scrollbar-thumb": {
-              backgroundColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
-              borderRadius: "4px",
-              "&:hover": {
-                backgroundColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)",
-              },
-            },
           }}
         >
           <CreatePostComposer onClick={handleCreatePostClick} />
@@ -178,34 +139,8 @@ export default function Home() {
           })}
 
           {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
-              <CircularProgress 
-                size={40} 
-                thickness={3.5}
-                sx={{
-                  color: "primary.main",
-                }}
-              />
-            </Box>
-          )}
-
-          {!loading && posts.length === 0 && (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                py: 8,
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600, color: "text.secondary", mb: 1 }}>
-                No posts yet
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Create your first post to get started!
-              </Typography>
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size="32px" color="primary" />
             </Box>
           )}
         </Box>
@@ -219,22 +154,18 @@ export default function Home() {
         onClick={handleCreatePostClick}
         sx={{
           position: "fixed",
-          bottom: { xs: 24, md: 32 },
-          right: { xs: 24, md: 32 },
-          width: { xs: 56, md: 64 },
-          height: { xs: 56, md: 64 },
+          bottom: 32,
+          right: 32,
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          boxShadow: "0 8px 24px rgba(102, 126, 234, 0.35)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
           "&:hover": {
             background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-            transform: "scale(1.08) rotate(90deg)",
-            boxShadow: "0 12px 32px rgba(102, 126, 234, 0.45)",
+            transform: "scale(1.12) rotate(90deg)",
           },
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          display: { xs: "flex", lg: "none" },
+          transition: "all 0.3s ease",
         }}
       >
-        <AddIcon sx={{ fontSize: { xs: 28, md: 32 } }} />
+        <AddIcon />
       </Fab>
 
       <Popover
@@ -247,46 +178,23 @@ export default function Home() {
         slotProps={{
           paper: {
             sx: (t) => ({
-              borderRadius: 5,
-              p: 4,
-              width: 640,
-              maxWidth: "92vw",
-              maxHeight: "88vh",
+              borderRadius: 4,
+              p: 3.5,
+              width: 620,
+              maxWidth: "90vw",
+              maxHeight: "85vh",
               overflow: "auto",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+              boxShadow: t.shadows[6],
               border: "1px solid",
               borderColor: "divider",
               bgcolor: "background.paper",
-              "&::-webkit-scrollbar": {
-                width: "8px",
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: t.palette.mode === "dark" ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
-                borderRadius: "4px",
-              },
             }),
           },
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 20, color: "text.primary" }}>
-            Create Post
-          </Typography>
-          <IconButton
-            onClick={handleClosePopover}
-            size="small"
-            sx={(t) => ({
-              color: "text.secondary",
-              bgcolor: t.palette.action.hover,
-              "&:hover": {
-                bgcolor: t.palette.action.selected,
-                color: "text.primary",
-              },
-            })}
-          >
-            <CloseIcon />
-          </IconButton>
-        </Box>
+        <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, fontSize: 19, color: "text.primary" }}>
+          Create new Post
+        </Typography>
 
         <TextField
           fullWidth
@@ -297,12 +205,11 @@ export default function Home() {
           onChange={(e) => setNewPostContent(e.target.value)}
           variant="outlined"
           sx={{
-            mb: 3,
+            mb: 2,
             "& .MuiOutlinedInput-root": {
-              borderRadius: 4,
-              fontSize: 15,
-              lineHeight: 1.6,
-              bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"),
+              borderRadius: 3,
+              fontSize: 14.5,
+              bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(255,255,255,0.04)" : "background.paper"),
               "& fieldset": { borderColor: "divider" },
               "&:hover fieldset": { borderColor: "primary.main" },
               "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 },
@@ -310,31 +217,20 @@ export default function Home() {
           }}
         />
 
-        <MediaUpload
-          ref={mediaUploadRef}
-          onFilesChange={handleMediaFilesChange}
-          maxFiles={8}
-          maxFileSize={25 * 1024 * 1024}
-          addButtonLabel="Add Photos or Videos"
-        />
-
-        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
           <Button
             variant="outlined"
             onClick={handleClosePopover}
             sx={{
               textTransform: "none",
               fontWeight: 600,
-              borderRadius: 4,
-              px: 4,
-              py: 1.2,
-              fontSize: 15,
+              borderRadius: 3,
+              px: 3,
+              py: 1,
+              fontSize: 14,
               borderColor: "divider",
               color: "text.secondary",
-              "&:hover": {
-                borderColor: "text.secondary",
-                backgroundColor: "action.hover",
-              },
+              "&:hover": { borderColor: "divider", backgroundColor: "action.hover" },
             }}
           >
             Cancel
@@ -342,25 +238,17 @@ export default function Home() {
           <Button
             variant="contained"
             onClick={handlePostContent}
-            disabled={!newPostContent.trim() && mediaFiles.length === 0}
+            disabled={!newPostContent.trim()}
             sx={{
               textTransform: "none",
               fontWeight: 600,
-              borderRadius: 4,
-              px: 4,
-              py: 1.2,
-              fontSize: 15,
+              borderRadius: 3,
+              px: 3.5,
+              py: 1,
+              fontSize: 14,
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              boxShadow: "0 4px 14px rgba(102, 126, 234, 0.4)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                boxShadow: "0 6px 20px rgba(102, 126, 234, 0.5)",
-              },
-              "&:disabled": {
-                background: "action.disabledBackground",
-                color: "text.disabled",
-                boxShadow: "none",
-              },
+              "&:hover": { background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)" },
+              "&:disabled": { background: "action.disabledBackground", color: "text.disabled" },
             }}
           >
             Post
@@ -373,18 +261,13 @@ export default function Home() {
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        sx={{ mt: "72px" }}
+        sx={{ mt: "64px" }}
       >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarSeverity}
           variant="filled"
-          sx={{
-            width: "100%",
-            borderRadius: 4,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-            fontWeight: 500,
-          }}
+          sx={{ width: "100%", borderRadius: 3, boxShadow: 3, fontWeight: 500 }}
         >
           {snackbarMessage}
         </Alert>

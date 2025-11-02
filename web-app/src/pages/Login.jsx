@@ -10,16 +10,16 @@ import {
   Alert,
   InputAdornment,
   Link as MuiLink,
+  IconButton,
 } from "@mui/material";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import GoogleIcon from "@mui/icons-material/Google";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { logIn, isAuthenticated } from "../services/authenticationService";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import IconButton from "@mui/material/IconButton";
 import LoginLeftPanel from "../components/LoginLeftPanel";
 
 export default function Login() {
@@ -51,29 +51,14 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      const res = await logIn(username.trim(), password);
-
-      if (res?.status === 200) {
-        navigate("/");
-      } else {
-        setSnack({
-          open: true,
-          message: "Đăng nhập thất bại, vui lòng thử lại.",
-          severity: "error",
-        });
-      }
+      await logIn(username.trim(), password);
+      navigate("/");
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Đăng nhập thất bại";
-      setSnack({ open: true, message: msg, severity: "error" });
+      setSnack({ open: true, message: "Login failed. Please try again.", severity: "error" });
     } finally {
       setSubmitting(false);
     }
   };
-
 
   return (
     <Box
@@ -84,7 +69,6 @@ export default function Login() {
       }}
     >
       <LoginLeftPanel variant="login" />
-      {/* Right form panel */}
       <Box
         sx={{
           display: "flex",
@@ -149,7 +133,6 @@ export default function Login() {
                 }}
               />
 
-
               <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
                 <MuiLink tabIndex={-1} component={Link} to="#" underline="hover" sx={{ fontSize: 14 }}>
                   Forgot password?
@@ -158,7 +141,7 @@ export default function Login() {
 
               <Button
                 type="submit"
-                variant="contained" 
+                variant="contained"
                 size="large"
                 fullWidth
                 sx={{ mt: 2 }}

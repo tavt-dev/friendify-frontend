@@ -10,8 +10,8 @@ import {
   Paper,
   Tabs,
   Tab,
-  alpha,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import DeleteIcon from "@mui/icons-material/Delete";

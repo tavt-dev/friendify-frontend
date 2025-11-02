@@ -1,3 +1,4 @@
+// src/pages/Scene.jsx  (CHỈNH SỬA)
 import * as React from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -8,7 +9,7 @@ import Toolbar from "@mui/material/Toolbar";
 import { alpha, useTheme } from "@mui/material/styles";
 import Header from "../components/Header";
 import SideMenu from "../components/SideMenu";
-import { ColorModeContext } from "../App";
+import { useColorMode } from "../contexts/ThemeContext";
 
 const drawerWidth = 300;
 
@@ -17,7 +18,7 @@ function Scene({ children }) {
   const [isClosing, setIsClosing] = React.useState(false);
   const theme = useTheme();
 
-  const { mode, toggle } = React.useContext(ColorModeContext);
+  const { mode, toggleColorMode } = useColorMode();
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -35,8 +36,8 @@ function Scene({ children }) {
         flexDirection: "column",
         bgcolor: "background.default",
         color: "text.primary",
-        height: "100vh",
-        overflow: "hidden",
+        height: "100vh", // đảm bảo full viewport
+        overflow: "hidden", // ngăn scroll ngoài
       }}
     >
       <AppBar
@@ -47,44 +48,31 @@ function Scene({ children }) {
           zIndex: theme.zIndex.drawer + 1,
           bgcolor:
             theme.palette.mode === "dark"
-              ? alpha(theme.palette.grey[900], 0.9)
-              : alpha(theme.palette.background.paper, 0.95),
-          backdropFilter: "saturate(180%) blur(20px)",
+              ? alpha(theme.palette.grey[900], 0.85)
+              : alpha(theme.palette.background.paper, 0.9),
+          backdropFilter: "saturate(180%) blur(10px)",
           borderBottom: "1px solid",
           borderColor: "divider",
           color: "inherit",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        <Toolbar sx={{ minHeight: { xs: 64, md: 72 } }}>
+        <Toolbar sx={{ minHeight: 64 }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={(t) => ({
-              mr: 2,
-              display: { sm: "none" },
-              transition: "all 0.2s",
-              "&:hover": {
-                bgcolor: t.palette.action.hover,
-                transform: "scale(1.05)",
-              },
-            })}
+            sx={{ mr: 2, display: { sm: "none" }, "&:hover": { bgcolor: "action.hover" } }}
           >
             <MenuIcon />
           </IconButton>
 
-          <Header isDarkMode={mode === "dark"} onToggleTheme={toggle} />
+          <Header isDarkMode={mode === "dark"} onToggleTheme={toggleColorMode} />
         </Toolbar>
       </AppBar>
 
       <Box sx={{ display: "flex", flexDirection: "row", flex: "1 1 auto", minHeight: 0 }}>
-        <Box
-          component="nav"
-          sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-          aria-label="side menu"
-        >
+        <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="side menu">
           <Drawer
             variant="temporary"
             open={mobileOpen}
@@ -123,6 +111,7 @@ function Scene({ children }) {
           </Drawer>
         </Box>
 
+        {/* MAIN */}
         <Box
           component="main"
           sx={{
@@ -130,25 +119,23 @@ function Scene({ children }) {
             display: "flex",
             flexDirection: "column",
             width: { sm: `calc(100% - ${drawerWidth}px)` },
-            minHeight: 0,
-            bgcolor: (t) =>
-              t.palette.mode === "dark"
-                ? alpha(t.palette.grey[900], 0.4)
-                : alpha(t.palette.grey[50], 0.6),
+            minHeight: 0, // critical: allow children with overflow to shrink
           }}
         >
-          <Toolbar sx={{ minHeight: { xs: 64, md: 72 } }} />
+          {/* Spacer cho AppBar */}
+          <Toolbar />
 
+          {/* Wrapper chính chứa page content */}
           <Box
             sx={{
               display: "flex",
               justifyContent: "center",
               width: "100%",
-              flex: "1 1 auto",
+              flex: "1 1 auto",   // fill remaining vertical space
               minHeight: 0,
-              px: { xs: 0, sm: 2, md: 3 },
+              px: { xs: 1.5, md: 3 },
               py: { xs: 2, md: 3 },
-              overflow: "hidden",
+              overflow: "hidden", // important: page content should control its own scrolling
             }}
           >
             {children}

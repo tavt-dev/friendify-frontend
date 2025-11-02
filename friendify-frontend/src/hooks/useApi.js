@@ -14,7 +14,7 @@ import {
   pages,
   savedItems,
   events,
-} from '@/data/constants'
+} from '../data/constants'
 
 let postsState = [...posts]
 let commentsState = [...comments]

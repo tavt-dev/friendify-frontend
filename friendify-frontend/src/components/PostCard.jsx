@@ -21,8 +21,8 @@ import {
   Share,
   MoreVert,
 } from '@mui/icons-material'
-import { useLikePost } from '@/hooks/useApi'
-import { formatDistanceToNow } from '@/utils/dateUtils'
+import { useLikePost } from '../hooks/useApi'
+import { formatDistanceToNow } from '../utils/dateUtils'
 
 export default function PostCard({ post, onCommentClick }) {
   const navigate = useNavigate()

@@ -10,8 +10,8 @@ import {
   Divider,
 } from '@mui/material'
 import { PhotoLibrary, EmojiEmotions, Send } from '@mui/icons-material'
-import { useAuth } from '@/contexts/AuthContext'
-import { useCreatePost } from '@/hooks/useApi'
+import { useAuth } from '../contexts/AuthContext'
+import { useCreatePost } from '../hooks/useApi'
 
 export default function Composer() {
   const { user } = useAuth()

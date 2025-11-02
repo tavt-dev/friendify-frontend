@@ -21,7 +21,6 @@ import {
   Share,
   MoreVert,
   Send,
-  ThumbUp,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 
@@ -125,40 +124,49 @@ const Post = forwardRef((props, ref) => {
       ref={ref}
       elevation={0}
       sx={(t) => ({
-        mb: 2.5,
-        borderRadius: 4,
+        mb: 3,
+        borderRadius: 5,
         bgcolor: "background.paper",
         border: "1px solid",
         borderColor: "divider",
         overflow: "hidden",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        transition: "all .25s ease",
         "&:hover": {
-          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-          borderColor: alpha(t.palette.primary.main, 0.2),
-          transform: "translateY(-1px)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+          borderColor: alpha(t.palette.primary.main, 0.25),
+          transform: "translateY(-2px)",
         },
       })}
     >
-      <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flex: 1 }}>
+      {/* Header – nhẹ nhàng theo theme */}
+      <Box
+        sx={(t) => ({
+          p: 2.5,
+          pb: 2,
+          background: `linear-gradient(135deg, ${alpha(
+            t.palette.primary.main,
+            0.08
+          )} 0%, ${alpha(t.palette.primary.main, 0.04)} 100%)`,
+        })}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box sx={{ position: "relative" }}>
               <Avatar
                 src={avatar}
                 sx={(t) => ({
-                  width: { xs: 44, sm: 48 },
-                  height: { xs: 44, sm: 48 },
+                  width: 52,
+                  height: 52,
                   background: `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${alpha(
                     t.palette.primary.main,
-                    0.7
+                    0.6
                   )} 100%)`,
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: { xs: 18, sm: 20 },
-                  border: "2px solid",
+                  fontSize: 20,
+                  border: "3px solid",
                   borderColor: "background.paper",
-                  boxShadow: `0 2px 8px ${alpha(t.palette.primary.main, 0.2)}`,
+                  boxShadow: `0 4px 12px ${alpha(t.palette.primary.main, 0.25)}`,
                 })}
               >
                 {username?.charAt(0)}
@@ -166,10 +174,10 @@ const Post = forwardRef((props, ref) => {
               <Box
                 sx={(t) => ({
                   position: "absolute",
-                  bottom: 0,
-                  right: 0,
-                  width: 14,
-                  height: 14,
+                  bottom: -2,
+                  right: -2,
+                  width: 16,
+                  height: 16,
                   bgcolor: "#10b981",
                   borderRadius: "50%",
                   border: "2px solid",
@@ -177,28 +185,24 @@ const Post = forwardRef((props, ref) => {
                 })}
               />
             </Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16 }, color: "text.primary" }} noWrap>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "text.primary" }}>
                 {username}
               </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
-                <Typography sx={{ fontSize: { xs: 11, sm: 12 }, color: "text.secondary" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
                   {created}
                 </Typography>
                 <Box sx={{ width: 3, height: 3, bgcolor: "text.secondary", borderRadius: "50%", opacity: 0.6 }} />
                 <Chip
                   label="Public"
                   size="small"
-                  icon={<Box component="span" sx={{ fontSize: 10 }}>🌎</Box>}
                   sx={(t) => ({
-                    height: 20,
-                    fontSize: 11,
+                    height: 18,
+                    fontSize: 10,
                     fontWeight: 600,
                     bgcolor: t.palette.action.selected,
                     color: "text.secondary",
-                    "& .MuiChip-icon": {
-                      ml: 0.5,
-                    },
                   })}
                 />
               </Box>
@@ -209,20 +213,18 @@ const Post = forwardRef((props, ref) => {
             size="small"
             sx={(t) => ({
               color: "text.secondary",
-              transition: "all 0.2s",
-              "&:hover": {
-                bgcolor: t.palette.action.hover,
-                color: "text.primary",
-                transform: "scale(1.1)",
-              },
+              "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main" },
             })}
           >
-            <MoreVert fontSize="small" />
+            <MoreVert />
           </IconButton>
         </Box>
+      </Box>
 
+      {/* Content */}
+      <Box sx={{ px: 2.5, pt: 1.5, pb: 2 }}>
         {isEditing ? (
-          <Box sx={{ mb: 2 }}>
+          <Box>
             <TextField
               fullWidth
               multiline
@@ -234,8 +236,7 @@ const Post = forwardRef((props, ref) => {
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
                   fontSize: 15,
-                  lineHeight: 1.6,
-                  bgcolor: t.palette.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                  bgcolor: "background.paper",
                   "& fieldset": { borderColor: "divider" },
                   "&:hover fieldset": { borderColor: "primary.main" },
                   "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 },
@@ -252,7 +253,6 @@ const Post = forwardRef((props, ref) => {
                   textTransform: "none",
                   fontWeight: 600,
                   px: 2.5,
-                  fontSize: 14,
                 }}
               >
                 Cancel
@@ -266,25 +266,23 @@ const Post = forwardRef((props, ref) => {
                   textTransform: "none",
                   fontWeight: 600,
                   px: 2.5,
-                  fontSize: 14,
                   background: `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${alpha(
                     t.palette.primary.main,
-                    0.8
+                    0.75
                   )} 100%)`,
                 })}
               >
-                Save
+                Save Changes
               </Button>
             </Box>
           </Box>
         ) : (
           <Typography
             sx={{
-              fontSize: { xs: 14, sm: 15 },
-              lineHeight: 1.7,
+              fontSize: 15,
+              lineHeight: 1.8,
               color: "text.primary",
               whiteSpace: "pre-line",
-              mb: 2,
             }}
           >
             {editedContent}
@@ -292,31 +290,27 @@ const Post = forwardRef((props, ref) => {
         )}
       </Box>
 
+      {/* Stats */}
       {(likeCount > 0 || comments.length > 0) && (
         <>
           <Divider sx={{ borderColor: "divider" }} />
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: { xs: 2, sm: 2.5 }, py: 1.25 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2.5, py: 1.5 }}>
             {likeCount > 0 && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box
                   sx={(t) => ({
                     display: "flex",
                     alignItems: "center",
                     gap: 0.5,
                     bgcolor: reaction?.color
-                      ? alpha(reaction.color, 0.1)
+                      ? alpha(reaction.color, 0.12)
                       : t.palette.action.selected,
-                    px: 1.25,
+                    px: 1.5,
                     py: 0.5,
                     borderRadius: 3,
-                    transition: "all 0.2s",
-                    cursor: "pointer",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                    },
                   })}
                 >
-                  <Typography sx={{ fontSize: 14 }}>{reaction?.emoji || "👍"}</Typography>
+                  <Typography sx={{ fontSize: 16 }}>{reaction?.emoji}</Typography>
                   <Typography sx={{ fontSize: 13, fontWeight: 600, color: reaction?.color || "text.secondary" }}>
                     {likeCount}
                   </Typography>
@@ -330,11 +324,7 @@ const Post = forwardRef((props, ref) => {
                   color: "text.secondary",
                   cursor: "pointer",
                   fontWeight: 500,
-                  transition: "all 0.2s",
-                  "&:hover": {
-                    color: t.palette.primary.main,
-                    textDecoration: "underline",
-                  },
+                  "&:hover": { color: t.palette.primary.main, textDecoration: "underline" },
                 })}
                 onClick={() => setShowComments(!showComments)}
               >
@@ -345,15 +335,18 @@ const Post = forwardRef((props, ref) => {
         </>
       )}
 
+      {/* Actions */}
       <Divider sx={{ borderColor: "divider" }} />
       <Box
         sx={(t) => ({
           display: "flex",
           justifyContent: "space-around",
           alignItems: "center",
-          px: 1,
-          py: 0.5,
-          bgcolor: t.palette.mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+          p: 0.5,
+          bgcolor:
+            t.palette.mode === "dark"
+              ? alpha(t.palette.common.white, 0.04)
+              : alpha(t.palette.common.black, 0.02),
         })}
       >
         <Box sx={{ position: "relative", flex: 1 }}>
@@ -367,44 +360,39 @@ const Post = forwardRef((props, ref) => {
             sx={(t) => ({
               color: reaction ? reaction.color : "text.secondary",
               borderRadius: 3,
-              py: 1.2,
+              py: 1.5,
               width: "100%",
-              gap: 0.75,
-              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              transition: "all .2s",
               "&:hover": {
                 bgcolor: reaction
-                  ? alpha(reaction.color, 0.1)
+                  ? alpha(reaction.color, 0.12)
                   : t.palette.action.hover,
-                transform: "scale(1.03)",
-              },
-              "&:active": {
-                transform: "scale(0.98)",
+                transform: "scale(1.02)",
               },
             })}
           >
             {reaction ? (
-              <>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box
                   component="span"
                   sx={{
-                    fontSize: "20px",
-                    animation: "bounceIn 0.5s ease",
-                    "@keyframes bounceIn": {
-                      "0%": { transform: "scale(0)" },
-                      "50%": { transform: "scale(1.2)" },
-                      "100%": { transform: "scale(1)" },
+                    fontSize: "22px",
+                    animation: "bounce .6s ease",
+                    "@keyframes bounce": {
+                      "0%,100%": { transform: "translateY(0)" },
+                      "50%": { transform: "translateY(-6px)" },
                     },
                   }}
                 >
                   {reaction.emoji}
                 </Box>
-                <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 600 }}>{reaction.label}</Typography>
-              </>
+                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>{reaction.label}</Typography>
+              </Box>
             ) : (
-              <>
-                <ThumbUpOutlined sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 600 }}>Like</Typography>
-              </>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <ThumbUpOutlined sx={{ fontSize: 20 }} />
+                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Like</Typography>
+              </Box>
             )}
           </IconButton>
 
@@ -422,7 +410,7 @@ const Post = forwardRef((props, ref) => {
                 borderRadius: 6,
                 display: "flex",
                 gap: 1,
-                boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+                boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
                 bgcolor: "background.paper",
                 border: "1px solid",
                 borderColor: "divider",
@@ -435,14 +423,14 @@ const Post = forwardRef((props, ref) => {
                 <Box
                   onClick={() => handleSelectReaction(r)}
                   sx={(t) => ({
-                    fontSize: 32,
+                    fontSize: 36,
                     cursor: "pointer",
-                    transition: "all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    transition: "all .25s cubic-bezier(0.4,0,0.2,1)",
                     p: 1,
                     borderRadius: 3,
                     "&:hover": {
-                      transform: "scale(1.4) translateY(-6px)",
-                      bgcolor: alpha(r.color, 0.1),
+                      transform: "scale(1.5) translateY(-8px)",
+                      bgcolor: alpha(r.color, 0.12),
                     },
                   })}
                 >
@@ -458,53 +446,39 @@ const Post = forwardRef((props, ref) => {
           sx={(t) => ({
             color: "text.secondary",
             borderRadius: 3,
-            py: 1.2,
+            py: 1.5,
             flex: 1,
-            gap: 0.75,
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            "&:hover": {
-              bgcolor: t.palette.action.hover,
-              color: "primary.main",
-              transform: "scale(1.03)",
-            },
-            "&:active": {
-              transform: "scale(0.98)",
-            },
+            "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main", transform: "scale(1.02)" },
           })}
         >
-          <ChatBubbleOutline sx={{ fontSize: { xs: 18, sm: 20 } }} />
-          <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 600 }}>Comment</Typography>
+          <ChatBubbleOutline sx={{ fontSize: 20, mr: 1 }} />
+          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Comment</Typography>
         </IconButton>
 
         <IconButton
           sx={(t) => ({
             color: "text.secondary",
             borderRadius: 3,
-            py: 1.2,
+            py: 1.5,
             flex: 1,
-            gap: 0.75,
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            "&:hover": {
-              bgcolor: t.palette.action.hover,
-              color: "primary.main",
-              transform: "scale(1.03)",
-            },
-            "&:active": {
-              transform: "scale(0.98)",
-            },
+            "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main", transform: "scale(1.02)" },
           })}
         >
-          <Share sx={{ fontSize: { xs: 18, sm: 20 } }} />
-          <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 600 }}>Share</Typography>
+          <Share sx={{ fontSize: 20, mr: 1 }} />
+          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Share</Typography>
         </IconButton>
       </Box>
 
+      {/* Comments */}
       <Collapse in={showComments}>
         <Divider sx={{ borderColor: "divider" }} />
         <Box
           sx={(t) => ({
-            p: { xs: 2, sm: 2.5 },
-            bgcolor: t.palette.mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+            p: 2.5,
+            bgcolor:
+              t.palette.mode === "dark"
+                ? alpha(t.palette.common.white, 0.03)
+                : alpha(t.palette.common.black, 0.02),
           })}
         >
           {comments.map((c) => (
@@ -520,49 +494,22 @@ const Post = forwardRef((props, ref) => {
                     p: 1.5,
                     border: "1px solid",
                     borderColor: "divider",
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                    },
+                    boxShadow: 0,
                   })}
                 >
                   <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
                     {c.author}
                   </Typography>
-                  <Typography sx={{ fontSize: 14, color: "text.primary", lineHeight: 1.6 }}>{c.text}</Typography>
+                  <Typography sx={{ fontSize: 14, color: "text.primary" }}>{c.text}</Typography>
                 </Box>
-                <Box sx={{ display: "flex", gap: 2, mt: 0.75, px: 1.5 }}>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      color: "text.secondary",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      "&:hover": { textDecoration: "underline" },
-                    }}
-                  >
+                <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1 }}>
+                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
                     {c.time}
                   </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      color: "text.secondary",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      "&:hover": { color: "primary.main" },
-                    }}
-                  >
+                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
                     Like
                   </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      color: "text.secondary",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      "&:hover": { color: "primary.main" },
-                    }}
-                  >
+                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
                     Reply
                   </Typography>
                 </Box>
@@ -594,11 +541,9 @@ const Post = forwardRef((props, ref) => {
                     disabled={!commentText.trim()}
                     sx={(t) => ({
                       color: "primary.main",
-                      transition: "all 0.2s",
                       "&:disabled": { color: "text.disabled" },
                       "&:hover": {
-                        bgcolor: alpha(t.palette.primary.main, 0.1),
-                        transform: "scale(1.1)",
+                        bgcolor: alpha(t.palette.primary.main, 0.08),
                       },
                     })}
                   >
@@ -608,7 +553,7 @@ const Post = forwardRef((props, ref) => {
               }}
               sx={(t) => ({
                 "& .MuiOutlinedInput-root": {
-                  borderRadius: 5,
+                  borderRadius: 4,
                   bgcolor: "background.paper",
                   fontSize: 14,
                   "& fieldset": { borderColor: "divider" },
@@ -621,6 +566,7 @@ const Post = forwardRef((props, ref) => {
         </Box>
       </Collapse>
 
+      {/* Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -628,7 +574,7 @@ const Post = forwardRef((props, ref) => {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
             minWidth: 180,
             border: "1px solid",
             borderColor: "divider",
@@ -641,29 +587,23 @@ const Post = forwardRef((props, ref) => {
           sx={(t) => ({
             fontSize: 14,
             py: 1.5,
-            px: 2,
             fontWeight: 600,
-            gap: 1.5,
             "&:hover": { bgcolor: t.palette.action.hover },
           })}
         >
-          <Box component="span">✏️</Box>
-          Edit Post
+          ✏️ Edit Post
         </MenuItem>
         <MenuItem
           onClick={handleDelete}
           sx={(t) => ({
             fontSize: 14,
             py: 1.5,
-            px: 2,
             fontWeight: 600,
-            gap: 1.5,
             color: "error.main",
-            "&:hover": { bgcolor: alpha(t.palette.error.main, 0.1) },
+            "&:hover": { bgcolor: alpha(t.palette.error.main, 0.08) },
           })}
         >
-          <Box component="span">🗑️</Box>
-          Delete Post
+          🗑️ Delete Post
         </MenuItem>
       </Menu>
     </Paper>

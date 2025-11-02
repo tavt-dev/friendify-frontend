@@ -1,12 +1,11 @@
 import { Box, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
+import bg1 from "../assets/images/bg1.jpg";
+import bg2 from "../assets/images/bg2.jpg";
+import bg3 from "../assets/images/bg3.jpg";
 
-export default function AuthLeftPanel({ variant = "login" }) {
-  const images = [
-    "logo/bg1.jpg",
-    "logo/bg2.jpg",
-    "logo/bg3.jpg",
-  ];
+export default function LoginLeftPanel({ variant = "login" }) {
+  const images = [bg1, bg2, bg3];
 
   const [bgIndex, setBgIndex] = useState(0);
 
@@ -29,22 +28,22 @@ export default function AuthLeftPanel({ variant = "login" }) {
       }}
     >
       {/* Slideshow */}
-      {images.map((img, i) => (
+      {images.map((img) => (
         <Box
-          key={i}
+          key={img}
           sx={{
             position: "absolute",
             inset: 0,
             backgroundImage: `url(${img})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            opacity: i === bgIndex ? 1 : 0,
+            opacity: img === images[bgIndex] ? 1 : 0,
             transition: "opacity 1.5s ease-in-out",
           }}
         />
       ))}
 
-      {/* overlay gradient */}
+      {/* Gradient overlay */}
       <Box
         sx={{
           position: "absolute",
@@ -54,7 +53,7 @@ export default function AuthLeftPanel({ variant = "login" }) {
         }}
       />
 
-      {/* overlay màu xanh tím */}
+      {/* Purple tint overlay */}
       <Box
         sx={{
           position: "absolute",
@@ -64,7 +63,7 @@ export default function AuthLeftPanel({ variant = "login" }) {
         }}
       />
 
-      {/* Nội dung chữ */}
+      {/* Content */}
       <Box
         sx={{
           textAlign: "center",

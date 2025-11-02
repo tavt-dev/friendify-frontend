@@ -9,9 +9,9 @@ import {
   Paper,
 } from '@mui/material'
 import { Send, ThumbUp, ThumbUpOutlined } from '@mui/icons-material'
-import { useComments, useCreateComment } from '@/hooks/useApi'
-import { useAuth } from '@/contexts/AuthContext'
-import { formatDistanceToNow } from '@/utils/dateUtils'
+import { useComments, useCreateComment } from '../hooks/useApi'
+import { useAuth } from '../contexts/AuthContext'
+import { formatDistanceToNow } from '../utils/dateUtils'
 
 function Comment({ comment }) {
   const [showReply, setShowReply] = useState(false)

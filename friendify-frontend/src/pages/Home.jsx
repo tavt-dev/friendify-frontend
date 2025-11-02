@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
-import { Box, Button, CircularProgress } from '@mui/material'
-import { useInView } from 'react-intersection-observer'
-import Layout from '@/components/Layout'
-import Composer from '@/components/Composer'
-import PostCard from '@/components/PostCard'
-import PostSkeleton from '@/components/PostSkeleton'
-import EmptyState from '@/components/EmptyState'
-import { useInfinitePosts } from '@/hooks/useApi'
+import { Box, CircularProgress, Typography } from '@mui/material'
 import { Article } from '@mui/icons-material'
+import { useInView } from 'react-intersection-observer'
+import Layout from '../components/Layout'
+import Composer from '../components/Composer'
+import PostCard from '../components/PostCard'
+import PostSkeleton from '../components/PostSkeleton'
+import EmptyState from '../components/EmptyState'
+import { useInfinitePosts } from '../hooks/useApi'
 
 export default function Home() {
   const { ref, inView } = useInView()
@@ -47,11 +47,21 @@ export default function Home() {
 
       {hasNextPage && (
         <Box ref={ref} sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          {isFetchingNextPage ? (
-            <CircularProgress />
-          ) : (
-            <Button onClick={() => fetchNextPage()}>Load More</Button>
+          {isFetchingNextPage && (
+            <CircularProgress 
+              size={32} 
+              thickness={3.5}
+              sx={{ color: 'primary.main' }}
+            />
           )}
+        </Box>
+      )}
+
+      {!hasNextPage && posts.length > 0 && (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="body2" color="text.secondary">
+            You've reached the end
+          </Typography>
         </Box>
       )}
     </Layout>
