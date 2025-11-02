@@ -325,7 +325,12 @@ const Post = forwardRef((props, ref) => {
       </Box>
 
       {/* Media Carousel */}
-      {media && media.length > 0 && <MediaCarousel media={media} />}
+      {media && media.length > 0 && (
+        <MediaCarousel
+          media={media}
+          postData={{ avatar, username, created, content }}
+        />
+      )}
 
       {/* Stats */}
       {(likeCount > 0 || comments.length > 0) && (

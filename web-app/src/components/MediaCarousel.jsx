@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Box, IconButton } from "@mui/material";
 import { ChevronLeft, ChevronRight } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
+import FullscreenImageViewer from "./FullscreenImageViewer";
 
-export default function MediaCarousel({ media }) {
+export default function MediaCarousel({ media, postData }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
+  const [originRect, setOriginRect] = useState(null);
+  const imageRefs = useRef({});
 
   if (!media || media.length === 0) return null;
 
@@ -18,6 +23,19 @@ export default function MediaCarousel({ media }) {
 
   const handleDotClick = (index) => {
     setCurrentIndex(index);
+  };
+
+  const handleImageClick = (index, event) => {
+    const imgElement = event.currentTarget;
+    const rect = imgElement.getBoundingClientRect();
+    setOriginRect(rect);
+    setViewerStartIndex(index);
+    setViewerOpen(true);
+  };
+
+  const handleCloseViewer = () => {
+    setViewerOpen(false);
+    setOriginRect(null);
   };
 
   return (
@@ -67,12 +85,22 @@ export default function MediaCarousel({ media }) {
               />
             ) : (
               <img
+                ref={(el) => (imageRefs.current[index] = el)}
                 src={item.url}
                 alt={item.alt || `Media ${index + 1}`}
+                onClick={(e) => handleImageClick(index, e)}
                 style={{
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
+                  cursor: "pointer",
+                  transition: "transform 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.02)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
                 }}
               />
             )}
@@ -187,6 +215,15 @@ export default function MediaCarousel({ media }) {
             {currentIndex + 1} / {media.length}
           </Box>
         </>
+      )}
+
+      {viewerOpen && (
+        <FullscreenImageViewer
+          images={media}
+          initialIndex={viewerStartIndex}
+          onClose={handleCloseViewer}
+          originRect={originRect}
+        />
       )}
     </Box>
   );

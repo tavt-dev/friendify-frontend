@@ -3,7 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 
 import Home from './pages/Home'
-import Profile from './pages/Profile'
+import Profile from './pages/ProfileEnhanced'
 import ChatPage from './pages/ChatPage'
 import FriendsPage from './pages/FriendsPage'
 import GroupPage from './pages/GroupPage'

@@ -476,7 +476,7 @@ export default function Header({
             onClick={() => navigate("/")}
             sx={{ p: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
           >
-            <Box component="img" src="../assets/logos/logo.png" alt="logo" sx={{ width: 36, height: 36, borderRadius: 1 }} />
+            <Box component="img" src="/src/assets/icons/logo.png" alt="logo" sx={{ width: 36, height: 36, borderRadius: 1 }} />
           </IconButton>
 
           <CompactSearch ref={searchRef}>
