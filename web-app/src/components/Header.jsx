@@ -206,7 +206,7 @@ export default function Header({
             <Box sx={{ ml: "auto" }}>
               <Button size="small" onClick={handleOpenProfile} variant="contained" disableElevation
                 sx={{ textTransform: "none", borderRadius: 2, px: 1.2, py: 0.5 }}>
-                View profile
+                Trang Cá Nhân
               </Button>
             </Box>
           </Box>
@@ -218,7 +218,7 @@ export default function Header({
             sx={{ py: 1.2, borderRadius: 2, mx: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
           >
             <SettingsOutlined sx={{ mr: 1 }} fontSize="small" />
-            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Settings & Privacy</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Cài Đặt</Typography>
           </MenuItem>
 
           <MenuItem
@@ -229,7 +229,7 @@ export default function Header({
             }}
           >
             <LogoutOutlined sx={{ mr: 1 }} fontSize="small" />
-            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Sign Out</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Đăng Xuất</Typography>
           </MenuItem>
 
           <Divider sx={{ my: 1 }} />
@@ -245,7 +245,7 @@ export default function Header({
         <Box sx={{ p: 1 }}>
           <Button fullWidth variant="contained" onClick={() => navigate("/login")}
             sx={{ textTransform: "none", borderRadius: 2 }}>
-            Login
+            Đăng nhập
           </Button>
         </Box>
       )}
@@ -477,7 +477,7 @@ export default function Header({
                 },
               })}
             >
-              Login
+              Đăng Nhập
             </Button>
           )}
         </Box>

@@ -77,11 +77,11 @@ const MARKETPLACE_ITEMS = [
   },
 ];
 
-const CATEGORIES = ["All", "Electronics", "Furniture", "Sports", "Fashion", "Music", "Books", "Home"];
+const CATEGORIES = ["Tất cả", "Điện tử", "Nội thất", "Thể thao", "Thời trang", "Âm nhạc", "Sách", "Nhà cửa"];
 
 export default function Marketplace() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [favorites, setFavorites] = useState([]);
 
   const handleToggleFavorite = (id) => {
@@ -92,7 +92,7 @@ export default function Marketplace() {
 
   const filteredItems = MARKETPLACE_ITEMS.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+    const matchesCategory = selectedCategory === "Tất cả" || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -121,13 +121,13 @@ export default function Marketplace() {
               WebkitTextFillColor: "transparent",
             }}
           >
-            Marketplace
+            Chợ
           </Typography>
 
           {/* Search */}
           <TextField
             fullWidth
-            placeholder="Search for items..."
+            placeholder="Tìm kiếm sản phẩm..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -298,8 +298,8 @@ export default function Marketplace() {
                       },
                     }}
                   >
-                    View Details
-                  </Button>
+                    Xem chi tiết
+                </Button>
                 </Box>
               </Card>
             </Grid>
@@ -319,10 +319,10 @@ export default function Marketplace() {
           >
             <SearchIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
-              No items found
+              Không tìm thấy sản phẩm
             </Typography>
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-              Try adjusting your search or filters
+              Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
             </Typography>
           </Paper>
         )}

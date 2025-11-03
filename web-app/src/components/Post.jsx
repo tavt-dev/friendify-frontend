@@ -26,12 +26,12 @@ import { alpha } from "@mui/material/styles";
 import MediaCarousel from "./MediaCarousel";
 
 const REACTIONS = [
-  { emoji: "👍", label: "Like", color: "#3b82f6" },
-  { emoji: "❤️", label: "Love", color: "#ef4444" },
-  { emoji: "😂", label: "Haha", color: "#f59e0b" },
-  { emoji: "😮", label: "Wow", color: "#8b5cf6" },
-  { emoji: "😢", label: "Sad", color: "#6366f1" },
-  { emoji: "😡", label: "Angry", color: "#f97316" },
+  { emoji: "👍", label: "Thích", color: "#3b82f6" },
+  { emoji: "❤️", label: "Yêu thích", color: "#ef4444" },
+  { emoji: "😂", label: "Vui vẻ", color: "#f59e0b" },
+  { emoji: "😮", label: "Ngạc nhiên", color: "#8b5cf6" },
+  { emoji: "😢", label: "Buồn", color: "#6366f1" },
+  { emoji: "😡", label: "Phẫn nộ", color: "#f97316" },
 ];
 
 const Post = forwardRef((props, ref) => {
@@ -217,7 +217,7 @@ const Post = forwardRef((props, ref) => {
                 </Typography>
                 <Box sx={{ width: 3, height: 3, bgcolor: "text.secondary", borderRadius: "50%", opacity: 0.6 }} />
                 <Chip
-                  label="Public"
+                  label="Công khai"
                   size="small"
                   sx={(t) => ({
                     height: 18,
@@ -277,7 +277,7 @@ const Post = forwardRef((props, ref) => {
                   px: 2.5,
                 }}
               >
-                Cancel
+                Hủy
               </Button>
               <Button
                 variant="contained"
@@ -306,7 +306,7 @@ const Post = forwardRef((props, ref) => {
                   transition: "all 0.3s ease",
                 })}
               >
-                Save Changes
+                Lưu thay đổi
               </Button>
             </Box>
           </Box>
@@ -370,7 +370,7 @@ const Post = forwardRef((props, ref) => {
                 })}
                 onClick={() => setShowComments(!showComments)}
               >
-                {comments.length} comment{comments.length > 1 ? "s" : ""}
+                {comments.length} bình luận
               </Typography>
             )}
           </Box>
@@ -433,7 +433,7 @@ const Post = forwardRef((props, ref) => {
             ) : (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <ThumbUpOutlined sx={{ fontSize: 20 }} />
-                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Like</Typography>
+                <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Thích</Typography>
               </Box>
             )}
           </IconButton>
@@ -500,7 +500,7 @@ const Post = forwardRef((props, ref) => {
           })}
         >
           <ChatBubbleOutline sx={{ fontSize: 20, mr: 1 }} />
-          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Comment</Typography>
+          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Bình luận</Typography>
         </IconButton>
 
         <IconButton
@@ -513,7 +513,7 @@ const Post = forwardRef((props, ref) => {
           })}
         >
           <Share sx={{ fontSize: 20, mr: 1 }} />
-          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Share</Typography>
+          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Chia sẻ</Typography>
         </IconButton>
       </Box>
 
@@ -555,10 +555,10 @@ const Post = forwardRef((props, ref) => {
                     {c.time}
                   </Typography>
                   <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                    Like
+                    Thích
                   </Typography>
                   <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                    Reply
+                    Trả lời
                   </Typography>
                 </Box>
               </Box>
@@ -572,7 +572,7 @@ const Post = forwardRef((props, ref) => {
             <TextField
               fullWidth
               size="small"
-              placeholder="Write a comment..."
+              placeholder="Viết bình luận..."
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyPress={(e) => {
@@ -639,7 +639,7 @@ const Post = forwardRef((props, ref) => {
             "&:hover": { bgcolor: t.palette.action.hover },
           })}
         >
-          ✏️ Edit Post
+          ✏️ Sửa bài viết
         </MenuItem>
         <MenuItem
           onClick={handleDelete}
@@ -651,7 +651,7 @@ const Post = forwardRef((props, ref) => {
             "&:hover": { bgcolor: alpha(t.palette.error.main, 0.08) },
           })}
         >
-          🗑️ Delete Post
+          🗑️ Xóa bài viết
         </MenuItem>
       </Menu>
     </Paper>

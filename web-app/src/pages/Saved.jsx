@@ -78,11 +78,11 @@ const SAVED_ITEMS = [
   },
 ];
 
-const CATEGORIES = ["All", "Design", "Programming", "Productivity", "AI", "Business"];
+const CATEGORIES = ["Tất cả", "Thiết kế", "Lập trình", "Năng suất", "AI", "Kinh doanh"];
 
 export default function Saved() {
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [items, setItems] = useState(SAVED_ITEMS);
 
   const handleRemove = (id) => {
@@ -113,7 +113,7 @@ export default function Saved() {
       (activeTab === 4 && item.type === "image");
 
     const matchesCategory =
-      selectedCategory === "All" || item.category === selectedCategory;
+      selectedCategory === "Tất cả" || item.category === selectedCategory;
 
     return matchesTab && matchesCategory;
   });
@@ -149,7 +149,7 @@ export default function Saved() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Saved Items
+              Đã lưu
             </Typography>
           </Box>
 
@@ -169,20 +169,20 @@ export default function Saved() {
               },
             }}
           >
-            <Tab label={`All (${items.length})`} />
+            <Tab label={`Tất cả (${items.length})`} />
             <Tab
-              label={`Articles (${
+              label={`Bài viết (${
                 items.filter((i) => i.type === "article").length
               })`}
             />
             <Tab
-              label={`Videos (${items.filter((i) => i.type === "video").length})`}
+              label={`Video (${items.filter((i) => i.type === "video").length})`}
             />
             <Tab
-              label={`Links (${items.filter((i) => i.type === "link").length})`}
+              label={`Liên kết (${items.filter((i) => i.type === "link").length})`}
             />
             <Tab
-              label={`Images (${items.filter((i) => i.type === "image").length})`}
+              label={`Ảnh (${items.filter((i) => i.type === "image").length})`}
             />
           </Tabs>
 
@@ -331,7 +331,7 @@ export default function Saved() {
                       }}
                     >
                       <Typography variant="caption" color="text.disabled">
-                        Saved {item.savedDate}
+                        Đã lưu {item.savedDate}
                       </Typography>
                       <IconButton size="small" color="primary">
                         <BookmarkIcon fontSize="small" />
@@ -355,10 +355,10 @@ export default function Saved() {
           >
             <BookmarkBorderIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              No saved items
+              Chưa có mục nào được lưu
             </Typography>
             <Typography variant="body2" color="text.disabled">
-              Save articles, videos, and links to view them later
+              Lưu bài viết, video và liên kết để xem sau
             </Typography>
           </Paper>
         )}

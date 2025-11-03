@@ -80,7 +80,7 @@ export default function CreatePostComposer({ onClick }) {
         </Avatar>
         <TextField
           fullWidth
-          placeholder="What's on your mind?"
+          placeholder="Bạn đang nghĩ gì?"
           onClick={onClick}
           variant="outlined"
           sx={{
@@ -143,7 +143,7 @@ export default function CreatePostComposer({ onClick }) {
               display: { xs: "none", sm: "inline" },
             }}
           >
-            Photo
+            Ảnh
           </Box>
         </IconButton>
 
@@ -201,7 +201,7 @@ export default function CreatePostComposer({ onClick }) {
               display: { xs: "none", sm: "inline" },
             }}
           >
-            Feeling
+            Cảm xúc
           </Box>
         </IconButton>
       </Box>

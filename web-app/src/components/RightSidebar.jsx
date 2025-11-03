@@ -132,13 +132,13 @@ export default function RightSidebar() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <PersonAddIcon sx={{ mr: 1, color: "primary.main" }} />
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
-            Friend Suggestions
+            Gợi ý kết bạn
           </Typography>
         </Box>
 
         {friendSuggestions.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-            No suggestions available
+            Không có gợi ý
           </Typography>
         ) : (
           <Stack spacing={2}>
@@ -163,7 +163,7 @@ export default function RightSidebar() {
                       {friend.name}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {friend.mutualFriends} mutual friends
+                      {friend.mutualFriends} bạn chung
                     </Typography>
                   </Box>
                   <IconButton
@@ -202,7 +202,7 @@ export default function RightSidebar() {
                     },
                   }}
                 >
-                  Add Friend
+                  Thêm bạn
                 </Button>
                 {friend.id !== friendSuggestions[friendSuggestions.length - 1].id && (
                   <Divider sx={{ mt: 2 }} />
@@ -243,7 +243,7 @@ export default function RightSidebar() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <TrendingUpIcon sx={{ mr: 1, color: "primary.main" }} />
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
-            Trending Topics
+            Chủ đề xu hướng
           </Typography>
         </Box>
 
@@ -282,7 +282,7 @@ export default function RightSidebar() {
                 </Typography>
               </Box>
               <Chip
-                label="Trending"
+                label="Xu hướng"
                 size="small"
                 sx={(t) => ({
                   height: 22,
@@ -332,7 +332,7 @@ export default function RightSidebar() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <EventIcon sx={{ mr: 1, color: "primary.main" }} />
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>
-            Upcoming Events
+            Sự kiện sắp diễn ra
           </Typography>
         </Box>
 
@@ -396,7 +396,7 @@ export default function RightSidebar() {
               </Stack>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Chip
-                  label={`${event.interested} interested`}
+                  label={`${event.interested} quan tâm`}
                   size="small"
                   sx={{
                     height: 22,
@@ -419,7 +419,7 @@ export default function RightSidebar() {
                     borderRadius: 1.5,
                   }}
                 >
-                  Interested
+                  Quan tâm
                 </Button>
               </Box>
             </Box>

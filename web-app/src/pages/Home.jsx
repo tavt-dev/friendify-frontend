@@ -40,14 +40,14 @@ export default function Home() {
 
   const handleEditPost = (id, content) => {
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, content } : p)));
-    setSnackbarMessage("Post updated successfully!");
+    setSnackbarMessage("Đã cập nhật bài viết thành công!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
   };
 
   const handleDeletePost = (id) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
-    setSnackbarMessage("Post deleted successfully!");
+    setSnackbarMessage("Đã xóa bài viết thành công!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
   };
@@ -101,12 +101,12 @@ export default function Home() {
       .then((newPost) => {
         setPosts((prev) => [newPost, ...prev]);
         setNewPostContent("");
-        setSnackbarMessage("Post created successfully!");
+        setSnackbarMessage("Đã tạo bài viết thành công!");
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       })
       .catch(() => {
-        setSnackbarMessage("Failed to create post. Please try again.");
+        setSnackbarMessage("Không thể tạo bài viết. Vui lòng thử lại.");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
       });
@@ -158,7 +158,7 @@ export default function Home() {
           {!loading && posts.length > 0 && page >= totalPages && (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <Typography sx={{ fontSize: 14, color: "text.secondary", fontWeight: 500 }}>
-                You've reached the end of your feed
+                Bạn đã xem hết bảng tin
               </Typography>
             </Box>
           )}
@@ -240,14 +240,14 @@ export default function Home() {
         }}
       >
         <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, fontSize: 19, color: "text.primary" }}>
-          Create new Post
+          Tạo bài viết mới
         </Typography>
 
         <TextField
           fullWidth
           multiline
           rows={4}
-          placeholder="What's on your mind?"
+          placeholder="Bạn đang nghĩ gì?"
           value={newPostContent}
           onChange={(e) => setNewPostContent(e.target.value)}
           variant="outlined"
@@ -280,7 +280,7 @@ export default function Home() {
               "&:hover": { borderColor: "divider", backgroundColor: "action.hover" },
             }}
           >
-            Cancel
+            Hủy
           </Button>
           <Button
             variant="contained"
@@ -316,7 +316,7 @@ export default function Home() {
               transition: "all 0.3s ease",
             })}
           >
-            Post
+            Đăng
           </Button>
         </Box>
       </Popover>

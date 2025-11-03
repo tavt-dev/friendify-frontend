@@ -41,13 +41,13 @@ function SideMenu() {
   }, [location.pathname]);
 
   const menuItems = [
-    { key: "home", icon: <HomeIcon />, text: "News Feed", to: "/" },
-    { key: "chat", icon: <ChatIcon />, text: "Messages", to: "/chat" },
-    { key: "friends", icon: <PeopleIcon />, text: "Friends", to: "/friends" },
-    { key: "groups", icon: <GroupsIcon />, text: "Groups", to: "/groups" },
-    { key: "pages", icon: <FlagIcon />, text: "Pages", to: "/pages" },
-    { key: "marketplace", icon: <StorefrontIcon />, text: "Marketplace", to: "/marketplace" },
-    { key: "saved", icon: <BookmarkIcon />, text: "Saved", to: "/saved" },
+    { key: "home", icon: <HomeIcon />, text: "Trang Chủ", to: "/" },
+    { key: "chat", icon: <ChatIcon />, text: "Nhắn Tin  ", to: "/chat" },
+    { key: "friends", icon: <PeopleIcon />, text: "Bạn Bè", to: "/friends" },
+    { key: "groups", icon: <GroupsIcon />, text: "Nhóm", to: "/groups" },
+    { key: "pages", icon: <FlagIcon />, text: "Trang", to: "/pages" },
+    { key: "marketplace", icon: <StorefrontIcon />, text: "Chợ", to: "/marketplace" },
+    { key: "saved", icon: <BookmarkIcon />, text: "Đã Lưu", to: "/saved" },
   ];
 
   return (

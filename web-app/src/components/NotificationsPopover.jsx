@@ -11,26 +11,26 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 
 const ALL_NOTIFICATIONS = [
-  { id: 1, type: "like", user: "Sarah Johnson", avatar: "https://i.pravatar.cc/150?img=1", message: "liked your post", time: "5m ago", read: false },
-  { id: 2, type: "comment", user: "Mike Chen", avatar: "https://i.pravatar.cc/150?img=2", message: "commented on your photo", time: "1h ago", read: false },
-  { id: 3, type: "friend", user: "Emma Wilson", avatar: "https://i.pravatar.cc/150?img=3", message: "sent you a friend request", time: "2h ago", read: false },
-  { id: 4, type: "like", user: "John Doe", avatar: "https://i.pravatar.cc/150?img=4", message: "and 12 others liked your photo", time: "5h ago", read: true },
-  { id: 5, type: "comment", user: "Alice Smith", avatar: "https://i.pravatar.cc/150?img=5", message: "replied to your comment", time: "6h ago", read: true },
-  { id: 6, type: "like", user: "Bob Anderson", avatar: "https://i.pravatar.cc/150?img=6", message: "liked your comment", time: "8h ago", read: true },
-  { id: 7, type: "friend", user: "Carol White", avatar: "https://i.pravatar.cc/150?img=7", message: "accepted your friend request", time: "10h ago", read: true },
-  { id: 8, type: "comment", user: "David Brown", avatar: "https://i.pravatar.cc/150?img=8", message: "mentioned you in a comment", time: "12h ago", read: true },
-  { id: 9, type: "like", user: "Eve Davis", avatar: "https://i.pravatar.cc/150?img=9", message: "and 5 others liked your post", time: "1d ago", read: true },
-  { id: 10, type: "friend", user: "Frank Miller", avatar: "https://i.pravatar.cc/150?img=10", message: "sent you a friend request", time: "1d ago", read: true },
-  { id: 11, type: "comment", user: "Grace Lee", avatar: "https://i.pravatar.cc/150?img=11", message: "commented on your photo", time: "2d ago", read: true },
-  { id: 12, type: "like", user: "Henry Wilson", avatar: "https://i.pravatar.cc/150?img=12", message: "liked your post", time: "2d ago", read: true },
-  { id: 13, type: "friend", user: "Ivy Taylor", avatar: "https://i.pravatar.cc/150?img=13", message: "sent you a friend request", time: "3d ago", read: true },
-  { id: 14, type: "comment", user: "Jack Moore", avatar: "https://i.pravatar.cc/150?img=14", message: "replied to your comment", time: "3d ago", read: true },
-  { id: 15, type: "like", user: "Kelly Martin", avatar: "https://i.pravatar.cc/150?img=15", message: "liked your comment", time: "4d ago", read: true },
-  { id: 16, type: "friend", user: "Liam Garcia", avatar: "https://i.pravatar.cc/150?img=16", message: "accepted your friend request", time: "4d ago", read: true },
-  { id: 17, type: "comment", user: "Mia Rodriguez", avatar: "https://i.pravatar.cc/150?img=17", message: "mentioned you in a comment", time: "5d ago", read: true },
-  { id: 18, type: "like", user: "Noah Martinez", avatar: "https://i.pravatar.cc/150?img=18", message: "and 8 others liked your photo", time: "5d ago", read: true },
-  { id: 19, type: "friend", user: "Olivia Hernandez", avatar: "https://i.pravatar.cc/150?img=19", message: "sent you a friend request", time: "6d ago", read: true },
-  { id: 20, type: "comment", user: "Paul Lopez", avatar: "https://i.pravatar.cc/150?img=20", message: "commented on your post", time: "6d ago", read: true },
+  { id: 1, type: "like", user: "Nguyễn Văn A", avatar: "https://i.pravatar.cc/150?img=1", message: "đã thích bài viết của bạn", time: "5 phút trước", read: false },
+  { id: 2, type: "comment", user: "Trần Thị B", avatar: "https://i.pravatar.cc/150?img=2", message: "đã bình luận về ảnh của bạn", time: "1 giờ trước", read: false },
+  { id: 3, type: "friend", user: "Lê Minh C", avatar: "https://i.pravatar.cc/150?img=3", message: "đã gửi lời mời kết bạn", time: "2 giờ trước", read: false },
+  { id: 4, type: "like", user: "Phạm Thu D", avatar: "https://i.pravatar.cc/150?img=4", message: "và 12 người khác đã thích ảnh của bạn", time: "5 giờ trước", read: true },
+  { id: 5, type: "comment", user: "Hoàng Văn E", avatar: "https://i.pravatar.cc/150?img=5", message: "đã trả lời bình luận của bạn", time: "6 giờ trước", read: true },
+  { id: 6, type: "like", user: "Đỗ Thị F", avatar: "https://i.pravatar.cc/150?img=6", message: "đã thích bình luận của bạn", time: "8 giờ trước", read: true },
+  { id: 7, type: "friend", user: "Vũ Minh G", avatar: "https://i.pravatar.cc/150?img=7", message: "đã chấp nhận lời mời kết bạn", time: "10 giờ trước", read: true },
+  { id: 8, type: "comment", user: "Bùi Thu H", avatar: "https://i.pravatar.cc/150?img=8", message: "đã nhắc đến bạn trong bình luận", time: "12 giờ trước", read: true },
+  { id: 9, type: "like", user: "Đinh Văn I", avatar: "https://i.pravatar.cc/150?img=9", message: "và 5 người khác đã thích bài viết của bạn", time: "1 ngày trước", read: true },
+  { id: 10, type: "friend", user: "Ngô Thị K", avatar: "https://i.pravatar.cc/150?img=10", message: "đã gửi lời mời kết bạn", time: "1 ngày trước", read: true },
+  { id: 11, type: "comment", user: "Mai Linh", avatar: "https://i.pravatar.cc/150?img=11", message: "đã bình luận về ảnh của bạn", time: "2 ngày trước", read: true },
+  { id: 12, type: "like", user: "Tuấn Anh", avatar: "https://i.pravatar.cc/150?img=12", message: "đã thích bài viết của bạn", time: "2 ngày trước", read: true },
+  { id: 13, type: "friend", user: "Phương Anh", avatar: "https://i.pravatar.cc/150?img=13", message: "đã gửi lời mời kết bạn", time: "3 ngày trước", read: true },
+  { id: 14, type: "comment", user: "Đức Thắng", avatar: "https://i.pravatar.cc/150?img=14", message: "đã trả lời bình luận của bạn", time: "3 ngày trước", read: true },
+  { id: 15, type: "like", user: "Hương Giang", avatar: "https://i.pravatar.cc/150?img=15", message: "đã thích bình luận của bạn", time: "4 ngày trước", read: true },
+  { id: 16, type: "friend", user: "Minh Tuấn", avatar: "https://i.pravatar.cc/150?img=16", message: "đã chấp nhận lời mời kết bạn", time: "4 ngày trước", read: true },
+  { id: 17, type: "comment", user: "Thanh Hà", avatar: "https://i.pravatar.cc/150?img=17", message: "đã nhắc đến bạn trong bình luận", time: "5 ngày trước", read: true },
+  { id: 18, type: "like", user: "Quốc Anh", avatar: "https://i.pravatar.cc/150?img=18", message: "và 8 người khác đã thích ảnh của bạn", time: "5 ngày trước", read: true },
+  { id: 19, type: "friend", user: "Khánh Linh", avatar: "https://i.pravatar.cc/150?img=19", message: "đã gửi lời mời kết bạn", time: "6 ngày trước", read: true },
+  { id: 20, type: "comment", user: "Thành Long", avatar: "https://i.pravatar.cc/150?img=20", message: "đã bình luận bài viết của bạn", time: "6 ngày trước", read: true },
 ];
 
 const PAGE_SIZE = 10;
@@ -273,11 +273,11 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
         >
           <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
-              Notifications
+              Thông báo
             </Typography>
             {unreadCount > 0 && (
               <Chip 
-                label={`${unreadCount} new`} 
+                label={`${unreadCount} mới`} 
                 size="small" 
                 color="primary" 
                 sx={{ borderRadius: 2, fontWeight: 600 }}
@@ -289,7 +289,7 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
             ref={listRef}
             sx={{ py: 0, maxHeight: 400, overflowY: "auto" }}
             role="list"
-            aria-label="Notifications list"
+            aria-label="Danh sách thông báo"
           >
             {displayedNotifications.length === 0 && loading ? (
               <>
@@ -375,7 +375,7 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
                       <>
                         <CircularProgress size={14} />
                         <Typography variant="body2" sx={{ fontSize: 13, color: "text.secondary" }}>
-                          Loading…
+                          Đang tải…
                         </Typography>
                       </>
                     )}
@@ -392,7 +392,7 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
                 onClick={handleLoadMoreClick}
                 onKeyDown={handleLoadMoreKeyDown}
                 disabled={loading}
-                aria-label="Load more notifications"
+                aria-label="Tải thêm thông báo"
                 sx={{ 
                   textTransform: "none", 
                   borderRadius: 2, 
@@ -403,7 +403,7 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
                 }}
               >
                 {loading && <CircularProgress size={16} />}
-                {loading ? "Loading…" : "See more"}
+                {loading ? "Đang tải…" : "Xem thêm"}
               </Button>
             </Box>
           )}
@@ -411,7 +411,7 @@ export default function NotificationsPopover({ open, anchorEl, onClose }) {
           {!hasMore && displayedNotifications.length > 0 && (
             <Box sx={{ py: 1.5, px: 2, borderTop: 1, borderColor: "divider", textAlign: "center" }}>
               <Typography variant="body2" sx={{ fontSize: 13, color: "text.secondary" }}>
-                No more notifications
+                Không còn thông báo
               </Typography>
             </Box>
           )}

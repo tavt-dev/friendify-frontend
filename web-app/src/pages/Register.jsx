@@ -47,17 +47,17 @@ export default function Register() {
 
   const validate = () => {
     const e = {};
-    if (!username?.trim()) e.username = "Required";
+    if (!username?.trim()) e.username = "Bắt buộc";
     if (!email?.trim()) {
-      e.email = "Required";
+      e.email = "Bắt buộc";
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
-        e.email = "Invalid email address";
+        e.email = "Địa chỉ email không hợp lệ";
       }
     }
-    if (!password?.trim()) e.password = "Required";
-    if (password !== confirm) e.confirm = "Passwords do not match";
+    if (!password?.trim()) e.password = "Bắt buộc";
+    if (password !== confirm) e.confirm = "Mật khẩu không khớp";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -82,7 +82,7 @@ export default function Register() {
 
         setSnack({
           open: true,
-          message: "Account created successfully! Check your email for verification.",
+          message: "Tạo tài khoản thành công! Kiểm tra email để xác thực.",
           severity: "success",
         });
 
@@ -91,7 +91,7 @@ export default function Register() {
       } else {
         setSnack({
           open: true,
-          message: "Unable to register. Please try again.",
+          message: "Không thể đăng ký. Vui lòng thử lại.",
           severity: "error",
         });
       }
@@ -100,7 +100,7 @@ export default function Register() {
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
-        "Registration failed";
+        "Đăng ký thất bại";
       setSnack({ open: true, message: msg, severity: "error" });
     } finally {
       setSubmitting(false);
@@ -131,15 +131,15 @@ export default function Register() {
         <Card sx={{ width: 440, maxWidth: "100%", boxShadow: 6, borderRadius: 3 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-              Create an account
+              Tạo tài khoản
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Sign up to start using Friendify
+              Đăng ký để bắt đầu sử dụng Friendify
             </Typography>
 
             <Box component="form" onSubmit={onSubmit} noValidate>
               <TextField
-                label="Username"
+                label="Tên đăng nhập"
                 fullWidth
                 margin="normal"
                 value={username}
@@ -173,7 +173,7 @@ export default function Register() {
               />
 
               <TextField
-                label="Password"
+                label="Mật khẩu"
                 fullWidth
                 margin="normal"
                 type={showPassword ? "text" : "password"}
@@ -198,7 +198,7 @@ export default function Register() {
               />
 
               <TextField
-                label="Confirm Password"
+                label="Xác nhận mật khẩu"
                 type={showPassword ? "text" : "password"}
                 fullWidth
                 margin="normal"
@@ -230,7 +230,7 @@ export default function Register() {
                 sx={{ mt: 2 }}
                 disabled={submitting}
               >
-                {submitting ? "Signing up..." : "Sign Up"}
+                {submitting ? "Đang đăng ký..." : "Đăng ký"}
               </Button>
 
               <Divider sx={{ my: 3 }}>or</Divider>
@@ -242,18 +242,18 @@ export default function Register() {
                 onClick={() =>
                   setSnack({
                     open: true,
-                    message: "Google Sign-Up coming soon",
+                    message: "Đăng ký với Google sắp ra mắt",
                     severity: "info",
                   })
                 }
               >
-                Continue with Google
+                Tiếp tục với Google
               </Button>
 
               <Typography sx={{ mt: 3, textAlign: "center" }} variant="body2">
-                Already have an account?{" "}
+                Đã có tài khoản?{" "}
                 <MuiLink component={Link} to="/login" underline="hover">
-                  Sign in
+                  Đăng nhập
                 </MuiLink>
               </Typography>
             </Box>

@@ -155,7 +155,7 @@ export default function Pages() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Pages
+              Trang
             </Typography>
             <Button
               variant="contained"
@@ -168,14 +168,14 @@ export default function Pages() {
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               }}
             >
-              Create Page
+              Tạo trang
             </Button>
           </Box>
 
           {/* Search */}
           <TextField
             fullWidth
-            placeholder="Search pages..."
+            placeholder="Tìm kiếm trang..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -211,8 +211,8 @@ export default function Pages() {
               },
             }}
           >
-            <Tab label={`Your Pages (${myPages.length})`} />
-            <Tab label="Discover" />
+            <Tab label={`Trang của bạn (${myPages.length})`} />
+            <Tab label="Khám phá" />
           </Tabs>
         </Paper>
 
@@ -270,7 +270,7 @@ export default function Pages() {
                   <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 3 }}>
                     <FavoriteIcon sx={{ fontSize: 16, color: "text.secondary" }} />
                     <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                      {page.followers} followers
+                      {page.followers} người theo dõi
                     </Typography>
                   </Stack>
 
@@ -285,7 +285,7 @@ export default function Pages() {
                           borderRadius: 2.5,
                         }}
                       >
-                        View Page
+                        Xem trang
                       </Button>
                       <Button
                         fullWidth
@@ -303,7 +303,7 @@ export default function Pages() {
                           },
                         }}
                       >
-                        Unfollow
+                        Bỏ theo dõi
                       </Button>
                     </Stack>
                   ) : (
@@ -325,7 +325,7 @@ export default function Pages() {
                         },
                       }}
                     >
-                      {page.following ? "Following" : "Follow"}
+                      {page.following ? "Đang theo dõi" : "Theo dõi"}
                     </Button>
                   )}
                 </Box>
@@ -338,7 +338,7 @@ export default function Pages() {
         {activeTab === 1 && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-              Suggested for You
+              Gợi ý cho bạn
             </Typography>
             <Grid container spacing={2.5}>
               {SUGGESTED_PAGES.map((page) => (
@@ -372,7 +372,7 @@ export default function Pages() {
                           {page.category}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          {page.followers} followers
+                          {page.followers} người theo dõi
                         </Typography>
                       </Box>
                     </Box>
@@ -385,7 +385,7 @@ export default function Pages() {
                         borderRadius: 2.5,
                       }}
                     >
-                      Follow
+                      Theo dõi
                     </Button>
                   </Card>
                 </Grid>
@@ -407,7 +407,7 @@ export default function Pages() {
           >
             <SearchIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
-              No pages found
+              Không tìm thấy trang nào
             </Typography>
           </Paper>
         )}

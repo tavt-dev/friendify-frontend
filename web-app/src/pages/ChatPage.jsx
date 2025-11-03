@@ -509,8 +509,8 @@ export default function Chat() {
                       >
                         <Typography variant="body1">{msg.message}</Typography>
                         <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
-                          {msg.failed && <Typography variant="caption" color="error">Failed to send</Typography>}
-                          {msg.pending && <Typography variant="caption" color="text.secondary">Sending...</Typography>}
+                          {msg.failed && <Typography variant="caption" color="error">Gửi thất bại</Typography>}
+                          {msg.pending && <Typography variant="caption" color="text.secondary">Đang gửi...</Typography>}
                           <Typography variant="caption" sx={{ display: "block", textAlign: "right" }}>
                             {new Date(msg.createdDate).toLocaleString()}
                           </Typography>

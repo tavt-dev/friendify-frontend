@@ -39,8 +39,8 @@ export default function Login() {
 
   const validate = () => {
     const e = {};
-    if (!username?.trim()) e.username = "Required";
-    if (!password?.trim()) e.password = "Required";
+    if (!username?.trim()) e.username = "Bắt buộc";
+    if (!password?.trim()) e.password = "Bắt buộc";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -54,7 +54,7 @@ export default function Login() {
       await logIn(username.trim(), password);
       navigate("/");
     } catch (err) {
-      setSnack({ open: true, message: "Login failed. Please try again.", severity: "error" });
+      setSnack({ open: true, message: "Đăng nhập thất bại. Vui lòng thử lại.", severity: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -81,15 +81,15 @@ export default function Login() {
         <Card sx={{ width: 440, maxWidth: "100%", boxShadow: 6, borderRadius: 3 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-              Welcome back
+              Chào mừng trở lại
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Sign in to your account
+              Đăng nhập vào tài khoản của bạn
             </Typography>
 
             <Box component="form" onSubmit={onSubmit} noValidate>
               <TextField
-                label="Username or Email"
+                label="Tên đăng nhập hoặc Email"
                 fullWidth
                 margin="normal"
                 value={username}
@@ -105,7 +105,7 @@ export default function Login() {
                 }}
               />
               <TextField
-                label="Password"
+                label="Mật khẩu"
                 fullWidth
                 margin="normal"
                 type={showPassword ? "text" : "password"}
@@ -135,7 +135,7 @@ export default function Login() {
 
               <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
                 <MuiLink tabIndex={-1} component={Link} to="#" underline="hover" sx={{ fontSize: 14 }}>
-                  Forgot password?
+                  Quên mật khẩu?
                 </MuiLink>
               </Box>
 
@@ -147,7 +147,7 @@ export default function Login() {
                 sx={{ mt: 2 }}
                 disabled={submitting}
               >
-                {submitting ? "Signing in..." : "Continue"}
+                {submitting ? "Đang đăng nhập..." : "Tiếp tục"}
               </Button>
 
               <Divider sx={{ my: 3 }}>or</Divider>
@@ -156,15 +156,15 @@ export default function Login() {
                 variant="outlined"
                 fullWidth
                 startIcon={<GoogleIcon />}
-                onClick={() => setSnack({ open: true, message: "Google Sign-In coming soon", severity: "info" })}
+                onClick={() => setSnack({ open: true, message: "Đăng nhập với Google sắp ra mắt", severity: "info" })}
               >
-                Continue with Google
+                Tiếp tục với Google
               </Button>
 
               <Typography sx={{ mt: 3, textAlign: "center" }} variant="body2">
-                New to Friendify?{" "}
+                Mới đến Friendify?{" "}
                 <MuiLink component={Link} to="/register" underline="hover">
-                  Create an account
+                  Tạo tài khoản
                 </MuiLink>
               </Typography>
             </Box>

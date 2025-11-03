@@ -85,8 +85,8 @@ export default function LoginLeftPanel({ variant = "login" }) {
 
         <Typography sx={{ opacity: 0.9, mt: 2 }} variant="h6">
           {variant === "login"
-            ? "Sign in to connect with friends and share moments."
-            : "Create your account and join the community."}
+            ? "Đăng nhập để kết nối với bạn bè và chia sẻ khoảnh khắc."
+            : "Tạo tài khoản và tham gia cộng đồng."}
         </Typography>
       </Box>
     </Box>
