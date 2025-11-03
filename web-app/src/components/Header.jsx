@@ -5,7 +5,7 @@ import {
   AppBar, Toolbar, Box, Avatar, IconButton, InputBase, Badge,
   MenuItem, Menu, Divider, Button, Switch, Typography, Paper, List,
   ListItem, ListItemAvatar, ListItemText, Popper, ClickAwayListener,
-  ListItemButton, Chip, Tooltip
+  Tooltip
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsIcon from "@mui/icons-material/Notifications";
@@ -16,14 +16,12 @@ import WbSunnyOutlined from "@mui/icons-material/WbSunnyOutlined";
 import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import HistoryIcon from "@mui/icons-material/History";
-import FavoriteIcon from "@mui/icons-material/Favorite";
-import CommentIcon from "@mui/icons-material/Comment";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import HomeIcon from "@mui/icons-material/Home";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
 import ChatBubbleIcon from "@mui/icons-material/ChatBubble";
 import { isAuthenticated, logOut } from "../services/authenticationService";
+import NotificationsPopover from "./NotificationsPopover";
 
 const SEARCH_SUGGESTIONS = [
   { id: 1, type: "user", name: "Sarah Johnson", avatar: "https://i.pravatar.cc/150?img=1" },
@@ -33,44 +31,6 @@ const SEARCH_SUGGESTIONS = [
   { id: 5, type: "recent", name: "JavaScript Tutorial", subtitle: "Recent search" },
 ];
 
-const NOTIFICATIONS = [
-  { 
-    id: 1, 
-    type: "like", 
-    user: "Sarah Johnson", 
-    avatar: "https://i.pravatar.cc/150?img=1", 
-    message: "liked your post", 
-    time: "5m ago",
-    read: false
-  },
-  { 
-    id: 2, 
-    type: "comment", 
-    user: "Mike Chen", 
-    avatar: "https://i.pravatar.cc/150?img=2", 
-    message: "commented on your photo", 
-    time: "1h ago",
-    read: false
-  },
-  { 
-    id: 3, 
-    type: "friend", 
-    user: "Emma Wilson", 
-    avatar: "https://i.pravatar.cc/150?img=3", 
-    message: "sent you a friend request", 
-    time: "2h ago",
-    read: false
-  },
-  { 
-    id: 4, 
-    type: "like", 
-    user: "John Doe", 
-    avatar: "https://i.pravatar.cc/150?img=4", 
-    message: "and 12 others liked your photo", 
-    time: "5h ago",
-    read: true
-  },
-];
 
 const NAV_TABS = [
   { label: "Home", value: "/", icon: HomeIcon },
@@ -191,20 +151,7 @@ export default function Header({
     navigate(value);
   };
 
-  const unreadNotifications = NOTIFICATIONS.filter(n => !n.read).length;
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case "like":
-        return <FavoriteIcon fontSize="small" sx={{ color: "error.main" }} />;
-      case "comment":
-        return <CommentIcon fontSize="small" sx={{ color: "primary.main" }} />;
-      case "friend":
-        return <PersonAddIcon fontSize="small" sx={{ color: "success.main" }} />;
-      default:
-        return <NotificationsIcon fontSize="small" />;
-    }
-  };
+  const [unreadNotifications, setUnreadNotifications] = React.useState(3);
 
   const filteredSuggestions = SEARCH_SUGGESTIONS.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -305,107 +252,6 @@ export default function Header({
     </Menu>
   );
 
-  const NotificationMenu = (
-    <Popper
-      open={isNotificationOpen}
-      anchorEl={notificationAnchor}
-      placement="bottom-end"
-      sx={{ zIndex: (t) => t.zIndex.modal + 1 }}
-    >
-      <ClickAwayListener onClickAway={handleNotificationClose}>
-        <Paper
-          elevation={8}
-          sx={(t) => ({
-            mt: 1.5,
-            width: 380,
-            maxWidth: "calc(100vw - 32px)",
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-            overflow: "hidden",
-            bgcolor: "background.paper",
-            backdropFilter: "blur(20px)",
-            boxShadow: t.palette.mode === "dark"
-              ? "0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5)"
-              : "0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08)",
-            backgroundImage: t.palette.mode === "dark"
-              ? "linear-gradient(180deg, rgba(28, 30, 36, 0.98) 0%, rgba(28, 30, 36, 1) 100%)"
-              : "linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%)",
-          })}
-        >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
-              Notifications
-            </Typography>
-            {unreadNotifications > 0 && (
-              <Chip 
-                label={`${unreadNotifications} new`} 
-                size="small" 
-                color="primary" 
-                sx={{ borderRadius: 2, fontWeight: 600 }}
-              />
-            )}
-          </Box>
-          <List sx={{ py: 0, maxHeight: 400, overflowY: "auto" }}>
-            {NOTIFICATIONS.map((notification) => (
-              <ListItemButton
-                key={notification.id}
-                onClick={handleNotificationClose}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  bgcolor: notification.read ? "transparent" : (t) => alpha(t.palette.primary.main, 0.05),
-                  borderLeft: notification.read ? "none" : "3px solid",
-                  borderLeftColor: "primary.main",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-              >
-                <ListItemAvatar sx={{ position: "relative" }}>
-                  <Avatar src={notification.avatar} sx={{ width: 48, height: 48 }} />
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      bottom: 0,
-                      right: 0,
-                      bgcolor: "background.paper",
-                      borderRadius: "50%",
-                      p: 0.3,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {getNotificationIcon(notification.type)}
-                  </Box>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Typography sx={{ fontSize: 14, fontWeight: 600 }}>
-                      {notification.user}{" "}
-                      <Typography component="span" sx={{ fontSize: 14, fontWeight: 400 }}>
-                        {notification.message}
-                      </Typography>
-                    </Typography>
-                  }
-                  secondary={notification.time}
-                  secondaryTypographyProps={{ fontSize: 12, color: "text.secondary" }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-          <Box sx={{ p: 1.5, borderTop: 1, borderColor: "divider" }}>
-            <Button 
-              fullWidth 
-              sx={{ textTransform: "none", borderRadius: 2, fontWeight: 600 }}
-              onClick={() => { handleNotificationClose(); navigate("/notifications"); }}
-            >
-              See all notifications
-            </Button>
-          </Box>
-        </Paper>
-      </ClickAwayListener>
-    </Popper>
-  );
 
   const MobileMenu = (
     <Menu
@@ -653,7 +499,11 @@ export default function Header({
 
       {MobileMenu}
       {ProfileCardMenu}
-      {NotificationMenu}
+      <NotificationsPopover
+        open={isNotificationOpen}
+        anchorEl={notificationAnchor}
+        onClose={handleNotificationClose}
+      />
     </AppBar>
   );
 }
