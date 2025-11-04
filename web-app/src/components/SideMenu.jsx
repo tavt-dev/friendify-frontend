@@ -16,7 +16,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import { Link, useLocation } from "react-router-dom";
 
-function SideMenu() {
+function SideMenu({ onNavigate }) {
   const location = useLocation();
   const [activeItem, setActiveItem] = React.useState(() => {
     const p = location.pathname || "/";
@@ -61,7 +61,10 @@ function SideMenu() {
               <ListItemButton
                 component={Link}
                 to={item.to}
-                onClick={() => setActiveItem(item.key)}
+                onClick={() => {
+                  setActiveItem(item.key);
+                  onNavigate?.();
+                }}
                 selected={isActive}
                 sx={(t) => ({
                   borderRadius: 3,

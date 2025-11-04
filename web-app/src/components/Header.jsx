@@ -10,6 +10,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MoreIcon from "@mui/icons-material/MoreVert";
+import MenuIcon from "@mui/icons-material/Menu";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import LogoutOutlined from "@mui/icons-material/LogoutOutlined";
 import WbSunnyOutlined from "@mui/icons-material/WbSunnyOutlined";
@@ -56,7 +57,7 @@ const CompactSearch = styled("div")(({ theme }) => {
       borderColor: alpha(theme.palette.primary.main, 0.5),
     },
     width: 240,
-    [theme.breakpoints.down("md")]: { width: 180 },
+    [theme.breakpoints.down("md")]: { width: "100%", flex: 1 },
   };
 });
 
@@ -113,6 +114,7 @@ export default function Header({
   user = { name: "Tạ Văn Tiến", title: "Web Developer", avatar: "/avatar.png" },
   onToggleTheme = () => {},
   isDarkMode = false,
+  onMenuClick = () => {},
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -312,15 +314,31 @@ export default function Header({
         zIndex: t.zIndex.appBar,
       })}
     >
-      <Toolbar sx={{ minHeight: "60px !important", height: 60, px: { xs: 2, md: 3 }, gap: { xs: 1, md: 2 } }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <Toolbar sx={{ minHeight: "60px !important", height: 60, px: { xs: 1.5, md: 3 }, gap: { xs: 1, md: 2 } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, md: 2 }, flex: { xs: 1, md: 'initial' } }}>
+          <IconButton
+            size="medium"
+            edge="start"
+            color="inherit"
+            aria-label="open menu"
+            onClick={onMenuClick}
+            sx={{
+              p: 0.5,
+              "&:hover": { backgroundColor: "action.hover" },
+              display: { xs: 'inline-flex', lg: 'none' },
+              mr: { xs: 0.5, sm: 1 }
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+
           <IconButton
             size="medium"
             edge="start"
             color="inherit"
             aria-label="logo"
             onClick={() => navigate("/")}
-            sx={{ p: 0.5, "&:hover": { backgroundColor: "action.hover" } }}
+            sx={{ p: 0.5, "&:hover": { backgroundColor: "action.hover" }, display: { xs: 'none', sm: 'inline-flex' } }}
           >
             <Box component="img" src="/src/assets/icons/logo.png" alt="logo" sx={{ width: 36, height: 36, borderRadius: 1 }} />
           </IconButton>

@@ -123,6 +123,7 @@ export default function Home() {
           mx: "auto",
           gap: 3,
           px: { xs: 0, md: 2 },
+          pb: { xs: 2, md: 0 },
           alignItems: "flex-start",
         }}
       >
@@ -181,10 +182,10 @@ export default function Home() {
         onClick={handleCreatePostClick}
         sx={(t) => ({
           position: "fixed",
-          bottom: 32,
-          right: 32,
-          width: 64,
-          height: 64,
+          bottom: { xs: 80, md: 32 },
+          right: { xs: 16, md: 32 },
+          width: { xs: 56, md: 64 },
+          height: { xs: 56, md: 64 },
           background: t.palette.mode === "dark"
             ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
             : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",

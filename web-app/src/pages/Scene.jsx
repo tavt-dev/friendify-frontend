@@ -9,6 +9,7 @@ import Toolbar from "@mui/material/Toolbar";
 import { alpha, useTheme } from "@mui/material/styles";
 import Header from "../components/Header";
 import SideMenu from "../components/SideMenu";
+import MobileBottomNav from "../components/MobileBottomNav";
 import { useColorMode } from "../contexts/ThemeContext";
 
 const drawerWidth = 300;
@@ -45,7 +46,7 @@ function Scene({ children }) {
         position="fixed"
         elevation={0}
         sx={{
-          ml: { sm: `${drawerWidth}px` },
+          ml: { lg: `${drawerWidth}px` },
           zIndex: theme.zIndex.drawer + 1,
           bgcolor:
             theme.palette.mode === "dark"
@@ -61,30 +62,16 @@ function Scene({ children }) {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{
-              mr: 2,
-              display: { sm: "none" },
-              "&:hover": {
-                bgcolor: "action.hover",
-                transform: "scale(1.05)",
-              },
-              transition: "all 0.2s ease",
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-
-          <Header isDarkMode={mode === "dark"} onToggleTheme={toggleColorMode} />
+          <Header
+            isDarkMode={mode === "dark"}
+            onToggleTheme={toggleColorMode}
+            onMenuClick={handleDrawerToggle}
+          />
         </Toolbar>
       </AppBar>
 
       <Box sx={{ display: "flex", flexDirection: "row", flex: "1 1 auto", minHeight: 0 }}>
-        <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="side menu">
+        <Box component="nav" sx={{ width: { lg: drawerWidth }, flexShrink: { lg: 0 } }} aria-label="side menu">
           <Drawer
             variant="temporary"
             open={mobileOpen}
@@ -92,7 +79,7 @@ function Scene({ children }) {
             onClose={handleDrawerClose}
             ModalProps={{ keepMounted: true }}
             sx={{
-              display: { xs: "block", sm: "none" },
+              display: { xs: "block", lg: "none" },
               "& .MuiDrawer-paper": {
                 boxSizing: "border-box",
                 width: drawerWidth,
@@ -105,13 +92,13 @@ function Scene({ children }) {
               },
             }}
           >
-            <SideMenu />
+            <SideMenu onNavigate={handleDrawerClose} />
           </Drawer>
 
           <Drawer
             variant="permanent"
             sx={{
-              display: { xs: "none", sm: "block" },
+              display: { xs: "none", lg: "block" },
               "& .MuiDrawer-paper": {
                 boxSizing: "border-box",
                 width: drawerWidth,
@@ -138,7 +125,7 @@ function Scene({ children }) {
             flex: "1 1 auto",
             display: "flex",
             flexDirection: "column",
-            width: { sm: `calc(100% - ${drawerWidth}px)` },
+            width: { lg: `calc(100% - ${drawerWidth}px)` },
             minHeight: 0,
             position: "relative",
           }}
@@ -152,8 +139,9 @@ function Scene({ children }) {
               width: "100%",
               flex: "1 1 auto",
               minHeight: 0,
-              px: { xs: 1.5, md: 3 },
+              px: { xs: 2, md: 3 },
               py: { xs: 2, md: 3 },
+              pb: { xs: 10, md: 3 },
               overflowY: "auto",
               overflowX: "hidden",
               position: "relative",
@@ -163,6 +151,8 @@ function Scene({ children }) {
           </Box>
         </Box>
       </Box>
+
+      <MobileBottomNav />
     </Box>
   );
 }
