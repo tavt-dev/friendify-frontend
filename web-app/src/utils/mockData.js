@@ -1,10 +1,14 @@
-let mockPosts = [
+export let mockPosts = [
   {
     id: 1,
     username: 'Alice Johnson',
-    avatar: null,
+    avatar: 'https://i.pravatar.cc/150?img=1',
     created: '2 hours ago',
     content: 'Just finished an amazing hike in the mountains! The view from the top was absolutely breathtaking. 🏔️',
+    likes: 156,
+    comments: 23,
+    shares: 8,
+    isLiked: false,
     media: [
       {
         type: 'image',
@@ -26,9 +30,13 @@ let mockPosts = [
   {
     id: 2,
     username: 'Bob Smith',
-    avatar: null,
+    avatar: 'https://i.pravatar.cc/150?img=2',
     created: '5 hours ago',
     content: 'Working on a new React project with Vite. The development experience is so smooth and fast!',
+    likes: 89,
+    comments: 12,
+    shares: 4,
+    isLiked: true,
     media: [
       {
         type: 'image',
@@ -40,9 +48,13 @@ let mockPosts = [
   {
     id: 3,
     username: 'Carol Davis',
-    avatar: null,
+    avatar: 'https://i.pravatar.cc/150?img=3',
     created: '1 day ago',
     content: 'Does anyone have good recommendations for coffee shops in the downtown area? Looking for a good place to work remotely ☕',
+    likes: 45,
+    comments: 28,
+    shares: 2,
+    isLiked: false,
     media: [
       {
         type: 'image',
@@ -59,16 +71,24 @@ let mockPosts = [
   {
     id: 4,
     username: 'David Lee',
-    avatar: null,
+    avatar: 'https://i.pravatar.cc/150?img=4',
     created: '2 days ago',
     content: 'Just launched my new portfolio website! Check it out and let me know what you think. Always open to feedback! 🚀',
+    likes: 234,
+    comments: 45,
+    shares: 15,
+    isLiked: true,
   },
   {
     id: 5,
     username: 'Emma Wilson',
-    avatar: null,
+    avatar: 'https://i.pravatar.cc/150?img=5',
     created: '3 days ago',
     content: 'Beautiful sunset today. Sometimes we need to slow down and appreciate the little things in life. 🌅',
+    likes: 312,
+    comments: 18,
+    shares: 25,
+    isLiked: false,
     media: [
       {
         type: 'image',
@@ -776,13 +796,28 @@ let mockPosts = [
   },
 ];
 
+const ensurePostHasEngagementMetrics = (post) => {
+  if (post.likes !== undefined) return post;
+
+  return {
+    ...post,
+    avatar: post.avatar || `https://i.pravatar.cc/150?img=${post.id % 70}`,
+    likes: Math.floor(Math.random() * 300) + 10,
+    comments: Math.floor(Math.random() * 50) + 1,
+    shares: Math.floor(Math.random() * 20),
+    isLiked: Math.random() > 0.7,
+  };
+};
+
+mockPosts = mockPosts.map(ensurePostHasEngagementMetrics);
+
 export const getPosts = (page = 1, pageSize = 10) => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
       const paginatedPosts = mockPosts.slice(start, end);
-      
+
       resolve({
         data: paginatedPosts,
         totalPages: Math.ceil(mockPosts.length / pageSize),
@@ -793,15 +828,20 @@ export const getPosts = (page = 1, pageSize = 10) => {
   });
 };
 
-export const createPost = (content) => {
+export const createPost = (postData) => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const newPost = {
         id: Date.now(),
         username: 'demo_user',
-        avatar: null,
+        avatar: 'https://i.pravatar.cc/150?u=demo',
         created: 'Just now',
-        content,
+        content: typeof postData === 'string' ? postData : postData.content,
+        media: postData.media || [],
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        isLiked: false,
       };
       mockPosts = [newPost, ...mockPosts];
       resolve(newPost);

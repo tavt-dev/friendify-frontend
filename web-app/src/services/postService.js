@@ -1,4 +1,6 @@
 import { getToken } from "./localStorageService";
+import { USE_MOCK_DATA_FOR_READS, getApiUrl, API_ENDPOINTS } from '../config/apiConfig';
+import { getPosts as getMockPosts } from '../utils/mockData';
 
 let mockPosts = [
   {
@@ -25,51 +27,110 @@ let mockPosts = [
 ];
 
 export const getMyPosts = async (page = 1) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (!getToken()) {
-        reject({ response: { status: 401 } });
-        return;
-      }
+  if (USE_MOCK_DATA_FOR_READS) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (!getToken()) {
+          reject({ response: { status: 401 } });
+          return;
+        }
 
-      const pageSize = 10;
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const paginatedPosts = mockPosts.slice(start, end);
-      
-      resolve({
-        data: {
-          result: {
-            content: paginatedPosts,
-            totalPages: Math.ceil(mockPosts.length / pageSize),
-            currentPage: page,
-            totalElements: mockPosts.length,
-          }
-        },
-        status: 200
-      });
-    }, 300);
-  });
+        const pageSize = 10;
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        const paginatedPosts = mockPosts.slice(start, end);
+
+        resolve({
+          data: {
+            result: {
+              content: paginatedPosts,
+              totalPages: Math.ceil(mockPosts.length / pageSize),
+              currentPage: page,
+              totalElements: mockPosts.length,
+            }
+          },
+          status: 200
+        });
+      }, 300);
+    });
+  }
+
+  try {
+    const response = await fetch(getApiUrl(`${API_ENDPOINTS.POST.MY_POSTS}?page=${page}`), {
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return { data: await response.json(), status: response.status };
+  } catch (error) {
+    const pageSize = 10;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const paginatedPosts = mockPosts.slice(start, end);
+
+    return {
+      data: {
+        result: {
+          content: paginatedPosts,
+          totalPages: Math.ceil(mockPosts.length / pageSize),
+          currentPage: page,
+          totalElements: mockPosts.length,
+        }
+      },
+      status: 200
+    };
+  }
 };
 
-export const createPost = async (content) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newPost = {
-        id: Date.now(),
-        username: 'demo_user',
-        avatar: null,
-        created: 'Just now',
-        content,
-      };
-      mockPosts = [newPost, ...mockPosts];
-      
-      resolve({ 
-        data: { 
-          result: newPost 
-        },
-        status: 201
-      });
-    }, 400);
-  });
+export const createPost = async (postData) => {
+  const newPost = {
+    id: Date.now(),
+    username: 'demo_user',
+    avatar: null,
+    created: 'Just now',
+    content: typeof postData === 'string' ? postData : postData.content,
+    media: postData.media || [],
+  };
+  mockPosts = [newPost, ...mockPosts];
+
+  const currentPosts = JSON.parse(localStorage.getItem('user_posts') || '[]');
+  currentPosts.unshift(newPost);
+  localStorage.setItem('user_posts', JSON.stringify(currentPosts));
+
+  try {
+    const response = await fetch(getApiUrl(API_ENDPOINTS.POST.CREATE), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(postData),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.result) {
+      const updatedPosts = [data.result, ...currentPosts.slice(1)];
+      localStorage.setItem('user_posts', JSON.stringify(updatedPosts));
+      return { data, status: response.status };
+    }
+
+    return {
+      data: { result: newPost },
+      status: 201
+    };
+  } catch (error) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          data: {
+            result: newPost
+          },
+          status: 201
+        });
+      }, 400);
+    });
+  }
 };
