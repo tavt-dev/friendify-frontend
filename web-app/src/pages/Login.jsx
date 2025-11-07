@@ -49,16 +49,47 @@ export default function Login() {
     evt.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-
     try {
-      await logIn(username.trim(), password);
-      navigate("/");
+      const res = await logIn(username.trim(), password);
+      if (res?.status === 200) {
+        navigate("/");
+      } else {
+        setSnack({ open: true, message: "Unable to sign in. Please try again.", severity: "error" });
+      }
     } catch (err) {
-      setSnack({ open: true, message: "Đăng nhập thất bại. Vui lòng thử lại.", severity: "error" });
+      // Lấy thông tin lỗi an toàn
+      const status = err?.response?.status;
+      const body = err?.response?.data || {};
+      const msg = body?.message ?? body?.error ?? err?.message ?? "Login failed";
+
+      // 1) Email chưa xác thực (backend nên trả error key, không dò text)
+      if (status === 403 && (body?.error === "EMAIL_NOT_VERIFIED" || body?.code === "EMAIL_NOT_VERIFIED")) {
+        // redirect tới trang verify, kèm email để prefill
+        navigate("/verify-email", { state: { email: username.trim(), reason: msg } });
+        return;
+      }
+
+      // 2) Rate-limited
+      if (status === 429 || body?.code === "TOO_MANY_REQUESTS") {
+        setSnack({ open: true, message: msg || "Too many attempts. Please wait.", severity: "warning" });
+        // nếu bạn có cơ chế countdown ở trang verify, front-end đó sẽ khởi countdown dựa trên status/code
+        return;
+      }
+
+      // 3) Validation errors mapped to fields (nếu backend trả { errors: { username: '...', password: '...' } })
+      if (body?.errors && typeof body.errors === "object") {
+        setErrors((prev) => ({ ...prev, ...body.errors }));
+        setSnack({ open: true, message: msg || "Validation error", severity: "error" });
+        return;
+      }
+
+      // Fallback: show message
+      setSnack({ open: true, message: String(msg), severity: "error" });
     } finally {
       setSubmitting(false);
     }
   };
+
 
   return (
     <Box
@@ -89,7 +120,7 @@ export default function Login() {
 
             <Box component="form" onSubmit={onSubmit} noValidate>
               <TextField
-                label="Tên đăng nhập hoặc Email"
+                label="Tên đăng nhập"
                 fullWidth
                 margin="normal"
                 value={username}
