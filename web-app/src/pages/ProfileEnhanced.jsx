@@ -63,7 +63,7 @@ import {
   getMyInfo,
   uploadAvatar,
 } from "../services/userService";
-import { isAuthenticated, logOut } from "../services/authenticationService";
+import { isAuthenticated, logOut } from "../services/identityService";
 import Scene from "./Scene";
 import Post from "../components/Post";
 

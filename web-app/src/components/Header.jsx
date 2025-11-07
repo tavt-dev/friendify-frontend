@@ -21,7 +21,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
 import ChatBubbleIcon from "@mui/icons-material/ChatBubble";
-import { isAuthenticated, logOut } from "../services/authenticationService";
+import { isAuthenticated, logOut } from "../services/identityService";
 import NotificationsPopover from "./NotificationsPopover";
 
 const SEARCH_SUGGESTIONS = [

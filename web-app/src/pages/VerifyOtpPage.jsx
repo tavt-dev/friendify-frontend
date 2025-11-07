@@ -11,7 +11,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { verifyUser } from "../services/authenticationService";
+import { verifyUser } from "../services/identityService";
 import SendOtpButton from "../components/SendOtpButton";
 
 const VERIFY_TTL_MS = 15 * 60 * 1000; // 15 phút

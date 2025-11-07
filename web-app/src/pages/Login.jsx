@@ -19,7 +19,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { logIn, isAuthenticated } from "../services/authenticationService";
+import { logIn, isAuthenticated } from "../services/identityService";
 import LoginLeftPanel from "../components/LoginLeftPanel";
 
 export default function Login() {
@@ -57,33 +57,26 @@ export default function Login() {
         setSnack({ open: true, message: "Unable to sign in. Please try again.", severity: "error" });
       }
     } catch (err) {
-      // Lấy thông tin lỗi an toàn
       const status = err?.response?.status;
       const body = err?.response?.data || {};
       const msg = body?.message ?? body?.error ?? err?.message ?? "Login failed";
 
-      // 1) Email chưa xác thực (backend nên trả error key, không dò text)
       if (status === 403 && (body?.error === "EMAIL_NOT_VERIFIED" || body?.code === "EMAIL_NOT_VERIFIED")) {
-        // redirect tới trang verify, kèm email để prefill
         navigate("/verify-email", { state: { email: username.trim(), reason: msg } });
         return;
       }
 
-      // 2) Rate-limited
       if (status === 429 || body?.code === "TOO_MANY_REQUESTS") {
         setSnack({ open: true, message: msg || "Too many attempts. Please wait.", severity: "warning" });
-        // nếu bạn có cơ chế countdown ở trang verify, front-end đó sẽ khởi countdown dựa trên status/code
         return;
       }
 
-      // 3) Validation errors mapped to fields (nếu backend trả { errors: { username: '...', password: '...' } })
       if (body?.errors && typeof body.errors === "object") {
         setErrors((prev) => ({ ...prev, ...body.errors }));
         setSnack({ open: true, message: msg || "Validation error", severity: "error" });
         return;
       }
 
-      // Fallback: show message
       setSnack({ open: true, message: String(msg), severity: "error" });
     } finally {
       setSubmitting(false);
@@ -101,24 +94,36 @@ export default function Login() {
     >
       <LoginLeftPanel variant="login" />
       <Box
+        className="login-form-container"
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: 3,
+          p: { xs: 2, sm: 3, md: 4 },
           backgroundColor: (t) => (t.palette.mode === "dark" ? "background.default" : "#f7f8fa"),
         }}
       >
-        <Card sx={{ width: 440, maxWidth: "100%", boxShadow: 6, borderRadius: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-              Chào mừng trở lại
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Đăng nhập vào tài khoản của bạn
-            </Typography>
+        <Card 
+          className="login-card"
+          sx={{ 
+            width: { xs: "100%", sm: 440 }, 
+            maxWidth: "100%", 
+            boxShadow: { xs: 3, sm: 6 }, 
+            borderRadius: { xs: 2, sm: 3 },
+            border: (t) => t.palette.mode === "dark" ? "1px solid rgba(255,255,255,0.08)" : "none",
+          }}
+        >
+          <CardContent sx={{ p: { xs: 3, sm: 4 }, "&:last-child": { pb: { xs: 3, sm: 4 } } }}>
+            <Box className="login-header" sx={{ mb: { xs: 2.5, sm: 3 } }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.75, fontSize: { xs: "1.375rem", sm: "1.5rem" } }}>
+                Chào mừng trở lại
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.875rem", sm: "0.875rem" } }}>
+                Đăng nhập vào tài khoản của bạn
+              </Typography>
+            </Box>
 
-            <Box component="form" onSubmit={onSubmit} noValidate>
+            <Box component="form" onSubmit={onSubmit} noValidate className="login-form">
               <TextField
                 label="Tên đăng nhập"
                 fullWidth
@@ -127,6 +132,13 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 error={Boolean(errors.username)}
                 helperText={errors.username || " "}
+                sx={{
+                  mt: 0,
+                  mb: 1,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -144,6 +156,13 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 error={Boolean(errors.password)}
                 helperText={errors.password || " "}
+                sx={{
+                  mt: 0,
+                  mb: 0.5,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -156,16 +175,27 @@ export default function Login() {
                         tabIndex={-1}
                         onClick={() => setShowPassword((prev) => !prev)}
                         edge="end"
+                        size="small"
                       >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
               />
 
-              <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
-                <MuiLink tabIndex={-1} component={Link} to="#" underline="hover" sx={{ fontSize: 14 }}>
+              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0.5, mb: 2 }}>
+                <MuiLink 
+                  tabIndex={-1} 
+                  component={Link} 
+                  to="#" 
+                  underline="hover" 
+                  sx={{ 
+                    fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                    color: "primary.main",
+                    fontWeight: 500,
+                  }}
+                >
                   Quên mật khẩu?
                 </MuiLink>
               </Box>
@@ -175,26 +205,64 @@ export default function Login() {
                 variant="contained"
                 size="large"
                 fullWidth
-                sx={{ mt: 2 }}
                 disabled={submitting}
+                sx={{ 
+                  mt: 1, 
+                  mb: 2.5,
+                  py: { xs: 1.25, sm: 1.5 },
+                  fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  fontWeight: 600,
+                  textTransform: "none",
+                  boxShadow: 2,
+                  "&:hover": {
+                    boxShadow: 4,
+                  },
+                }}
               >
                 {submitting ? "Đang đăng nhập..." : "Tiếp tục"}
               </Button>
 
-              <Divider sx={{ my: 3 }}>or</Divider>
+              <Divider sx={{ my: { xs: 2.5, sm: 3 } }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}>
+                  hoặc
+                </Typography>
+              </Divider>
 
               <Button
                 variant="outlined"
                 fullWidth
                 startIcon={<GoogleIcon />}
                 onClick={() => setSnack({ open: true, message: "Đăng nhập với Google sắp ra mắt", severity: "info" })}
+                sx={{
+                  py: { xs: 1.25, sm: 1.5 },
+                  fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  fontWeight: 500,
+                  textTransform: "none",
+                  borderColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.23)" : "rgba(0,0,0,0.23)",
+                }}
               >
                 Tiếp tục với Google
               </Button>
 
-              <Typography sx={{ mt: 3, textAlign: "center" }} variant="body2">
+              <Typography 
+                sx={{ 
+                  mt: { xs: 2.5, sm: 3 }, 
+                  textAlign: "center",
+                  fontSize: { xs: "0.875rem", sm: "0.875rem" },
+                }} 
+                variant="body2"
+                color="text.secondary"
+              >
                 Mới đến Friendify?{" "}
-                <MuiLink component={Link} to="/register" underline="hover">
+                <MuiLink 
+                  component={Link} 
+                  to="/register" 
+                  underline="hover"
+                  sx={{ 
+                    fontWeight: 600,
+                    color: "primary.main",
+                  }}
+                >
                   Tạo tài khoản
                 </MuiLink>
               </Typography>
@@ -209,7 +277,14 @@ export default function Login() {
         onClose={() => setSnack({ ...snack, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snack.severity} variant="filled" onClose={() => setSnack({ ...snack, open: false })}>
+        <Alert 
+          severity={snack.severity} 
+          variant="filled" 
+          onClose={() => setSnack({ ...snack, open: false })}
+          sx={{ 
+            fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+          }}
+        >
           {snack.message}
         </Alert>
       </Snackbar>

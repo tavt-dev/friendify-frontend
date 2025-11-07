@@ -5,7 +5,7 @@ import {
   Button, Snackbar, Alert
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { logOut } from "../services/authenticationService";
+import { logOut } from "../services/identityService";
 import { getPosts, createPost as createPostMock } from "../utils/mockData";
 import Scene from "./Scene";
 import Post from "../components/Post";

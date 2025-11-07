@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { resendVerification } from "../services/authenticationService";
+import { resendVerification } from "../services/identityService";
 import { Button, Snackbar, Alert, Box, Typography } from "@mui/material";
 
 const COOLDOWN_SEC = 60;
@@ -12,9 +12,10 @@ export default function ResendOtpButton({ email }) {
 
   // Bắt đầu countdown ngay khi component mount (vì đã gửi OTP lúc đăng ký)
   useEffect(() => {
+    startCountdown();
+
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      startCountdown();
     }
     return () => clearInterval(timerRef.current);
   }, []);

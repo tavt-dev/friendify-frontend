@@ -12,7 +12,7 @@ import {
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import { useState } from "react";
-import { requestPasswordReset } from "../services/authenticationService";
+import { requestPasswordReset } from "../services/identityService";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");

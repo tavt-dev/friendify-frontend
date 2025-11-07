@@ -20,7 +20,7 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import IconButton from "@mui/material/IconButton";
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { registerAccount } from "../services/authenticationService";
+import { registerAccount } from "../services/identityService";
 import LoginLeftPanel from "../components/LoginLeftPanel";
 
 export default function Register() {
@@ -38,7 +38,6 @@ export default function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
 
-  // 🧹 Dọn cờ verify cũ nếu user quay lại trang đăng ký
   useEffect(() => {
     localStorage.removeItem("verifyEmail");
     localStorage.removeItem("verifyContext");
@@ -75,7 +74,6 @@ export default function Register() {
       const res = await registerAccount(payload);
 
       if (res?.status === 200 || res?.status === 201) {
-        // ✅ Đặt cờ để Verify page cho phép vào & auto redirect sau khi verify
         localStorage.setItem("verifyEmail", payload.email);
         localStorage.setItem("verifyContext", "register");
         localStorage.setItem("verifyIssuedAt", Date.now().toString());
@@ -86,7 +84,6 @@ export default function Register() {
           severity: "success",
         });
 
-        // Điều hướng tới trang verify bạn đang dùng trong routes
         setTimeout(() => navigate("/verify-user"), 800);
       } else {
         setSnack({
@@ -117,27 +114,38 @@ export default function Register() {
     >
       <LoginLeftPanel variant="register" />
 
-      {/* Right form panel */}
       <Box
+        className="register-form-container"
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: 3,
+          p: { xs: 2, sm: 3, md: 4 },
           backgroundColor: (t) =>
             t.palette.mode === "dark" ? "background.default" : "#f7f8fa",
         }}
       >
-        <Card sx={{ width: 440, maxWidth: "100%", boxShadow: 6, borderRadius: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-              Tạo tài khoản
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Đăng ký để bắt đầu sử dụng Friendify
-            </Typography>
+        <Card 
+          className="register-card"
+          sx={{ 
+            width: { xs: "100%", sm: 440 }, 
+            maxWidth: "100%", 
+            boxShadow: { xs: 3, sm: 6 }, 
+            borderRadius: { xs: 2, sm: 3 },
+            border: (t) => t.palette.mode === "dark" ? "1px solid rgba(255,255,255,0.08)" : "none",
+          }}
+        >
+          <CardContent sx={{ p: { xs: 3, sm: 4 }, "&:last-child": { pb: { xs: 3, sm: 4 } } }}>
+            <Box className="register-header" sx={{ mb: { xs: 2.5, sm: 3 } }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.75, fontSize: { xs: "1.375rem", sm: "1.5rem" } }}>
+                Tạo tài khoản
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.875rem", sm: "0.875rem" } }}>
+                Đăng ký để bắt đầu sử dụng Friendify
+              </Typography>
+            </Box>
 
-            <Box component="form" onSubmit={onSubmit} noValidate>
+            <Box component="form" onSubmit={onSubmit} noValidate className="register-form">
               <TextField
                 label="Tên đăng nhập"
                 fullWidth
@@ -146,6 +154,13 @@ export default function Register() {
                 onChange={(e) => setUsername(e.target.value)}
                 error={Boolean(errors.username)}
                 helperText={errors.username || " "}
+                sx={{
+                  mt: 0,
+                  mb: 0.75,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -163,6 +178,13 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 error={Boolean(errors.email)}
                 helperText={errors.email || " "}
+                sx={{
+                  mt: 0,
+                  mb: 0.75,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -181,6 +203,13 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 error={Boolean(errors.password)}
                 helperText={errors.password || " "}
+                sx={{
+                  mt: 0,
+                  mb: 0.75,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -189,8 +218,13 @@ export default function Register() {
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton tabIndex={-1} onClick={() => setShowPassword((prev) => !prev)} edge="end">
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      <IconButton 
+                        tabIndex={-1} 
+                        onClick={() => setShowPassword((prev) => !prev)} 
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -206,6 +240,13 @@ export default function Register() {
                 onChange={(e) => setConfirm(e.target.value)}
                 error={Boolean(errors.confirm)}
                 helperText={errors.confirm || " "}
+                sx={{
+                  mt: 0,
+                  mb: 0.75,
+                  "& .MuiInputBase-root": {
+                    fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -214,8 +255,13 @@ export default function Register() {
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton tabIndex={-1} onClick={() => setShowPassword((prev) => !prev)} edge="end">
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      <IconButton 
+                        tabIndex={-1} 
+                        onClick={() => setShowPassword((prev) => !prev)} 
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -227,13 +273,28 @@ export default function Register() {
                 variant="contained"
                 size="large"
                 fullWidth
-                sx={{ mt: 2 }}
                 disabled={submitting}
+                sx={{ 
+                  mt: 1.5, 
+                  mb: 2.5,
+                  py: { xs: 1.25, sm: 1.5 },
+                  fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  fontWeight: 600,
+                  textTransform: "none",
+                  boxShadow: 2,
+                  "&:hover": {
+                    boxShadow: 4,
+                  },
+                }}
               >
                 {submitting ? "Đang đăng ký..." : "Đăng ký"}
               </Button>
 
-              <Divider sx={{ my: 3 }}>or</Divider>
+              <Divider sx={{ my: { xs: 2.5, sm: 3 } }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}>
+                  hoặc
+                </Typography>
+              </Divider>
 
               <Button
                 variant="outlined"
@@ -246,13 +307,36 @@ export default function Register() {
                     severity: "info",
                   })
                 }
+                sx={{
+                  py: { xs: 1.25, sm: 1.5 },
+                  fontSize: { xs: "0.9375rem", sm: "1rem" },
+                  fontWeight: 500,
+                  textTransform: "none",
+                  borderColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.23)" : "rgba(0,0,0,0.23)",
+                }}
               >
                 Tiếp tục với Google
               </Button>
 
-              <Typography sx={{ mt: 3, textAlign: "center" }} variant="body2">
+              <Typography 
+                sx={{ 
+                  mt: { xs: 2.5, sm: 3 }, 
+                  textAlign: "center",
+                  fontSize: { xs: "0.875rem", sm: "0.875rem" },
+                }} 
+                variant="body2"
+                color="text.secondary"
+              >
                 Đã có tài khoản?{" "}
-                <MuiLink component={Link} to="/login" underline="hover">
+                <MuiLink 
+                  component={Link} 
+                  to="/login" 
+                  underline="hover"
+                  sx={{ 
+                    fontWeight: 600,
+                    color: "primary.main",
+                  }}
+                >
                   Đăng nhập
                 </MuiLink>
               </Typography>
@@ -271,6 +355,9 @@ export default function Register() {
           severity={snack.severity}
           variant="filled"
           onClose={() => setSnack({ ...snack, open: false })}
+          sx={{ 
+            fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+          }}
         >
           {snack.message}
         </Alert>
