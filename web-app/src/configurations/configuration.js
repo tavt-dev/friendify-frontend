@@ -1,5 +1,6 @@
 export const CONFIG = {
   API_GATEWAY: "http://localhost:8080/api/v1",
+  IDENTITY_SERVICE: "http://localhost:8081/identity",
 };
 
 export const API = {
@@ -18,4 +19,5 @@ export const API = {
   REGISTER: "/identity/auth/registration",
   VERIFY_USER: "/identity/auth/verify-user",
   RESEND_OTP: "/identity/auth/resend-verification",
+  GOOGLE_LOGIN: "/oauth2/authorization/google",
 };

@@ -5,12 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    open: true,
-    historyApiFallback: true
+    open: true
   },
   preview: {
-    port: 4173,
-    historyApiFallback: true
+    port: 4173
   },
   build: {
     outDir: 'dist',

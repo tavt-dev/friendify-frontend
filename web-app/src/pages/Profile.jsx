@@ -23,7 +23,7 @@ import {
   updateProfile,
   uploadAvatar,
 } from "../services/userService";
-import { isAuthenticated, logOut } from "../services/authenticationService";
+import { isAuthenticated, logOut } from "../services/identityService";
 import Scene from "./Scene";
 
 export default function Profile() {

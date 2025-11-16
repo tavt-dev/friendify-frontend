@@ -15,7 +15,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { resetPassword } from "../services/authenticationService";
+import { resetPassword } from "../services/identityService";
 
 export default function ResetPassword() {
   const { token } = useParams();

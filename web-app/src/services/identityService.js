@@ -1,6 +1,6 @@
 import { getToken, removeToken, setToken } from "./localStorageService";
 import httpClient from "../configurations/httpClient";
-import { API } from "../configurations/configuration";
+import { API, CONFIG } from "../configurations/configuration";
 
 export const logIn = async (username, password) => {
   const response = await httpClient.post(API.LOGIN, {
@@ -62,4 +62,11 @@ export const verifyUser = async ({ email, otpCode }) => {
     otpCode: otpCode,
   });
   return response;
+}
+
+export const loginWithGoogle = () => {
+  // Redirect to Google OAuth endpoint (direct to identity service, not through API gateway)
+  // OAuth2 needs direct connection for session/cookie handling
+  const googleLoginUrl = `${CONFIG.IDENTITY_SERVICE}${API.GOOGLE_LOGIN}`;
+  window.location.href = googleLoginUrl;
 }

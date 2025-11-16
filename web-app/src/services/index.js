@@ -1,4 +1,4 @@
-export * from './authenticationService';
+export * from './identityService';
 export * from './userService';
 export * from './postService';
 export * from './friendService';

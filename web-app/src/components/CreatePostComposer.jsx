@@ -11,7 +11,7 @@ import { alpha } from "@mui/material/styles";
 import ImageIcon from "@mui/icons-material/Image";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
-import { isAuthenticated } from "../services/authenticationService";
+import { isAuthenticated } from "../services/identityService";
 
 const getCurrentUser = () => {
   const userStr = localStorage.getItem('mock_user');

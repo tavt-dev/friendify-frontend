@@ -13,6 +13,7 @@ import Login from '../pages/Login'
 import Register from '../pages/Register'
 import ForgotPassword from '../pages/ForgotPassword'
 import VerifyOtpPage from "../pages/VerifyOtpPage";
+import OAuthCallback from "../pages/OAuthCallback";
 
 const AppRoutes = () => {
   return (
@@ -31,6 +32,7 @@ const AppRoutes = () => {
       <Route path="/settings" element={<Settings />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/verify-user" element={<VerifyOtpPage />} />
+      <Route path="/oauth2/redirect" element={<OAuthCallback />} />
 
 
       <Route path="*" element={<Navigate to="/" replace />} />
