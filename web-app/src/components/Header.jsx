@@ -22,6 +22,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
 import ChatBubbleIcon from "@mui/icons-material/ChatBubble";
 import { isAuthenticated, logOut } from "../services/identityService";
+import { useUser } from "../contexts/UserContext";
 import NotificationsPopover from "./NotificationsPopover";
 
 const SEARCH_SUGGESTIONS = [
@@ -111,13 +112,23 @@ const NavTabLink = styled(Link)(({ theme, active }) => ({
 }));
 
 export default function Header({
-  user = { name: "Tạ Văn Tiến", title: "Web Developer", avatar: "/avatar.png" },
   onToggleTheme = () => {},
   isDarkMode = false,
   onMenuClick = () => {},
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: userData } = useUser();
+  
+  // Format user data from API to match expected format
+  const user = userData ? {
+    name: userData.firstName && userData.lastName 
+      ? `${userData.firstName} ${userData.lastName}` 
+      : userData.username || userData.email || "User",
+    title: userData.bio || userData.title || userData.email || "Member",
+    avatar: userData.avatar || null,
+    id: userData.id,
+  } : { name: "User", title: "Member", avatar: null };
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -136,7 +147,14 @@ export default function Header({
   const handleMobileMenuClose = () => setMobileMoreAnchorEl(null);
   const handleMenuClose = () => { setAnchorEl(null); handleMobileMenuClose(); };
 
-  const handleOpenProfile = () => { handleMenuClose(); navigate("/profile/1"); };
+  const handleOpenProfile = () => { 
+    handleMenuClose(); 
+    if (user?.id) {
+      navigate(`/profile/${user.id}`); 
+    } else {
+      navigate("/profile"); 
+    }
+  };
   const handleLogout = () => { handleMenuClose(); logOut(); navigate("/login"); };
 
   const handleSearchFocus = (e) => setSearchAnchor(e.currentTarget);

@@ -13,6 +13,7 @@ import {
   Fade,
   Zoom,
   CircularProgress,
+  Grid,
 } from "@mui/material";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -35,6 +36,8 @@ export default function Register() {
   const navigate = useNavigate();
   const { mode, toggleColorMode } = useColorMode();
   const [username, setUsername] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -57,6 +60,8 @@ export default function Register() {
   const validate = () => {
     const e = {};
     if (!username?.trim()) e.username = "Bắt buộc";
+    if (!firstName?.trim()) e.firstName = "Bắt buộc";
+    if (!lastName?.trim()) e.lastName = "Bắt buộc";
     if (!email?.trim()) {
       e.email = "Bắt buộc";
     } else {
@@ -84,6 +89,8 @@ export default function Register() {
     try {
       const payload = {
         username: username.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: email.trim(),
         password,
       };
@@ -457,7 +464,146 @@ export default function Register() {
                 />
               </Fade>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "400ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "350ms" }}>
+                <Grid container spacing={2} sx={{ mt: 0, mb: 0 }}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Họ"
+                      fullWidth
+                      margin="normal"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      error={Boolean(errors.firstName)}
+                      helperText={errors.firstName || " "}
+                      sx={{
+                        mt: 0,
+                        mb: 1,
+                        "& .MuiInputBase-root": {
+                          fontSize: { xs: "0.9375rem", sm: "1rem" },
+                          borderRadius: 3,
+                          backgroundColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(255, 255, 255, 0.06)" 
+                            : "rgba(138, 43, 226, 0.04)",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:hover": {
+                            backgroundColor: (t) => t.palette.mode === "dark" 
+                              ? "rgba(255, 255, 255, 0.1)" 
+                              : "rgba(138, 43, 226, 0.06)",
+                            transform: "translateY(-1px)",
+                          },
+                          "&.Mui-focused": {
+                            backgroundColor: (t) => t.palette.mode === "dark" 
+                              ? "rgba(255, 255, 255, 0.1)" 
+                              : "rgba(138, 43, 226, 0.06)",
+                            transform: "translateY(-1px)",
+                            boxShadow: "0 4px 12px rgba(138, 43, 226, 0.15)",
+                          },
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(255, 255, 255, 0.12)" 
+                            : "rgba(138, 43, 226, 0.25)",
+                          borderWidth: 1.5,
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        },
+                        "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(138, 43, 226, 0.6)" 
+                            : "rgba(138, 43, 226, 0.5)",
+                          borderWidth: 2,
+                        },
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#8a2be2",
+                          borderWidth: 2.5,
+                          boxShadow: "0 0 0 4px rgba(138, 43, 226, 0.1)",
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": {
+                          color: "#8a2be2",
+                        },
+                      }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonOutlineIcon 
+                              fontSize="small" 
+                              sx={{ color: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.6)" : "rgba(138, 43, 226, 0.6)" }} 
+                            />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Tên"
+                      fullWidth
+                      margin="normal"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      error={Boolean(errors.lastName)}
+                      helperText={errors.lastName || " "}
+                      sx={{
+                        mt: 0,
+                        mb: 1,
+                        "& .MuiInputBase-root": {
+                          fontSize: { xs: "0.9375rem", sm: "1rem" },
+                          borderRadius: 3,
+                          backgroundColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(255, 255, 255, 0.06)" 
+                            : "rgba(138, 43, 226, 0.04)",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:hover": {
+                            backgroundColor: (t) => t.palette.mode === "dark" 
+                              ? "rgba(255, 255, 255, 0.1)" 
+                              : "rgba(138, 43, 226, 0.06)",
+                            transform: "translateY(-1px)",
+                          },
+                          "&.Mui-focused": {
+                            backgroundColor: (t) => t.palette.mode === "dark" 
+                              ? "rgba(255, 255, 255, 0.1)" 
+                              : "rgba(138, 43, 226, 0.06)",
+                            transform: "translateY(-1px)",
+                            boxShadow: "0 4px 12px rgba(138, 43, 226, 0.15)",
+                          },
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(255, 255, 255, 0.12)" 
+                            : "rgba(138, 43, 226, 0.25)",
+                          borderWidth: 1.5,
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        },
+                        "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: (t) => t.palette.mode === "dark" 
+                            ? "rgba(138, 43, 226, 0.6)" 
+                            : "rgba(138, 43, 226, 0.5)",
+                          borderWidth: 2,
+                        },
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#8a2be2",
+                          borderWidth: 2.5,
+                          boxShadow: "0 0 0 4px rgba(138, 43, 226, 0.1)",
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": {
+                          color: "#8a2be2",
+                        },
+                      }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonOutlineIcon 
+                              fontSize="small" 
+                              sx={{ color: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.6)" : "rgba(138, 43, 226, 0.6)" }} 
+                            />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Fade>
+
+              <Fade in={true} timeout={800} style={{ transitionDelay: "450ms" }}>
                 <TextField
                   label="Email"
                   fullWidth
@@ -525,7 +671,7 @@ export default function Register() {
                 />
               </Fade>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "500ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "550ms" }}>
                 <TextField
                   label="Mật khẩu"
                   fullWidth
@@ -615,7 +761,7 @@ export default function Register() {
                 />
               </Fade>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "600ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "650ms" }}>
                 <TextField
                   label="Xác nhận mật khẩu"
                   type={showPassword ? "text" : "password"}
@@ -705,7 +851,7 @@ export default function Register() {
                 />
               </Fade>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "700ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "750ms" }}>
                 <Button
                   type="submit"
                   variant="contained"
@@ -782,7 +928,7 @@ export default function Register() {
                 </Typography>
               </Divider>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "800ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "850ms" }}>
                 <Button
                   variant="outlined"
                   fullWidth
@@ -819,7 +965,7 @@ export default function Register() {
                 </Button>
               </Fade>
 
-              <Fade in={true} timeout={800} style={{ transitionDelay: "900ms" }}>
+              <Fade in={true} timeout={800} style={{ transitionDelay: "950ms" }}>
                 <Typography 
                   sx={{ 
                     mt: { xs: 1.5, sm: 2 }, 

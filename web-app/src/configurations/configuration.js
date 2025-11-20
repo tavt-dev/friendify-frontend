@@ -11,6 +11,7 @@ export const API = {
   CREATE_POST: "/post/create",
   UPDATE_PROFILE: "/profile/users/my-profile",
   UPDATE_AVATAR: "/profile/users/avatar",
+  UPDATE_BACKGROUND: "/profile/users/background",
   SEARCH_USER: "/profile/users/search",
   MY_CONVERSATIONS: "/chat/conversations/my-conversations",
   CREATE_CONVERSATION: "/chat/conversations/create",

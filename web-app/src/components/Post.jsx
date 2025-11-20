@@ -35,8 +35,9 @@ const REACTIONS = [
 ];
 
 const Post = forwardRef((props, ref) => {
-  const { avatar, username, created, content, id, media } = props.post;
-  const { onEdit, onDelete } = props;
+  const { avatar, username, created, content, id, media, userId, privacy } = props.post;
+  const { onEdit, onDelete, currentUserId } = props;
+  const isOwner = currentUserId && userId && String(currentUserId) === String(userId);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [reactionAnchor, setReactionAnchor] = useState(null);
@@ -46,7 +47,8 @@ const Post = forwardRef((props, ref) => {
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(content);
+  const [editedContent, setEditedContent] = useState(content || "");
+  const [editedPrivacy, setEditedPrivacy] = useState(privacy || "PUBLIC");
 
   const longPressTimer = useRef(null);
   const likeButtonRef = useRef(null);
@@ -105,14 +107,17 @@ const Post = forwardRef((props, ref) => {
 
   const handleEdit = () => {
     setIsEditing(true);
+    setEditedContent(content || "");
+    setEditedPrivacy(privacy || "PUBLIC");
     handleMenuClose();
   };
   const handleSaveEdit = () => {
-    onEdit?.(id, editedContent);
+    onEdit?.(id, editedContent, editedPrivacy);
     setIsEditing(false);
   };
   const handleCancelEdit = () => {
-    setEditedContent(content);
+    setEditedContent(content || "");
+    setEditedPrivacy(privacy || "PUBLIC");
     setIsEditing(false);
   };
   const handleDelete = () => {
@@ -217,29 +222,35 @@ const Post = forwardRef((props, ref) => {
                 </Typography>
                 <Box sx={{ width: 3, height: 3, bgcolor: "text.secondary", borderRadius: "50%", opacity: 0.6 }} />
                 <Chip
-                  label="Công khai"
+                  label={privacy === "PRIVATE" ? "Riêng tư" : "Công khai"}
                   size="small"
                   sx={(t) => ({
                     height: 18,
                     fontSize: 10,
                     fontWeight: 600,
-                    bgcolor: t.palette.action.selected,
-                    color: "text.secondary",
+                    bgcolor: privacy === "PRIVATE" 
+                      ? alpha(t.palette.error.main, 0.1)
+                      : t.palette.action.selected,
+                    color: privacy === "PRIVATE" 
+                      ? t.palette.error.main
+                      : "text.secondary",
                   })}
                 />
               </Box>
             </Box>
           </Box>
-          <IconButton
-            onClick={handleMenuOpen}
-            size="small"
-            sx={(t) => ({
-              color: "text.secondary",
-              "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main" },
-            })}
-          >
-            <MoreVert />
-          </IconButton>
+          {isOwner && (
+            <IconButton
+              onClick={handleMenuOpen}
+              size="small"
+              sx={(t) => ({
+                color: "text.secondary",
+                "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main" },
+              })}
+            >
+              <MoreVert />
+            </IconButton>
+          )}
         </Box>
       </Box>
 
@@ -265,6 +276,70 @@ const Post = forwardRef((props, ref) => {
                 },
               })}
             />
+            
+            {/* Privacy Selector for Edit */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel id="edit-privacy-select-label" sx={{ fontSize: 13 }}>
+                Quyền riêng tư
+              </InputLabel>
+              <Select
+                labelId="edit-privacy-select-label"
+                id="edit-privacy-select"
+                value={editedPrivacy}
+                label="Quyền riêng tư"
+                onChange={(e) => setEditedPrivacy(e.target.value)}
+                sx={{
+                  borderRadius: 2,
+                  fontSize: 13,
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "divider",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                    borderWidth: 2,
+                  },
+                }}
+              >
+                <MenuItem value="PUBLIC">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label="Công khai" 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        height: 22,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 11 }}>
+                      Mọi người có thể xem
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+                <MenuItem value="PRIVATE">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label="Riêng tư" 
+                      size="small" 
+                      color="default"
+                      sx={{ 
+                        height: 22,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 11 }}>
+                      Chỉ bạn mới xem được
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+              </Select>
+            </FormControl>
+            
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
               <Button
                 variant="outlined"

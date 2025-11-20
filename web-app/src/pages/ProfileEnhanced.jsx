@@ -1,8 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Card,
   CircularProgress,
   Typography,
   Avatar,
@@ -18,180 +17,83 @@ import {
   TextField,
   Snackbar,
   Alert,
-  Dialog,
-  DialogContent,
-  DialogActions,
-  Badge,
   Tooltip,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
   Menu,
   MenuItem,
   ListItemIcon,
-  Collapse,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import MessageIcon from "@mui/icons-material/Message";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import EditIcon from "@mui/icons-material/Edit";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import WorkIcon from "@mui/icons-material/Work";
-import SchoolIcon from "@mui/icons-material/School";
 import CakeIcon from "@mui/icons-material/Cake";
+import PhoneIcon from "@mui/icons-material/Phone";
+import LanguageIcon from "@mui/icons-material/Language";
+import BusinessIcon from "@mui/icons-material/Business";
+import SchoolIcon from "@mui/icons-material/School";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import VerifiedIcon from "@mui/icons-material/Verified";
-import CloseIcon from "@mui/icons-material/Close";
-import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
-import NavigateNextIcon from "@mui/icons-material/NavigateNext";
-import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import ThumbUpIcon from "@mui/icons-material/ThumbUp";
-import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
-import PeopleIcon from "@mui/icons-material/People";
-import ArticleIcon from "@mui/icons-material/Article";
 import BlockIcon from "@mui/icons-material/Block";
 import ReportIcon from "@mui/icons-material/Report";
 import ShareIcon from "@mui/icons-material/Share";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
-  getMyInfo,
   uploadAvatar,
+  uploadBackground,
+  updateProfile,
 } from "../services/userService";
 import { isAuthenticated, logOut } from "../services/identityService";
-import Scene from "./Scene";
+import { useUser } from "../contexts/UserContext";
+import { getMyPosts, updatePost, deletePost } from "../services/postService";
+import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
+import { getToken } from "../services/localStorageService";
 import Post from "../components/Post";
-
-const mockPosts = [
-  {
-    id: "p1",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    username: "John Doe",
-    created: "2 hours ago",
-    content: "Just finished an amazing project! 🚀",
-    likes: 42,
-    comments: 12,
-  },
-  {
-    id: "p2",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    username: "John Doe",
-    created: "1 day ago",
-    content: "Beautiful sunset today 🌅",
-    likes: 87,
-    comments: 23,
-  },
-  {
-    id: "p3",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    username: "John Doe",
-    created: "3 days ago",
-    content: "Learning new technologies every day! 💻",
-    likes: 156,
-    comments: 34,
-  },
-];
-
-const mockFriends = [
-  { id: 1, name: "Sarah Johnson", avatar: "https://i.pravatar.cc/150?img=2", mutualFriends: 12 },
-  { id: 2, name: "Mike Chen", avatar: "https://i.pravatar.cc/150?img=3", mutualFriends: 8 },
-  { id: 3, name: "Emma Wilson", avatar: "https://i.pravatar.cc/150?img=4", mutualFriends: 15 },
-  { id: 4, name: "David Brown", avatar: "https://i.pravatar.cc/150?img=5", mutualFriends: 6 },
-  { id: 5, name: "Lisa Anderson", avatar: "https://i.pravatar.cc/150?img=6", mutualFriends: 9 },
-  { id: 6, name: "Tom Garcia", avatar: "https://i.pravatar.cc/150?img=7", mutualFriends: 11 },
-  { id: 7, name: "Amy Lee", avatar: "https://i.pravatar.cc/150?img=8", mutualFriends: 7 },
-  { id: 8, name: "Chris Martinez", avatar: "https://i.pravatar.cc/150?img=9", mutualFriends: 5 },
-];
-
-const mockPhotos = [
-  "https://picsum.photos/400/300?random=1",
-  "https://picsum.photos/400/300?random=2",
-  "https://picsum.photos/400/300?random=3",
-  "https://picsum.photos/400/300?random=4",
-  "https://picsum.photos/400/300?random=5",
-  "https://picsum.photos/400/300?random=6",
-  "https://picsum.photos/400/300?random=7",
-  "https://picsum.photos/400/300?random=8",
-  "https://picsum.photos/400/300?random=9",
-  "https://picsum.photos/400/300?random=10",
-  "https://picsum.photos/400/300?random=11",
-  "https://picsum.photos/400/300?random=12",
-];
-
-const mockSkills = [
-  { name: "JavaScript", level: 90 },
-  { name: "React", level: 85 },
-  { name: "Node.js", level: 80 },
-  { name: "Python", level: 75 },
-  { name: "UI/UX Design", level: 70 },
-  { name: "TypeScript", level: 82 },
-];
-
-const mockActivities = [
-  { id: 1, type: "post", text: "Posted a new update", time: "2 hours ago", icon: "📝" },
-  { id: 2, type: "friend", text: "Added 3 new friends", time: "1 day ago", icon: "👥" },
-  { id: 3, type: "photo", text: "Uploaded 5 new photos", time: "2 days ago", icon: "📸" },
-  { id: 4, type: "achievement", text: "Reached 1000 followers", time: "1 week ago", icon: "🏆" },
-];
+import Scene from "./Scene";
 
 export default function ProfileEnhanced() {
   const navigate = useNavigate();
-  const [userDetails, setUserDetails] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
+  const { user: userDetails, loadUser } = useUser();
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [uploading, setUploading] = useState(false);
   const [editingAbout, setEditingAbout] = useState(false);
-  const [photoDialog, setPhotoDialog] = useState({ open: false, index: 0 });
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [bioExpanded, setBioExpanded] = useState(false);
   const [coverHover, setCoverHover] = useState(false);
   const [avatarHover, setAvatarHover] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsPage, setPostsPage] = useState(1);
+  const [postsTotalPages, setPostsTotalPages] = useState(0);
+  // Local state for editing profile
+  const [editProfileData, setEditProfileData] = useState(null);
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
+  const lastPostElementRef = useRef(null);
+  const postsObserver = useRef(null);
 
-  const [coverImage, setCoverImage] = useState("https://picsum.photos/1200/400?random=10");
-  const [profileStats, setProfileStats] = useState({
-    views: 1234,
-    likes: 567,
-    friends: mockFriends.length,
-    photos: mockPhotos.length,
-    posts: mockPosts.length,
-  });
-
-  const [aboutData, setAboutData] = useState({
-    bio: "Passionate developer and tech enthusiast 🚀\nLove to build amazing products and connect with people! 💻✨\nAlways learning, always growing 🌱",
-    workplace: "Tech Company Inc.",
-    position: "Senior Software Engineer",
-    education: "Computer Science Graduate",
-    location: "San Francisco, CA",
-    birthdate: "January 15, 1995",
-    relationship: "Single",
-    interests: ["Technology", "Travel", "Photography", "Music"],
-    isVerified: true,
-  });
-
-  const getUserDetails = async () => {
-    try {
-      const response = await getMyInfo();
-      setUserDetails(response.data.result);
-    } catch (error) {
-      if (error.response?.status === 401) {
-        logOut();
-        navigate("/login");
-      }
+  // Initialize editProfileData when entering edit mode
+  useEffect(() => {
+    if (editingAbout && userDetails && !editProfileData) {
+      setEditProfileData({
+        bio: userDetails.bio || "",
+        city: userDetails.city || "",
+        dob: userDetails.dob || null,
+        phone: userDetails.phone || "",
+        website: userDetails.website || "",
+        workplace: userDetails.workplace || "",
+        position: userDetails.position || "",
+        education: userDetails.education || "",
+        relationship: userDetails.relationship || "",
+      });
     }
-  };
+    if (!editingAbout) {
+      setEditProfileData(null);
+    }
+  }, [editingAbout, userDetails, editProfileData]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate("/login");
-    } else {
-      getUserDetails();
     }
   }, [navigate]);
 
@@ -211,8 +113,8 @@ export default function ProfileEnhanced() {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
-      const response = await uploadAvatar(formData);
-      setUserDetails({ ...userDetails, avatar: response.data.result.avatar });
+      await uploadAvatar(formData);
+      await loadUser();
       setSnackbar({ open: true, message: "Avatar updated successfully!", severity: "success" });
     } catch (error) {
       setSnackbar({ open: true, message: "Failed to upload avatar", severity: "error" });
@@ -221,45 +123,243 @@ export default function ProfileEnhanced() {
     }
   };
 
-  const handleCoverUpload = (event) => {
+  const handleCoverUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (!file.type.match("image.*")) {
-      setSnackbar({ open: true, message: "Please select an image file", severity: "error" });
+      setSnackbar({ open: true, message: "Vui lòng chọn file ảnh", severity: "error" });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setCoverImage(e.target.result);
-      setSnackbar({ open: true, message: "Cover photo updated!", severity: "success" });
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setSnackbar({ open: true, message: "File quá lớn. Vui lòng chọn file nhỏ hơn 10MB", severity: "error" });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      console.log('Uploading background image...');
+      const response = await uploadBackground(formData);
+      console.log('Background upload response:', response);
+      
+      // Reload user data to get updated background
+      await loadUser();
+      
+      setSnackbar({ open: true, message: "Đã cập nhật ảnh bìa thành công!", severity: "success" });
+    } catch (error) {
+      console.error('Error uploading background:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      let errorMessage = "Không thể tải ảnh bìa. Vui lòng thử lại.";
+      if (error.response?.status === 401) {
+        errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const loadMyPosts = useCallback(async (page = 1) => {
+    // Prevent loading if already loading
+    if (postsLoading) {
+      return;
+    }
+    
+    setPostsLoading(true);
+    try {
+      const response = await getMyPosts(page, 10);
+      
+      // Handle different response formats
+      let pageData = null;
+      let newPosts = [];
+      
+      if (response.data?.result) {
+        pageData = response.data.result;
+        // Try different formats
+        if (pageData.data && Array.isArray(pageData.data)) {
+          newPosts = pageData.data;
+        } else if (pageData.content && Array.isArray(pageData.content)) {
+          newPosts = pageData.content;
+        }
+        setPostsTotalPages(pageData.totalPages || 1);
+      }
+      
+      if (newPosts.length > 0) {
+        // Fetch avatar for current user (since these are my posts)
+        let userAvatar = null;
+        if (userDetails?.avatar) {
+          userAvatar = userDetails.avatar;
+        } else {
+          try {
+            const avatarResponse = await fetch(getApiUrl(API_ENDPOINTS.USER.GET_PROFILE.replace(':id', userDetails?.id)), {
+              headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (avatarResponse.ok) {
+              const avatarData = await avatarResponse.json();
+              userAvatar = avatarData?.result?.avatar || avatarData?.data?.avatar || avatarData?.avatar || null;
+            }
+          } catch (error) {
+            console.warn('Failed to fetch avatar:', error);
+          }
+        }
+        
+        // Map posts to format expected by Post component
+        const mappedPosts = newPosts.map((post) => {
+          // Map imageUrls to media format for MediaCarousel
+          const media = (post.imageUrls || []).map((url) => ({
+            url: url,
+            type: 'image',
+            alt: `Post image ${post.id}`,
+          }));
+          
+          // Format created date
+          let created = 'Just now';
+          if (post.createdDate) {
+            const date = new Date(post.createdDate);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) {
+              created = 'Vừa xong';
+            } else if (diffMins < 60) {
+              created = `${diffMins} phút trước`;
+            } else if (diffHours < 24) {
+              created = `${diffHours} giờ trước`;
+            } else if (diffDays < 7) {
+              created = `${diffDays} ngày trước`;
+            } else {
+              created = date.toLocaleDateString('vi-VN');
+            }
+          } else if (post.created) {
+            created = post.created;
+          }
+          
+          return {
+            id: post.id,
+            avatar: userAvatar || post.avatar || post.userAvatar || null,
+            username: post.username || userDetails?.username || 'Unknown',
+            created: created,
+            content: post.content || '',
+            media: media,
+            userId: post.userId,
+            privacy: post.privacy || 'PUBLIC', // Ensure privacy is included
+            ...post,
+          };
+        });
+        
+        setPosts((prev) => {
+          if (page === 1) {
+            return mappedPosts;
+          }
+          // Filter out duplicates
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniqueNewPosts = mappedPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...uniqueNewPosts];
+        });
+        
+        // Update current page only if we got new posts
+        if (mappedPosts.length > 0) {
+          setPostsPage(page);
+        }
+      } else if (page === 1) {
+        setPosts([]);
+        setPostsPage(1);
+      } else {
+        // No more posts, update total pages to prevent further loading
+        if (postsTotalPages > page - 1) {
+          setPostsTotalPages(page - 1);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      setSnackbar({ open: true, message: "Không thể tải bài viết. Vui lòng thử lại.", severity: "error" });
+    } finally {
+      setPostsLoading(false);
+    }
+  }, [userDetails]);
+
+  // Load posts on mount - only once
+  const hasLoadedPosts = useRef(false);
+  useEffect(() => {
+    if (!hasLoadedPosts.current && posts.length === 0 && !postsLoading && userDetails?.id) {
+      hasLoadedPosts.current = true;
+      setPostsPage(1);
+      loadMyPosts(1);
+    }
+  }, [userDetails?.id]); // Only depend on userDetails.id
+
+  // Infinite scroll for posts
+  useEffect(() => {
+    // Disconnect if loading or no more pages
+    if (postsLoading || postsPage >= postsTotalPages || postsTotalPages === 0 || posts.length === 0) {
+      if (postsObserver.current) {
+        postsObserver.current.disconnect();
+      }
+      return;
+    }
+
+    // Disconnect existing observer
+    if (postsObserver.current) {
+      postsObserver.current.disconnect();
+    }
+
+    // Create new observer with proper configuration
+    postsObserver.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !postsLoading && postsPage < postsTotalPages) {
+        const nextPage = postsPage + 1;
+        setPostsPage(nextPage);
+        loadMyPosts(nextPage);
+      }
+    }, {
+      threshold: 0.1,
+      rootMargin: '100px'
+    });
+
+    // Observe last post element
+    const currentLastPost = lastPostElementRef.current;
+    if (currentLastPost) {
+      postsObserver.current.observe(currentLastPost);
+    }
+
+    return () => {
+      if (postsObserver.current) {
+        postsObserver.current.disconnect();
+      }
     };
-    reader.readAsDataURL(file);
-  };
+  }, [posts.length, postsLoading, postsPage, postsTotalPages]); // Removed loadMyPosts to prevent infinite loop
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const handlePhotoClick = (index) => {
-    setPhotoDialog({ open: true, index });
-  };
-
-  const handlePhotoClose = () => {
-    setPhotoDialog({ ...photoDialog, open: false });
-  };
-
-  const handlePhotoNav = (direction) => {
-    const newIndex = direction === "next" 
-      ? (photoDialog.index + 1) % mockPhotos.length
-      : (photoDialog.index - 1 + mockPhotos.length) % mockPhotos.length;
-    setPhotoDialog({ ...photoDialog, index: newIndex });
-  };
-
-  const handleSaveAbout = () => {
-    setEditingAbout(false);
-    setSnackbar({ open: true, message: "Profile updated successfully!", severity: "success" });
+  const handleSaveAbout = async () => {
+    if (!editProfileData) return;
+    
+    try {
+      await updateProfile(editProfileData);
+      await loadUser();
+      setEditingAbout(false);
+      setEditProfileData(null);
+      setSnackbar({ open: true, message: "Cập nhật thông tin thành công!", severity: "success" });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setSnackbar({ open: true, message: "Không thể cập nhật thông tin. Vui lòng thử lại.", severity: "error" });
+    }
   };
 
   const handleMenuOpen = (event) => {
@@ -298,27 +398,37 @@ export default function ProfileEnhanced() {
       <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto", pb: 4 }}>
         <Paper
           elevation={0}
-          sx={{
+          sx={(t) => ({
             position: "relative",
             height: { xs: 280, sm: 380, md: 420 },
-            borderRadius: { xs: 0, sm: "16px 16px 0 0" },
+            borderRadius: { xs: 0, sm: "20px 20px 0 0" },
             overflow: "hidden",
             border: "1px solid",
             borderColor: "divider",
             borderBottom: "none",
-          }}
+            boxShadow: t.palette.mode === "dark"
+              ? "0 8px 32px rgba(0, 0, 0, 0.4)"
+              : "0 8px 32px rgba(0, 0, 0, 0.08)",
+            transition: "all 0.3s ease",
+            "&:hover": {
+              boxShadow: t.palette.mode === "dark"
+                ? "0 12px 48px rgba(0, 0, 0, 0.5)"
+                : "0 12px 48px rgba(0, 0, 0, 0.12)",
+            },
+          })}
           onMouseEnter={() => setCoverHover(true)}
           onMouseLeave={() => setCoverHover(false)}
         >
           <Box
             component="img"
-            src={coverImage}
+            src={userDetails?.coverImage || userDetails?.backgroundImage || "https://picsum.photos/1200/400?random=10"}
             alt="Cover"
             sx={{
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              transition: "transform 0.3s ease",
+              transition: "transform 0.5s ease",
+              transform: coverHover ? "scale(1.05)" : "scale(1)",
             }}
           />
           <Box
@@ -328,7 +438,7 @@ export default function ProfileEnhanced() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 100%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.5) 100%)",
             }}
           />
           <Tooltip title="Change cover photo" arrow>
@@ -363,15 +473,21 @@ export default function ProfileEnhanced() {
 
         <Paper
           elevation={0}
-          sx={{
-            borderRadius: { xs: 0, sm: "0 0 16px 16px" },
+          sx={(t) => ({
+            borderRadius: { xs: 0, sm: "0 0 20px 20px" },
             border: "1px solid",
             borderColor: "divider",
             borderTop: "none",
-            p: { xs: 2, sm: 3 },
+            p: { xs: 2, sm: 3, md: 4 },
             mb: 3,
             bgcolor: "background.paper",
-          }}
+            boxShadow: t.palette.mode === "dark"
+              ? "0 4px 24px rgba(0, 0, 0, 0.3)"
+              : "0 4px 24px rgba(0, 0, 0, 0.06)",
+            backgroundImage: t.palette.mode === "dark"
+              ? "linear-gradient(135deg, rgba(139, 154, 255, 0.02) 0%, rgba(151, 117, 212, 0.02) 100%)"
+              : "linear-gradient(135deg, rgba(102, 126, 234, 0.01) 0%, rgba(118, 75, 162, 0.01) 100%)",
+          })}
         >
           <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, alignItems: { xs: "center", md: "flex-start" } }}>
             <Box 
@@ -384,21 +500,31 @@ export default function ProfileEnhanced() {
               onMouseLeave={() => setAvatarHover(false)}
             >
               <Avatar
-                src={userDetails.avatar}
-                sx={{
-                  width: { xs: 150, sm: 160 },
-                  height: { xs: 150, sm: 160 },
-                  border: "5px solid",
+                src={userDetails?.avatar}
+                sx={(t) => ({
+                  width: { xs: 150, sm: 160, md: 180 },
+                  height: { xs: 150, sm: 160, md: 180 },
+                  border: "6px solid",
                   borderColor: "background.paper",
-                  bgcolor: "primary.main",
-                  fontSize: 64,
+                  bgcolor: t.palette.mode === "dark"
+                    ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                    : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  fontSize: { xs: 56, sm: 64, md: 72 },
                   cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-                }}
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: t.palette.mode === "dark"
+                    ? "0 8px 32px rgba(139, 154, 255, 0.4), 0 4px 16px rgba(0, 0, 0, 0.5)"
+                    : "0 8px 32px rgba(102, 126, 234, 0.3), 0 4px 16px rgba(0, 0, 0, 0.15)",
+                  "&:hover": {
+                    transform: "scale(1.05)",
+                    boxShadow: t.palette.mode === "dark"
+                      ? "0 12px 48px rgba(139, 154, 255, 0.5), 0 6px 24px rgba(0, 0, 0, 0.6)"
+                      : "0 12px 48px rgba(102, 126, 234, 0.4), 0 6px 24px rgba(0, 0, 0, 0.2)",
+                  },
+                })}
                 onClick={handleAvatarClick}
               >
-                {userDetails.firstName?.[0]}{userDetails.lastName?.[0]}
+                {userDetails?.firstName?.[0] || ""}{userDetails?.lastName?.[0] || ""}
               </Avatar>
               <Box
                 sx={{
@@ -448,21 +574,57 @@ export default function ProfileEnhanced() {
             </Box>
 
             <Box sx={{ flex: 1, textAlign: { xs: "center", md: "left" }, width: "100%" }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: { xs: "center", md: "flex-start" }, flexWrap: "wrap" }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, fontSize: { xs: 28, sm: 34 } }}>
-                  {userDetails.firstName} {userDetails.lastName}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: { xs: "center", md: "flex-start" }, flexWrap: "wrap", mb: 1 }}>
+                <Typography 
+                  variant="h4" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    fontSize: { xs: 28, sm: 32, md: 36 },
+                    background: (t) => t.palette.mode === "dark"
+                      ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                      : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {[userDetails?.firstName, userDetails?.lastName].filter(Boolean).join(" ") || userDetails?.username || "User"}
                 </Typography>
-                {aboutData.isVerified && (
-                  <Tooltip title="Verified Account" arrow>
-                    <VerifiedIcon sx={{ fontSize: 28, color: "#1DA1F2" }} />
-                  </Tooltip>
-                )}
               </Box>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 2, fontSize: 15 }}>
-                @{userDetails.username}
+              
+              {/* Username */}
+              <Typography 
+                variant="body1" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1.5, 
+                  fontSize: 15,
+                  fontWeight: 500,
+                }}
+              >
+                @{userDetails?.username || userDetails?.email || "user"}
               </Typography>
               
-              {aboutData.bio && (
+              {/* Email if different from username */}
+              {userDetails?.email && userDetails?.email !== userDetails?.username && (
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mb: 2, 
+                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    justifyContent: { xs: "center", md: "flex-start" },
+                  }}
+                >
+                  📧 {userDetails.email}
+                </Typography>
+              )}
+              
+              {userDetails?.bio && (
                 <Box sx={{ mb: 2, maxWidth: 680, mx: { xs: "auto", md: 0 } }}>
                   <Typography 
                     variant="body2" 
@@ -473,9 +635,9 @@ export default function ProfileEnhanced() {
                       fontSize: 14,
                     }}
                   >
-                    {bioExpanded ? aboutData.bio : getBioPreview(aboutData.bio)}
+                    {bioExpanded ? userDetails.bio : getBioPreview(userDetails.bio)}
                   </Typography>
-                  {shouldShowSeeMore(aboutData.bio) && (
+                  {shouldShowSeeMore(userDetails.bio) && (
                     <Button
                       size="small"
                       onClick={() => setBioExpanded(!bioExpanded)}
@@ -496,6 +658,7 @@ export default function ProfileEnhanced() {
                 </Box>
               )}
 
+              {/* Additional Info Chips */}
               <Stack
                 direction="row"
                 spacing={1}
@@ -506,244 +669,89 @@ export default function ProfileEnhanced() {
                   gap: 1.5,
                 }}
               >
-                <Chip 
-                  icon={<VisibilityIcon sx={{ fontSize: 18 }} />} 
-                  label={`${profileStats.views.toLocaleString()}`} 
-                  size="medium"
-                  sx={{ 
-                    fontWeight: 600,
-                    bgcolor: (t) => alpha(t.palette.mode === "dark" ? "#667eea" : "#667eea", 0.08),
-                    color: "#667eea",
-                    borderRadius: 3,
-                    px: 1,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: (t) => alpha("#667eea", 0.15),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(102, 126, 234, 0.2)",
-                    },
-                  }}
-                />
-                <Chip 
-                  icon={<ThumbUpIcon sx={{ fontSize: 18 }} />} 
-                  label={`${profileStats.likes.toLocaleString()}`} 
-                  size="medium"
-                  sx={{ 
-                    fontWeight: 600,
-                    bgcolor: (t) => alpha("#764ba2", 0.08),
-                    color: "#764ba2",
-                    borderRadius: 3,
-                    px: 1,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: (t) => alpha("#764ba2", 0.15),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(118, 75, 162, 0.2)",
-                    },
-                  }}
-                />
-                <Chip 
-                  icon={<PeopleIcon sx={{ fontSize: 18 }} />} 
-                  label={`${profileStats.friends}`} 
-                  size="medium"
-                  sx={{ 
-                    fontWeight: 600,
-                    bgcolor: (t) => alpha("#667eea", 0.08),
-                    color: "#667eea",
-                    borderRadius: 3,
-                    px: 1,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: (t) => alpha("#667eea", 0.15),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(102, 126, 234, 0.2)",
-                    },
-                  }}
-                />
-                <Chip 
-                  icon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />} 
-                  label={`${profileStats.photos}`} 
-                  size="medium"
-                  sx={{ 
-                    fontWeight: 600,
-                    bgcolor: (t) => alpha("#764ba2", 0.08),
-                    color: "#764ba2",
-                    borderRadius: 3,
-                    px: 1,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: (t) => alpha("#764ba2", 0.15),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(118, 75, 162, 0.2)",
-                    },
-                  }}
-                />
-                <Chip 
-                  icon={<ArticleIcon sx={{ fontSize: 18 }} />} 
-                  label={`${profileStats.posts}`} 
-                  size="medium"
-                  sx={{ 
-                    fontWeight: 600,
-                    bgcolor: (t) => alpha("#667eea", 0.08),
-                    color: "#667eea",
-                    borderRadius: 3,
-                    px: 1,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: (t) => alpha("#667eea", 0.15),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(102, 126, 234, 0.2)",
-                    },
-                  }}
-                />
+                {userDetails?.city && (
+                  <Chip 
+                    icon={<LocationOnIcon sx={{ fontSize: 16 }} />}
+                    label={userDetails.city}
+                    size="small"
+                    sx={{ 
+                      fontWeight: 500,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      color: "primary.main",
+                      borderRadius: 3,
+                      px: 1,
+                    }}
+                  />
+                )}
+                {userDetails?.workplace && (
+                  <Chip 
+                    icon={<WorkIcon sx={{ fontSize: 16 }} />}
+                    label={userDetails.workplace}
+                    size="small"
+                    sx={{ 
+                      fontWeight: 500,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      color: "primary.main",
+                      borderRadius: 3,
+                      px: 1,
+                    }}
+                  />
+                )}
+                {userDetails?.position && (
+                  <Chip 
+                    icon={<WorkIcon sx={{ fontSize: 16 }} />}
+                    label={userDetails.position}
+                    size="small"
+                    sx={{ 
+                      fontWeight: 500,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      color: "primary.main",
+                      borderRadius: 3,
+                      px: 1,
+                    }}
+                  />
+                )}
               </Stack>
 
-              <Stack
-                direction="row"
-                spacing={1.5}
-                sx={{ justifyContent: { xs: "center", md: "flex-start" }, flexWrap: "wrap", gap: 1.5 }}
-              >
-                <Button
-                  variant="contained"
-                  startIcon={<PersonAddIcon />}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 3,
-                    py: 1,
-                    fontSize: 15,
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)",
-                      boxShadow: "0 6px 20px rgba(102, 126, 234, 0.5)",
-                      transform: "translateY(-2px)",
-                    },
-                    transition: "all 0.3s ease",
-                  }}
-                >
-                  Add Friend
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<MessageIcon />}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 3,
-                    py: 1,
-                    fontSize: 15,
-                    borderWidth: 2,
-                    borderColor: (t) => t.palette.mode === "dark" ? alpha("#667eea", 0.5) : "#667eea",
-                    color: "#667eea",
-                    "&:hover": {
-                      borderWidth: 2,
-                      borderColor: "#764ba2",
-                      bgcolor: alpha("#667eea", 0.05),
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(102, 126, 234, 0.2)",
-                    },
-                    transition: "all 0.3s ease",
-                  }}
-                >
-                  Message
-                </Button>
-                <IconButton
-                  onClick={handleMenuOpen}
-                  sx={{
-                    border: "2px solid",
-                    borderColor: "divider",
-                    borderRadius: 3,
-                    "&:hover": {
-                      borderColor: "primary.main",
-                      bgcolor: alpha("#667eea", 0.05),
-                      transform: "translateY(-2px)",
-                    },
-                    transition: "all 0.3s ease",
-                  }}
-                >
-                  <MoreHorizIcon />
-                </IconButton>
-              </Stack>
             </Box>
           </Box>
 
-          <Divider sx={{ my: 3 }} />
-          <Box
-            sx={{
-              bgcolor: "background.paper",
-              borderRadius: 0,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              mx: -3,
-              px: 3,
-            }}
-          >
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                minHeight: 48,
-                "& .MuiTabs-indicator": {
-                  height: 3,
-                  borderRadius: "3px 3px 0 0",
-                  background: "linear-gradient(90deg, #667eea 0%, #764ba2 100%)",
-                },
-                "& .MuiTab-root": {
-                  textTransform: "none",
-                  fontSize: 15,
-                  fontWeight: 500,
-                  minHeight: 48,
-                  color: "text.secondary",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    color: "primary.main",
-                    bgcolor: alpha("#667eea", 0.04),
-                  },
-                  "&.Mui-selected": {
-                    color: "primary.main",
-                    fontWeight: 700,
-                  },
-                },
-              }}
-            >
-              <Tab label="Posts" />
-              <Tab label="About" />
-              <Tab label="Friends" />
-              <Tab label="Photos" />
-              <Tab label="Activity" />
-            </Tabs>
-          </Box>
         </Paper>
 
-        <Box>
-          {activeTab === 0 && (
-            <Box sx={{ maxWidth: 680, mx: "auto" }}>
-              {mockPosts.map((post) => (
-                <Post key={post.id} post={post} />
-              ))}
-            </Box>
-          )}
-
-          {activeTab === 1 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: 4,
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      About Me
-                    </Typography>
+        <Box sx={{ mt: 3 }}>
+          <Grid container spacing={3}>
+            {/* About Section - Left Side */}
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={(t) => ({
+                  borderRadius: 5,
+                  p: { xs: 2.5, sm: 3, md: 4 },
+                  border: "1px solid",
+                  borderColor: "divider",
+                  boxShadow: t.palette.mode === "dark"
+                    ? "0 4px 20px rgba(0, 0, 0, 0.3)"
+                    : "0 4px 20px rgba(0, 0, 0, 0.06)",
+                  backgroundImage: t.palette.mode === "dark"
+                    ? "linear-gradient(135deg, rgba(139, 154, 255, 0.03) 0%, rgba(151, 117, 212, 0.03) 100%)"
+                    : "linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    boxShadow: t.palette.mode === "dark"
+                      ? "0 8px 32px rgba(0, 0, 0, 0.4)"
+                      : "0 8px 32px rgba(0, 0, 0, 0.1)",
+                    transform: "translateY(-2px)",
+                  },
+                  position: "sticky",
+                  top: 20,
+                  maxHeight: "calc(100vh - 40px)",
+                  overflowY: "auto",
+                })}
+              >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: 18, sm: 20 } }}>
+                    Giới thiệu
+                  </Typography>
                     <IconButton
                       size="small"
                       onClick={() => setEditingAbout(!editingAbout)}
@@ -768,50 +776,103 @@ export default function ProfileEnhanced() {
                         label="Bio"
                         multiline
                         rows={4}
-                        value={aboutData.bio}
-                        onChange={(e) => setAboutData({ ...aboutData, bio: e.target.value })}
+                        value={editProfileData?.bio || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, bio: e.target.value });
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="City"
+                        value={editProfileData?.city || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, city: e.target.value });
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Date of Birth"
+                        type="date"
+                        value={editProfileData?.dob ? (editProfileData.dob.includes('T') ? editProfileData.dob.split('T')[0] : editProfileData.dob) : ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, dob: e.target.value });
+                        }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Phone"
+                        value={editProfileData?.phone || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, phone: e.target.value });
+                        }}
+                        placeholder="+1 234 567 8900"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Website"
+                        value={editProfileData?.website || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, website: e.target.value });
+                        }}
+                        placeholder="https://example.com"
                       />
                       <TextField
                         fullWidth
                         label="Workplace"
-                        value={aboutData.workplace}
-                        onChange={(e) => setAboutData({ ...aboutData, workplace: e.target.value })}
+                        value={editProfileData?.workplace || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, workplace: e.target.value });
+                        }}
+                        placeholder="Company Name"
                       />
                       <TextField
                         fullWidth
-                        label="Position"
-                        value={aboutData.position}
-                        onChange={(e) => setAboutData({ ...aboutData, position: e.target.value })}
+                        label="Position/Job Title"
+                        value={editProfileData?.position || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, position: e.target.value });
+                        }}
+                        placeholder="Senior Developer"
                       />
                       <TextField
                         fullWidth
                         label="Education"
-                        value={aboutData.education}
-                        onChange={(e) => setAboutData({ ...aboutData, education: e.target.value })}
+                        value={editProfileData?.education || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, education: e.target.value });
+                        }}
+                        placeholder="University, Degree"
                       />
                       <TextField
                         fullWidth
-                        label="Location"
-                        value={aboutData.location}
-                        onChange={(e) => setAboutData({ ...aboutData, location: e.target.value })}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Birthdate"
-                        value={aboutData.birthdate}
-                        onChange={(e) => setAboutData({ ...aboutData, birthdate: e.target.value })}
-                      />
-                      <TextField
-                        fullWidth
+                        select
                         label="Relationship Status"
-                        value={aboutData.relationship}
-                        onChange={(e) => setAboutData({ ...aboutData, relationship: e.target.value })}
-                      />
+                        value={editProfileData?.relationship || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, relationship: e.target.value });
+                        }}
+                        SelectProps={{
+                          native: true,
+                        }}
+                      >
+                        <option value="">Select...</option>
+                        <option value="Single">Single</option>
+                        <option value="In a relationship">In a relationship</option>
+                        <option value="Engaged">Engaged</option>
+                        <option value="Married">Married</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Widowed">Widowed</option>
+                        <option value="Prefer not to say">Prefer not to say</option>
+                      </TextField>
                       
                       <Stack direction="row" spacing={1.5} justifyContent="flex-end">
                         <Button
                           variant="outlined"
-                          onClick={() => setEditingAbout(false)}
+                          onClick={() => {
+                            setEditingAbout(false);
+                            setEditProfileData(null);
+                          }}
                           sx={{ 
                             textTransform: "none", 
                             borderRadius: 2,
@@ -821,7 +882,7 @@ export default function ProfileEnhanced() {
                             },
                           }}
                         >
-                          Cancel
+                          Hủy
                         </Button>
                         <Button
                           variant="contained"
@@ -842,423 +903,418 @@ export default function ProfileEnhanced() {
                     </Stack>
                   ) : (
                     <Stack spacing={3}>
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                        <WorkIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Works at
-                          </Typography>
-                          <Typography variant="body1" fontWeight={600}>
-                            {aboutData.workplace}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {aboutData.position}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Divider />
-
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                        <SchoolIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Studied at
-                          </Typography>
-                          <Typography variant="body1" fontWeight={600}>
-                            {aboutData.education}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Divider />
-
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                        <LocationOnIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Lives in
-                          </Typography>
-                          <Typography variant="body1" fontWeight={600}>
-                            {aboutData.location}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Divider />
-
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                        <CakeIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Born on
-                          </Typography>
-                          <Typography variant="body1" fontWeight={600}>
-                            {aboutData.birthdate}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Divider />
-
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                        <FavoriteIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Relationship
-                          </Typography>
-                          <Typography variant="body1" fontWeight={600}>
-                            {aboutData.relationship}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {aboutData.interests && aboutData.interests.length > 0 && (
+                      {userDetails?.city && (
                         <>
-                          <Divider />
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                              Interests
-                            </Typography>
-                            <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                              {aboutData.interests.map((interest, idx) => (
-                                <Chip 
-                                  key={idx} 
-                                  label={interest} 
-                                  size="small"
-                                  sx={{ 
-                                    bgcolor: alpha("#667eea", 0.1),
-                                    color: "primary.main",
-                                    fontWeight: 600,
-                                  }}
-                                />
-                              ))}
-                            </Stack>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <LocationOnIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Lives in
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.city}
+                              </Typography>
+                            </Box>
                           </Box>
+                          <Divider />
                         </>
+                      )}
+
+                      {userDetails?.dob && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <CakeIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Date of Birth
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {new Date(userDetails.dob).toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.email && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <WorkIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Email
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.phone && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <PhoneIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Phone
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.phone}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.website && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <LanguageIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Website
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                <a 
+                                  href={userDetails.website.startsWith('http') ? userDetails.website : `https://${userDetails.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ color: 'inherit', textDecoration: 'none' }}
+                                >
+                                  {userDetails.website}
+                                </a>
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.workplace && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <BusinessIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Workplace
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.workplace}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.position && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <WorkIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Position
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.position}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.education && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                            <SchoolIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Education
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {userDetails.education}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Divider />
+                        </>
+                      )}
+
+                      {userDetails?.relationship && (
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                          <FavoriteIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Relationship
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {userDetails.relationship}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
                     </Stack>
                   )}
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: 4,
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    mb: 3,
+            {/* Posts Section */}
+            <Grid item xs={12} md={7}>
+              <Box>
+              {postsLoading && posts.length === 0 ? (
+                <Box 
+                  sx={{ 
+                    display: "flex", 
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center", 
+                    py: 6,
+                    gap: 2
                   }}
                 >
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                    <TrendingUpIcon sx={{ color: "primary.main" }} />
-                    Skills
+                  <CircularProgress 
+                    size="40px" 
+                    color="primary"
+                    sx={{
+                      "& .MuiCircularProgress-circle": {
+                        strokeLinecap: "round",
+                      },
+                    }}
+                  />
+                  <Typography 
+                    sx={{ 
+                      fontSize: 15, 
+                      color: "text.secondary",
+                      fontWeight: 500
+                    }}
+                  >
+                    Đang tải bài viết...
                   </Typography>
-                  <Stack spacing={2}>
-                    {mockSkills.map((skill, idx) => (
-                      <Box key={idx}>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                          <Typography variant="body2" fontWeight={600}>
-                            {skill.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {skill.level}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={skill.level}
-                          sx={{
-                            height: 8,
-                            borderRadius: 4,
-                            bgcolor: alpha("#667eea", 0.1),
-                            "& .MuiLinearProgress-bar": {
-                              background: "linear-gradient(90deg, #667eea 0%, #764ba2 100%)",
-                              borderRadius: 4,
+                </Box>
+              ) : posts.length === 0 ? (
+                <Paper
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 5,
+                    p: 6,
+                    textAlign: "center",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                    boxShadow: t.palette.mode === "dark"
+                      ? "0 4px 20px rgba(0, 0, 0, 0.3)"
+                      : "0 4px 20px rgba(0, 0, 0, 0.06)",
+                    backgroundImage: t.palette.mode === "dark"
+                      ? "linear-gradient(135deg, rgba(139, 154, 255, 0.03) 0%, rgba(151, 117, 212, 0.03) 100%)"
+                      : "linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)",
+                  })}
+                >
+                  <Box
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: "50%",
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      mx: "auto",
+                      mb: 3,
+                      animation: "pulse 2s ease-in-out infinite",
+                      "@keyframes pulse": {
+                        "0%, 100%": {
+                          transform: "scale(1)",
+                          opacity: 1,
+                        },
+                        "50%": {
+                          transform: "scale(1.05)",
+                          opacity: 0.8,
+                        },
+                      },
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 56,
+                        color: "primary.main",
+                      }}
+                    >
+                      📝
+                    </Typography>
+                  </Box>
+                  <Typography 
+                    variant="h6" 
+                    color="text.primary" 
+                    gutterBottom 
+                    sx={{ 
+                      fontWeight: 700,
+                      fontSize: 22,
+                      mb: 1.5
+                    }}
+                  >
+                    Chưa có bài viết nào
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ 
+                      mb: 3,
+                      fontSize: 15
+                    }}
+                  >
+                    Bạn chưa đăng bài viết nào. Hãy tạo bài viết đầu tiên để chia sẻ với mọi người!
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate("/")}
+                    sx={{
+                      textTransform: "none",
+                      borderRadius: 3,
+                      px: 4,
+                      py: 1.5,
+                      fontSize: 15,
+                      fontWeight: 600,
+                      background: (t) => t.palette.mode === "dark"
+                        ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                        : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      boxShadow: (t) => t.palette.mode === "dark"
+                        ? "0 4px 15px rgba(139, 154, 255, 0.4)"
+                        : "0 4px 15px rgba(102, 126, 234, 0.4)",
+                      "&:hover": {
+                        background: (t) => t.palette.mode === "dark"
+                          ? "linear-gradient(135deg, #7a89e6 0%, #8664bb 100%)"
+                          : "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                        boxShadow: (t) => t.palette.mode === "dark"
+                          ? "0 6px 20px rgba(139, 154, 255, 0.5)"
+                          : "0 6px 20px rgba(102, 126, 234, 0.5)",
+                        transform: "translateY(-2px)",
+                      },
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    Tạo bài viết mới
+                  </Button>
+                </Paper>
+              ) : (
+                <Box>
+                  {posts.map((post, index) => {
+                    const isLast = posts.length === index + 1;
+                    return (
+                      <Box
+                        key={post.id}
+                        sx={{
+                          animation: `fadeInUp 0.5s ease ${index * 0.1}s both`,
+                          "@keyframes fadeInUp": {
+                            from: {
+                              opacity: 0,
+                              transform: "translateY(20px)",
                             },
+                            to: {
+                              opacity: 1,
+                              transform: "translateY(0)",
+                            },
+                          },
+                        }}
+                      >
+                        <Post
+                          ref={isLast ? lastPostElementRef : null}
+                          post={post}
+                          onEdit={async (id, content) => {
+                            try {
+                              await updatePost(id, { content });
+                              setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, content } : p)));
+                              setSnackbar({ open: true, message: "Đã cập nhật bài viết thành công!", severity: "success" });
+                            } catch (error) {
+                              console.error('Error updating post:', error);
+                              setSnackbar({ open: true, message: "Không thể cập nhật bài viết. Vui lòng thử lại.", severity: "error" });
+                            }
+                          }}
+                          onDelete={async (id) => {
+                            try {
+                              await deletePost(id);
+                              setPosts((prev) => prev.filter((p) => p.id !== id));
+                              setSnackbar({ open: true, message: "Đã xóa bài viết thành công!", severity: "success" });
+                            } catch (error) {
+                              console.error('Error deleting post:', error);
+                              setSnackbar({ open: true, message: "Không thể xóa bài viết. Vui lòng thử lại.", severity: "error" });
+                            }
                           }}
                         />
                       </Box>
-                    ))}
-                  </Stack>
-                </Paper>
+                    );
+                  })}
 
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: 4,
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                    <EmojiEventsIcon sx={{ color: "primary.main" }} />
-                    Achievements
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                      <Box
+                  {postsLoading && (
+                    <Box 
+                      sx={{ 
+                        display: "flex", 
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center", 
+                        py: 4,
+                        gap: 2
+                      }}
+                    >
+                      <CircularProgress 
+                        size="32px" 
+                        color="primary"
                         sx={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 2,
-                          background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 24,
+                          "& .MuiCircularProgress-circle": {
+                            strokeLinecap: "round",
+                          },
+                        }}
+                      />
+                      <Typography 
+                        sx={{ 
+                          fontSize: 14, 
+                          color: "text.secondary",
+                          fontWeight: 500
                         }}
                       >
-                        🏆
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" fontWeight={600}>
-                          Top Contributor
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Earned last month
-                        </Typography>
-                      </Box>
+                        Đang tải thêm bài viết...
+                      </Typography>
                     </Box>
-                    <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                  )}
+
+                  {!postsLoading && posts.length > 0 && postsPage >= postsTotalPages && (
+                    <Box 
+                      sx={{ 
+                        display: "flex", 
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center", 
+                        py: 4,
+                        gap: 1
+                      }}
+                    >
                       <Box
                         sx={{
-                          width: 48,
-                          height: 48,
+                          width: 60,
+                          height: 4,
                           borderRadius: 2,
-                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 24,
+                          bgcolor: (t) => alpha(t.palette.primary.main, 0.2),
+                          mb: 1,
                         }}
-                      >
-                        ⭐
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" fontWeight={600}>
-                          Rising Star
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          100+ connections
-                        </Typography>
-                      </Box>
+                      />
+                      <Typography sx={{ fontSize: 14, color: "text.secondary", fontWeight: 500 }}>
+                        Đã hiển thị tất cả bài viết
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, color: "text.disabled" }}>
+                        Đã hiển thị {posts.length} bài viết
+                      </Typography>
                     </Box>
-                  </Stack>
-                </Paper>
-              </Grid>
+                  )}
+                </Box>
+              )}
+              </Box>
             </Grid>
-          )}
-
-          {activeTab === 2 && (
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: 4,
-                p: 3,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Friends ({mockFriends.length})
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small"
-                  sx={{ 
-                    textTransform: "none",
-                    borderRadius: 2,
-                    borderWidth: 2,
-                    "&:hover": {
-                      borderWidth: 2,
-                    },
-                  }}
-                >
-                  See All
-                </Button>
-              </Box>
-              <Grid container spacing={2}>
-                {mockFriends.map((friend) => (
-                  <Grid item xs={6} sm={4} md={3} lg={3} key={friend.id}>
-                    <Card
-                      elevation={0}
-                      sx={{
-                        borderRadius: 3,
-                        p: 2,
-                        textAlign: "center",
-                        border: "1px solid",
-                        borderColor: "divider",
-                        transition: "all 0.3s ease",
-                        cursor: "pointer",
-                        "&:hover": {
-                          transform: "translateY(-8px)",
-                          boxShadow: "0 12px 24px rgba(0,0,0,0.1)",
-                          borderColor: "primary.main",
-                        },
-                      }}
-                    >
-                      <Avatar
-                        src={friend.avatar}
-                        sx={{
-                          width: 80,
-                          height: 80,
-                          mx: "auto",
-                          mb: 1.5,
-                          border: "3px solid",
-                          borderColor: alpha("#667eea", 0.2),
-                        }}
-                      />
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 600, fontSize: 14, mb: 0.5 }}
-                        noWrap
-                      >
-                        {friend.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {friend.mutualFriends} mutual friends
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        sx={{
-                          mt: 1.5,
-                          textTransform: "none",
-                          borderRadius: 2,
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
-                      >
-                        View Profile
-                      </Button>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-          )}
-
-          {activeTab === 3 && (
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: 4,
-                p: 3,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Photos ({mockPhotos.length})
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small"
-                  sx={{ 
-                    textTransform: "none",
-                    borderRadius: 2,
-                    borderWidth: 2,
-                    "&:hover": {
-                      borderWidth: 2,
-                    },
-                  }}
-                >
-                  Upload
-                </Button>
-              </Box>
-              <Grid container spacing={1.5}>
-                {mockPhotos.map((photo, index) => (
-                  <Grid item xs={6} sm={4} md={3} key={index}>
-                    <Box
-                      component="img"
-                      src={photo}
-                      alt={`Photo ${index + 1}`}
-                      onClick={() => handlePhotoClick(index)}
-                      sx={{
-                        width: "100%",
-                        height: 200,
-                        objectFit: "cover",
-                        borderRadius: 2,
-                        cursor: "pointer",
-                        transition: "all 0.3s ease",
-                        "&:hover": {
-                          transform: "scale(1.05)",
-                          boxShadow: "0 8px 16px rgba(0,0,0,0.2)",
-                        },
-                      }}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-          )}
-
-          {activeTab === 4 && (
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: 4,
-                p: 3,
-                border: "1px solid",
-                borderColor: "divider",
-                maxWidth: 800,
-                mx: "auto",
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-                Recent Activity
-              </Typography>
-              <List sx={{ width: "100%" }}>
-                {mockActivities.map((activity, idx) => (
-                  <Box key={activity.id}>
-                    <ListItem
-                      sx={{
-                        px: 2,
-                        py: 2,
-                        borderRadius: 2,
-                        transition: "all 0.2s ease",
-                        "&:hover": {
-                          bgcolor: alpha("#667eea", 0.05),
-                        },
-                      }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar
-                          sx={{
-                            bgcolor: alpha("#667eea", 0.1),
-                            color: "text.primary",
-                          }}
-                        >
-                          {activity.icon}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={
-                          <Typography variant="body1" fontWeight={600}>
-                            {activity.text}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="body2" color="text.secondary">
-                            {activity.time}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                    {idx < mockActivities.length - 1 && <Divider variant="inset" component="li" />}
-                  </Box>
-                ))}
-              </List>
-            </Paper>
-          )}
+          </Grid>
         </Box>
       </Box>
 
@@ -1300,86 +1356,6 @@ export default function ProfileEnhanced() {
         </MenuItem>
       </Menu>
 
-      <Dialog
-        open={photoDialog.open}
-        onClose={handlePhotoClose}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: "transparent",
-            boxShadow: "none",
-            overflow: "visible",
-          },
-        }}
-      >
-        <DialogContent sx={{ p: 0, position: "relative" }}>
-          <IconButton
-            onClick={handlePhotoClose}
-            sx={{
-              position: "absolute",
-              top: -16,
-              right: -16,
-              bgcolor: "white",
-              zIndex: 1,
-              "&:hover": {
-                bgcolor: "white",
-                transform: "scale(1.1)",
-              },
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-          <Box
-            component="img"
-            src={mockPhotos[photoDialog.index]}
-            alt={`Photo ${photoDialog.index + 1}`}
-            sx={{
-              width: "100%",
-              maxHeight: "80vh",
-              objectFit: "contain",
-              borderRadius: 2,
-            }}
-          />
-          <IconButton
-            onClick={() => handlePhotoNav("prev")}
-            sx={{
-              position: "absolute",
-              left: -60,
-              top: "50%",
-              transform: "translateY(-50%)",
-              bgcolor: "white",
-              "&:hover": {
-                bgcolor: "white",
-                transform: "translateY(-50%) scale(1.1)",
-              },
-            }}
-          >
-            <NavigateBeforeIcon />
-          </IconButton>
-          <IconButton
-            onClick={() => handlePhotoNav("next")}
-            sx={{
-              position: "absolute",
-              right: -60,
-              top: "50%",
-              transform: "translateY(-50%)",
-              bgcolor: "white",
-              "&:hover": {
-                bgcolor: "white",
-                transform: "translateY(-50%) scale(1.1)",
-              },
-            }}
-          >
-            <NavigateNextIcon />
-          </IconButton>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: "center", pt: 2 }}>
-          <Typography variant="body2" color="white">
-            {photoDialog.index + 1} / {mockPhotos.length}
-          </Typography>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={snackbar.open}

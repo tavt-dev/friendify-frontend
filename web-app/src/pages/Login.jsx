@@ -25,6 +25,7 @@ import SparklesIcon from "@mui/icons-material/AutoAwesome";
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { logIn, isAuthenticated, loginWithGoogle } from "../services/identityService";
+import { useUser } from "../contexts/UserContext";
 import LoginLeftPanel from "../components/LoginLeftPanel";
 import { useColorMode } from "../contexts/ThemeContext";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -34,6 +35,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { mode, toggleColorMode } = useColorMode();
+  const { loadUser } = useUser();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
@@ -76,6 +78,8 @@ export default function Login() {
     try {
       const res = await logIn(username.trim(), password);
       if (res?.status === 200) {
+        // Load user info after successful login
+        await loadUser();
         navigate("/");
       } else {
         setSnack({ open: true, message: "Unable to sign in. Please try again.", severity: "error" });
