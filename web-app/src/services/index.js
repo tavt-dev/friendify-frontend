@@ -9,4 +9,5 @@ export * from './pageService';
 export * from './savedService';
 export * from './settingsService';
 export * from './postInteractionService';
+export * from './notificationService';
 export * from './localStorageService';

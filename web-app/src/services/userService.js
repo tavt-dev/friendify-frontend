@@ -1,122 +1,140 @@
 import httpClient from "../configurations/httpClient";
-import { API, CONFIG } from "../configurations/configuration";
+import { API } from "../configurations/configuration";
 import { getToken } from "./localStorageService";
-import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
+import { API_ENDPOINTS } from "../config/apiConfig";
+import { apiFetch } from "./apiHelper";
 
+/**
+ * Get current user's profile information
+ * @returns {Promise<{data: any, status: number}>}
+ */
 export const getMyInfo = async () => {
-  return await httpClient.get(API.MY_INFO, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-  });
-};
-
-export const updateProfile = async (profileData) => {
-  return await httpClient.put(API.UPDATE_PROFILE, profileData, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      "Content-Type": "application/json",
-    },
-  });
-};
-
-export const uploadAvatar = async (formData) => {
-  return await httpClient.put(API.UPDATE_AVATAR, formData, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      "Content-Type": "multipart/form-data",
-    },
-  });
-};
-
-export const uploadBackground = async (formData) => {
   try {
-    const token = getToken();
-    if (!token) {
-      throw new Error('No token found');
-    }
-
-    console.log('Uploading background to:', `${CONFIG.API_GATEWAY}${API.UPDATE_BACKGROUND}`);
-
-    // Use fetch directly for FormData to avoid axios issues with multipart/form-data
-    const response = await fetch(`${CONFIG.API_GATEWAY}${API.UPDATE_BACKGROUND}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        // Don't set Content-Type - browser will set it with boundary for FormData
-      },
-      body: formData,
-    });
-
-    console.log('Background upload response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Background upload error:', errorData);
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    const data = await response.json();
-    console.log('Background upload success:', data);
-    return { data, status: response.status };
+    // Use direct endpoint for my-profile
+    const endpoint = '/profile/users/my-profile';
+    const response = await apiFetch(endpoint);
+    return response;
   } catch (error) {
-    console.error('Error uploading background:', error);
-    // If it's already formatted error, re-throw
-    if (error.response) {
-      throw error;
+    console.warn('Failed to load profile with new endpoint, trying fallback:', error);
+    // Fallback to old method if new endpoint fails
+    try {
+      const fallbackResponse = await httpClient.get(API.MY_INFO, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      return fallbackResponse;
+    } catch (fallbackError) {
+      console.error('Both endpoints failed:', fallbackError);
+      throw error; // Throw original error
     }
-    // Otherwise, wrap it
-    throw { response: { status: error.status || 500, data: { message: error.message } } };
   }
 };
 
-export const search = async (keyword) => {
-  return await httpClient.post(
-    API.SEARCH_USER,
-    { keyword: keyword },
-    {
+/**
+ * Update user profile
+ * @param {Object} profileData - Profile data to update
+ * @returns {Promise<{data: any, status: number}>}
+ */
+export const updateProfile = async (profileData) => {
+  try {
+    const endpoint = API_ENDPOINTS.USER.GET_PROFILE.replace(':id', 'my-profile');
+    return await apiFetch(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  } catch (error) {
+    // Fallback to old method
+    return await httpClient.put(API.UPDATE_PROFILE, profileData, {
       headers: {
         Authorization: `Bearer ${getToken()}`,
         "Content-Type": "application/json",
       },
-    }
-  );
+    });
+  }
+};
+
+/**
+ * Upload avatar image
+ * @param {FormData} formData - FormData containing the image file
+ * @returns {Promise<{data: any, status: number}>}
+ */
+export const uploadAvatar = async (formData) => {
+  try {
+    const endpoint = '/profile/users/avatar';
+    return await apiFetch(endpoint, {
+      method: 'PUT',
+      body: formData,
+    });
+  } catch (error) {
+    // Fallback to old method
+    return await httpClient.put(API.UPDATE_AVATAR, formData, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+};
+
+/**
+ * Upload background/cover image
+ * @param {FormData} formData - FormData containing the image file
+ * @returns {Promise<{data: any, status: number}>}
+ */
+export const uploadBackground = async (formData) => {
+  return apiFetch(API_ENDPOINTS.USER.UPDATE_BACKGROUND, {
+    method: 'PUT',
+    body: formData,
+  });
+};
+
+/**
+ * Search users
+ * @param {string} keyword - Search keyword
+ * @returns {Promise<{data: any, status: number}>}
+ */
+export const search = async (keyword) => {
+  try {
+    return await apiFetch(API_ENDPOINTS.USER.SEARCH, {
+      method: 'POST',
+      body: JSON.stringify({ keyword }),
+    });
+  } catch (error) {
+    // Fallback to old method
+    return await httpClient.post(
+      API.SEARCH_USER,
+      { keyword: keyword },
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
 };
 
 /**
  * Get user profile by ID
  * @param {string} userId - User ID
+ * @param {boolean} suppress404 - If true, suppress 404 errors (default: true)
  * @returns {Promise<{data: any, status: number}>}
  */
-export const getUserProfileById = async (userId) => {
+export const getUserProfileById = async (userId, suppress404 = true) => {
+  if (!userId) {
+    throw { response: { status: 400, data: { message: 'User ID is required' } } };
+  }
+
   try {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-
     const endpoint = API_ENDPOINTS.USER.GET_PROFILE.replace(':id', encodeURIComponent(String(userId).trim()));
-    const url = getApiUrl(endpoint);
-    
-    console.log('Fetching user profile from:', url);
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Get user profile API error:', response.status, errorData);
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    const data = await response.json();
-    console.log('User profile response:', data);
-    return { data, status: response.status };
+    return await apiFetch(endpoint, { suppress404 });
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    // If 404 and not suppressed, return empty data instead of throwing
+    if (error?.response?.status === 404) {
+      return { data: null, status: 404 };
+    }
+    // Re-throw other errors
     throw error;
   }
 };

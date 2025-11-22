@@ -32,11 +32,9 @@ export function UserProvider({ children }) {
       if (response.data?.result) {
         setUser(response.data.result);
       } else {
-        console.warn('User data format unexpected:', response.data);
         setUser(null);
       }
     } catch (err) {
-      console.error('Error loading user profile:', err);
       setError(err);
       if (err?.response?.status === 401) {
         logOut();

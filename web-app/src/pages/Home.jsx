@@ -1,20 +1,23 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box, Card, CircularProgress, Typography, Fab, Popover, TextField,
   Button, Snackbar, Alert, Avatar, Paper, Divider, IconButton,
-  FormControl, Select, MenuItem, InputLabel, Chip, Stack
+  FormControl, Select, MenuItem, InputLabel, Chip, Stack, Fade, Zoom
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import ImageIcon from "@mui/icons-material/Image";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { logOut } from "../services/identityService";
 import { getPublicPosts, createPost, updatePost } from "../services/postService";
 import { useUser } from "../contexts/UserContext";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
+import { extractArrayFromResponse } from "../utils/apiHelper";
+import { getUserProfileById } from "../services/userService";
 import Scene from "./Scene";
 import Post from "../components/Post";
 import RightSidebar from "../components/RightSidebar";
@@ -36,8 +39,42 @@ export default function Home() {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const mediaUploadRef = useRef();
+  const [cursor, setCursor] = useState({ x: 50, y: 50 });
+  const cursorUpdateRef = useRef(null);
+  const lastCursorUpdateRef = useRef(0);
+  const [enableCursorTracking, setEnableCursorTracking] = useState(false); // Disable by default for performance
 
   const navigate = useNavigate();
+
+  const handleMouseMove = useCallback((e) => {
+    // Only track cursor if enabled (for better performance)
+    if (!enableCursorTracking) return;
+    
+    const now = Date.now();
+    // Throttle cursor updates to reduce lag (300ms for better performance)
+    if (now - lastCursorUpdateRef.current < 300) {
+      return;
+    }
+    lastCursorUpdateRef.current = now;
+
+    if (cursorUpdateRef.current) {
+      cancelAnimationFrame(cursorUpdateRef.current);
+    }
+
+    cursorUpdateRef.current = requestAnimationFrame(() => {
+      const x = Math.round((e.clientX / window.innerWidth) * 100);
+      const y = Math.round((e.clientY / window.innerHeight) * 100);
+      setCursor({ x, y });
+    });
+  }, [enableCursorTracking]);
+
+  useEffect(() => {
+    return () => {
+      if (cursorUpdateRef.current) {
+        cancelAnimationFrame(cursorUpdateRef.current);
+      }
+    };
+  }, []);
 
   const handleCreatePostClick = (e) => setAnchorEl(e.currentTarget);
 
@@ -81,7 +118,6 @@ export default function Home() {
         setSnackbarOpen(true);
       }
     } catch (error) {
-      console.error('Error updating post:', error);
       setSnackbarMessage("Không thể cập nhật bài viết. Vui lòng thử lại.");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -109,264 +145,203 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  // Cache for avatars to avoid repeated API calls
+  const avatarCacheRef = useRef(new Map());
+  const userInfoCacheRef = useRef(new Map());
+
   const loadPosts = async (page) => {
     setLoading(true);
     try {
-      const res = await getPublicPosts(page, 10); // Load 10 posts per page
-        console.log('=== Response from getPublicPosts ===');
-        console.log('Full response:', res);
-        console.log('Response data:', res.data);
-        console.log('Response data.result:', res.data?.result);
+      const res = await getPublicPosts(page, 10);
+      const { items: newPosts, totalPages: totalPagesCount } = extractArrayFromResponse(res.data);
+      setTotalPages(totalPagesCount);
         
-        // Backend returns: ApiResponse<PageResponse<PostResponse>>
-        // Based on old code: response.data.result.data (posts array) and response.data.result.totalPages
-        // Format: { data: { result: { data: [...], totalPages: ... } } }
-        
-        let pageData = null;
-        let newPosts = [];
-        
-        // Check for format: { data: { result: { data: [...], totalPages: ... } } }
-        if (res.data?.result) {
-          pageData = res.data.result;
-          console.log('Found result in data.result:', pageData);
-          console.log('Result keys:', Object.keys(pageData || {}));
+      // Fetch avatars and user info for all unique user IDs (only if not cached)
+      const uniqueUserIds = [...new Set(newPosts.map(p => p.userId).filter(Boolean))];
+      const avatarMap = new Map();
+      const userInfoMap = new Map();
+      const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=667eea&color=fff&size=128";
+      
+      // Get cached data first
+      uniqueUserIds.forEach(userId => {
+        if (avatarCacheRef.current.has(userId)) {
+          avatarMap.set(userId, avatarCacheRef.current.get(userId));
+        }
+        if (userInfoCacheRef.current.has(userId)) {
+          userInfoMap.set(userId, userInfoCacheRef.current.get(userId));
+        }
+      });
+      
+      // Only fetch avatars for users not in cache
+      const uncachedUserIds = uniqueUserIds.filter(userId => !avatarCacheRef.current.has(userId));
+      
+      if (uncachedUserIds.length > 0) {
+        // Batch requests with limit to avoid too many concurrent requests
+        const batchSize = 5;
+        for (let i = 0; i < uncachedUserIds.length; i += batchSize) {
+          const batch = uncachedUserIds.slice(i, i + batchSize);
           
-          // Try to get posts from result.data (old format)
-          if (pageData.data && Array.isArray(pageData.data)) {
-            newPosts = pageData.data;
-            setTotalPages(pageData.totalPages || 1);
-            console.log('✓ Found posts in result.data:', newPosts.length, 'Total pages:', pageData.totalPages);
-          }
-          // Try to get posts from result.content (standard PageResponse format)
-          else if (pageData.content && Array.isArray(pageData.content)) {
-            newPosts = pageData.content;
-            setTotalPages(pageData.totalPages || 1);
-            console.log('✓ Found posts in result.content:', newPosts.length, 'Total pages:', pageData.totalPages);
-          }
-          // If result is directly an array
-          else if (Array.isArray(pageData)) {
-            newPosts = pageData;
-            setTotalPages(1);
-            console.log('✓ Result is array, posts count:', newPosts.length);
-          }
-        } 
-        // Fallback: direct PageResponse in data
-        else if (res.data?.content) {
-          pageData = res.data;
-          newPosts = pageData.content;
-          setTotalPages(pageData.totalPages || 1);
-          console.log('✓ Found content directly in data:', newPosts.length);
-        }
-        // Fallback: data is the PageResponse
-        else if (res.data && typeof res.data === 'object') {
-          pageData = res.data;
-          if (Array.isArray(pageData)) {
-            newPosts = pageData;
-            setTotalPages(1);
-            console.log('✓ Data is array, posts count:', newPosts.length);
-          } else if (pageData.data && Array.isArray(pageData.data)) {
-            newPosts = pageData.data;
-            setTotalPages(pageData.totalPages || 1);
-            console.log('✓ Found posts in data.data:', newPosts.length);
-          } else if (pageData.content && Array.isArray(pageData.content)) {
-            newPosts = pageData.content;
-            setTotalPages(pageData.totalPages || 1);
-            console.log('✓ Found posts in data.content:', newPosts.length);
-          }
-        }
-        
-        // Fetch avatars for all unique user IDs
-        const uniqueUserIds = [...new Set(newPosts.map(p => p.userId).filter(Boolean))];
-        const avatarMap = new Map();
-        
-        // Fetch avatars in parallel - but skip if no valid user IDs
-        // Use default avatar if fetch fails
-        const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=667eea&color=fff&size=128";
-        let avatarPromises = [];
-        
-        if (uniqueUserIds.length > 0) {
-          avatarPromises = uniqueUserIds
+          const avatarPromises = batch
             .filter(userId => {
-              // Validate userId - must be a non-empty string
-              if (!userId) return false;
               const strId = String(userId).trim();
-              if (!strId || strId.length === 0) return false;
-              // Check if it looks like a valid ID (not empty, not just whitespace)
-              return strId.length > 0 && strId !== 'undefined' && strId !== 'null';
+              return strId && strId.length > 0 && strId !== 'undefined' && strId !== 'null';
             })
             .map(async (userId) => {
               try {
-                // Ensure userId is a clean string
                 const cleanUserId = String(userId).trim();
                 
-                // Build endpoint safely
-                const endpoint = API_ENDPOINTS.USER.GET_PROFILE.replace(':id', encodeURIComponent(cleanUserId));
-                const url = getApiUrl(endpoint);
+                // Use getUserProfileById with suppress404 to avoid console errors
+                const response = await getUserProfileById(cleanUserId, true);
                 
-                // Validate URL before making request
-                if (!url || !url.includes('/profile/')) {
-                  // Use default avatar if URL is invalid
-                  avatarMap.set(userId, defaultAvatar);
-                  return;
+                // Handle response - check if data exists and is not null
+                if (response && response.data !== null && response.data !== undefined) {
+                  const userData = response.data?.result || response.data?.data || response.data;
+                  
+                  // Only process if userData is valid
+                  if (userData && typeof userData === 'object') {
+                    const avatar = userData?.avatar || null;
+                    const finalAvatar = avatar || defaultAvatar;
+                    
+                    // Cache the results
+                    avatarCacheRef.current.set(userId, finalAvatar);
+                    avatarMap.set(userId, finalAvatar);
+                    
+                    // Store firstName and lastName
+                    if (userData?.firstName || userData?.lastName) {
+                      const userInfo = {
+                        firstName: userData.firstName || '',
+                        lastName: userData.lastName || '',
+                      };
+                      userInfoCacheRef.current.set(userId, userInfo);
+                      userInfoMap.set(userId, userInfo);
+                    }
+                    return { userId, success: true };
+                  }
                 }
-                
-                const response = await fetch(url, {
-                  headers: {
-                    'Authorization': `Bearer ${getToken()}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  const avatar = data?.result?.avatar || data?.data?.avatar || data?.avatar || null;
-                  // Use avatar if found, otherwise use default
-                  avatarMap.set(userId, avatar || defaultAvatar);
-                } else {
-                  // Use default avatar if fetch fails (404, etc.)
-                  avatarMap.set(userId, defaultAvatar);
-                }
-              } catch (error) {
-                // Use default avatar on error
+                // 404 or no data - use default avatar silently
+                avatarCacheRef.current.set(userId, defaultAvatar);
                 avatarMap.set(userId, defaultAvatar);
+                return { userId, success: false, reason: 'no_data' };
+              } catch (error) {
+                // Silently fail and use default avatar - don't log 404/400 errors
+                if (error?.response?.status !== 404 && error?.response?.status !== 400) {
+                  // Only log non-404/400 errors in development
+                  if (process.env.NODE_ENV === 'development') {
+                    console.warn(`Failed to load profile for user ${userId}:`, error);
+                  }
+                }
+                avatarCacheRef.current.set(userId, defaultAvatar);
+                avatarMap.set(userId, defaultAvatar);
+                return { userId, success: false, reason: 'error' };
               }
             });
           
-          // Wait for all avatar fetches to complete
-          await Promise.all(avatarPromises);
+          // Wait for batch to complete before starting next batch
+          await Promise.allSettled(avatarPromises);
         }
-        
-        // Debug: Log avatar map
-        console.log('Avatar map after fetch:', Array.from(avatarMap.entries()));
-        console.log('Unique user IDs:', uniqueUserIds);
-        
-        // Map posts to format expected by Post component
-        // Post component needs: { id, avatar, username, created, content, media }
-        const mappedPosts = newPosts.map((post) => {
-          // Map imageUrls to media format for MediaCarousel
-          // imageUrls is array of strings (URLs)
-          const media = (post.imageUrls || []).map((url) => ({
-            url: url,
-            type: 'image',
-            alt: `Post image ${post.id}`,
-          }));
-          
-          // Format created date
-          let created = 'Just now';
-          if (post.createdDate) {
-            const date = new Date(post.createdDate);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-            
-            if (diffMins < 1) {
-              created = 'Vừa xong';
-            } else if (diffMins < 60) {
-              created = `${diffMins} phút trước`;
-            } else if (diffHours < 24) {
-              created = `${diffHours} giờ trước`;
-            } else if (diffDays < 7) {
-              created = `${diffDays} ngày trước`;
-            } else {
-              created = date.toLocaleDateString('vi-VN');
-            }
-          } else if (post.created) {
-            created = post.created;
-          }
-          
-          // Get avatar from map or fallback, use default if none found
-          const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(post.username || post.userName || 'User') + "&background=667eea&color=fff&size=128";
-          
-          // Try to get avatar from map first
-          let avatar = avatarMap.get(post.userId);
-          
-          // If not in map, try other sources
-          if (!avatar) {
-            avatar = post.avatar || 
-                     post.userAvatar || 
-                     post.user?.avatar || 
-                     post.userProfile?.avatar || 
-                     null;
-          }
-          
-          // If still no avatar, use default
-          if (!avatar) {
-            avatar = defaultAvatar;
-          }
-          
-          // Debug log for first post
-          if (post.id === newPosts[0]?.id) {
-            console.log('First post avatar mapping:', {
-              userId: post.userId,
-              avatarFromMap: avatarMap.get(post.userId),
-              avatarFromPost: post.avatar,
-              finalAvatar: avatar
-            });
-          }
-          
-          return {
-            id: post.id,
-            avatar: avatar,
-            username: post.username || post.userName || post.user?.username || 'Unknown',
-            created: created,
-            content: post.content || '',
-            media: media,
-            userId: post.userId,
-            privacy: post.privacy || 'PUBLIC', // Ensure privacy is included
-            // Keep original post data for other uses
-            ...post,
-          };
-        });
-        
-        // Update posts state
-        if (mappedPosts && mappedPosts.length > 0) {
-          console.log('✓ Setting posts:', mappedPosts.length, 'posts');
-          console.log('Sample post:', mappedPosts[0]);
-          setPosts((prev) => {
-            // Avoid duplicates when loading page 1
-            if (page === 1) {
-              console.log('✓ Setting new posts (page 1):', mappedPosts.length);
-              return mappedPosts;
-            }
-            // Filter out duplicates based on post ID
-            const existingIds = new Set(prev.map(p => p.id));
-            const uniqueNewPosts = mappedPosts.filter(p => !existingIds.has(p.id));
-            console.log('✓ Adding unique posts:', uniqueNewPosts.length, 'from', mappedPosts.length);
-            return [...prev, ...uniqueNewPosts];
-          });
-        } else {
-          console.log('✗ No posts found in response');
-          if (page === 1) {
-            console.log('Clearing posts (page 1, no posts)');
-            setPosts([]);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading posts:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        if (error.response?.status === 401) {
-          logOut();
-          navigate("/login");
-        } else {
-          setSnackbarMessage("Không thể tải bài viết. Vui lòng thử lại.");
-          setSnackbarSeverity("error");
-          setSnackbarOpen(true);
-        }
-        
-        // Clear posts on error for first page
-        if (page === 1) {
-          setPosts([]);
-        }
-      } finally {
-        setLoading(false);
       }
+      
+      // Merge cached and newly fetched data
+      uniqueUserIds.forEach(userId => {
+        if (!avatarMap.has(userId) && avatarCacheRef.current.has(userId)) {
+          avatarMap.set(userId, avatarCacheRef.current.get(userId));
+        }
+        if (!userInfoMap.has(userId) && userInfoCacheRef.current.has(userId)) {
+          userInfoMap.set(userId, userInfoCacheRef.current.get(userId));
+        }
+      });
+        
+      // Format time ago function (moved outside to avoid recreation)
+      const formatTimeAgo = (dateString) => {
+        if (!dateString) return 'Vừa xong';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+      };
+
+      const mappedPosts = newPosts.map((post) => {
+        const media = (post.imageUrls || []).map((url) => ({
+          url: url,
+          type: 'image',
+          alt: `Post image ${post.id}`,
+        }));
+        
+        const created = formatTimeAgo(post.createdDate || post.created);
+        const postDefaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(post.username || post.userName || 'User')}&background=667eea&color=fff&size=128`;
+        
+        // Priority: userAvatar from post response (most up-to-date) > avatarMap > other fields > default
+        let avatar = post.userAvatar ||  // Backend trả về trong PostResponse
+                     post.avatar || 
+                     post.user?.avatar || 
+                     post.userProfile?.avatar ||
+                     avatarMap.get(post.userId) ||  // Fallback to fetched profile avatar
+                     postDefaultAvatar;
+        
+        const userInfo = userInfoMap.get(post.userId) || {};
+        
+        // Backend đã trả về displayName trong username field (theo PostService.java line 474)
+        // Nhưng chúng ta cần firstName/lastName để hiển thị đúng định dạng
+        const displayName = userInfo.firstName && userInfo.lastName
+          ? `${userInfo.lastName} ${userInfo.firstName}`.trim()
+          : userInfo.firstName || userInfo.lastName || post.username || post.userName || post.user?.username || 'Unknown';
+        
+        // Get userId from multiple possible sources
+        const postUserId = post.userId || post.user?.id || post.user?.userId || post.userId;
+        
+        return {
+          id: post.id,
+          avatar: avatar && avatar.trim() !== '' ? avatar : null, // Chỉ set avatar nếu có giá trị hợp lệ
+          username: post.username || post.userName || post.user?.username || 'Unknown',
+          firstName: userInfo.firstName || post.firstName || post.user?.firstName || '',
+          lastName: userInfo.lastName || post.lastName || post.user?.lastName || '',
+          displayName: displayName,
+          created: created,
+          content: post.content || '',
+          media: media,
+          userId: postUserId, // Ensure userId is always set
+          privacy: post.privacy || 'PUBLIC',
+          ...post,
+        };
+      });
+      
+      // Update posts state
+      if (mappedPosts && mappedPosts.length > 0) {
+        setPosts((prev) => {
+          if (page === 1) {
+            return mappedPosts;
+          }
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniqueNewPosts = mappedPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...uniqueNewPosts];
+        });
+      } else if (page === 1) {
+        setPosts([]);
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logOut();
+        navigate("/login");
+      } else {
+        setSnackbarMessage("Không thể tải bài viết. Vui lòng thử lại.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+      }
+      
+      if (page === 1) {
+        setPosts([]);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -377,6 +352,9 @@ export default function Home() {
       if (entries[0].isIntersecting && !loading && page < totalPages) {
         setPage((prev) => prev + 1);
       }
+    }, {
+      rootMargin: '200px', // Start loading earlier
+      threshold: 0.1,
     });
 
     if (lastPostElementRef.current) {
@@ -386,7 +364,7 @@ export default function Home() {
     return () => {
       if (observer.current) observer.current.disconnect();
     };
-  }, [posts, loading, page, totalPages]);
+  }, [posts.length, loading, page, totalPages]); // Only depend on posts.length instead of entire posts array
 
   const handlePostContent = async () => {
     if (!newPostContent.trim() && mediaFiles.length === 0) return;
@@ -402,20 +380,12 @@ export default function Home() {
       };
 
       const response = await createPost(postData);
-      
-      // Handle different response formats
       const newPost = response.data?.result || response.data;
       
-      console.log('Post created successfully:', newPost);
-      
       if (newPost) {
-        // Add new post to the beginning of the list
         setPosts((prev) => {
-          // Check if post already exists (avoid duplicates)
           const exists = prev.some(p => p.id === newPost.id);
-          if (exists) {
-            return prev;
-          }
+          if (exists) return prev;
           return [newPost, ...prev];
         });
         
@@ -428,8 +398,7 @@ export default function Home() {
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
       } else {
-        // Even if response format is unexpected, try to reload
-        console.warn('Unexpected response format, reloading posts...');
+        // Reload posts if response format is unexpected
         setPage(1);
         loadPosts(1);
         setNewPostContent("");
@@ -442,7 +411,6 @@ export default function Home() {
         setSnackbarOpen(true);
       }
     } catch (error) {
-      console.error('Error creating post:', error);
       setSnackbarMessage("Không thể tạo bài viết. Vui lòng thử lại.");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -454,6 +422,9 @@ export default function Home() {
   return (
     <Scene>
       <Box
+        onMouseMove={handleMouseMove}
+        onMouseEnter={() => setEnableCursorTracking(true)}
+        onMouseLeave={() => setEnableCursorTracking(false)}
         sx={{
           display: "flex",
           justifyContent: "center",
@@ -464,50 +435,84 @@ export default function Home() {
           px: { xs: 0, md: 2 },
           pb: { xs: 2, md: 0 },
           alignItems: "flex-start",
+          position: "relative",
         }}
       >
         <Box
           sx={{
             width: "100%",
-            maxWidth: 680,
+            maxWidth: { xs: "100%", sm: 720, md: 800 },
             flex: "1 1 auto",
             minWidth: 0,
           }}
         >
           {/* Create Post Composer */}
-          <Paper
-            elevation={0}
-            sx={(t) => ({
-              mb: { xs: 2, sm: 2.5, md: 3 },
-              borderRadius: { xs: 3, sm: 4, md: 5 },
-              bgcolor: "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-              p: { xs: 1.5, sm: 2, md: 2.5 },
-              position: "relative",
-              overflow: "hidden",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              backgroundImage: t.palette.mode === "dark"
-                ? "linear-gradient(135deg, rgba(139, 154, 255, 0.03) 0%, rgba(151, 117, 212, 0.03) 100%)"
-                : "linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)",
-              boxShadow: t.palette.mode === "dark"
-                ? "0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)"
-                : "0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
-              "&:hover": {
-                boxShadow: t.palette.mode === "dark"
-                  ? "0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
-                  : "0 8px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 1)",
-                borderColor: alpha(t.palette.primary.main, 0.35),
-                transform: "translateY(-2px)",
-              },
-            })}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 1.5 }, mb: { xs: 1.5, sm: 2 } }}>
+          <Fade in={true} timeout={600}>
+            <Paper
+              elevation={0}
+              sx={(t) => ({
+                mb: { xs: 3, sm: 3.5, md: 4 },
+                borderRadius: { xs: 5, sm: 6, md: 7 },
+                border: (t) => t.palette.mode === "dark" 
+                  ? "1px solid rgba(255,255,255,0.12)" 
+                  : "1px solid rgba(138, 43, 226, 0.15)",
+                background: (t) => t.palette.mode === "dark"
+                  ? "rgba(18, 18, 28, 0.75)"
+                  : "rgba(255, 255, 255, 0.85)",
+                backdropFilter: "blur(24px) saturate(180%)",
+                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                p: { xs: 3, sm: 3.5, md: 4 },
+                position: "relative",
+                overflow: "hidden",
+                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: (t) => t.palette.mode === "dark"
+                  ? `
+                    0 20px 60px rgba(0, 0, 0, 0.5),
+                    0 0 0 1px rgba(138, 43, 226, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                  `
+                  : `
+                    0 20px 60px rgba(138, 43, 226, 0.12),
+                    0 0 0 1px rgba(138, 43, 226, 0.08),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.9)
+                  `,
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "4px",
+                  background: "linear-gradient(90deg, #8a2be2, #4a00e0, #8a2be2)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 3s linear infinite",
+                  "@keyframes shimmer": {
+                    "0%": { backgroundPosition: "0% 0%" },
+                    "100%": { backgroundPosition: "200% 0%" },
+                  },
+                },
+                "&:hover": {
+                  boxShadow: (t) => t.palette.mode === "dark"
+                    ? `
+                      0 24px 72px rgba(138, 43, 226, 0.25),
+                      0 0 0 1px rgba(138, 43, 226, 0.25),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.15)
+                    `
+                    : `
+                      0 24px 72px rgba(138, 43, 226, 0.18),
+                      0 0 0 1px rgba(138, 43, 226, 0.12),
+                      inset 0 1px 0 rgba(255, 255, 255, 1)
+                    `,
+                  transform: "translateY(-4px) scale(1.01)",
+                },
+              })}
+            >
+            <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 } }}>
               <Avatar
-                src={user?.avatar}
+                src={user?.avatar && user.avatar.trim() !== '' ? user.avatar : undefined}
                 sx={(t) => ({
-                  width: { xs: 40, sm: 44, md: 48 },
-                  height: { xs: 40, sm: 44, md: 48 },
+                  width: { xs: 52, sm: 56, md: 64 },
+                  height: { xs: 52, sm: 56, md: 64 },
                   border: { xs: "2px solid", sm: "3px solid" },
                   borderColor: t.palette.mode === "dark"
                     ? alpha(t.palette.primary.main, 0.3)
@@ -519,7 +524,7 @@ export default function Home() {
                     ? "0 4px 12px rgba(139, 154, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
                     : "0 4px 12px rgba(102, 126, 234, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.1)",
                   transition: "all 0.3s ease",
-                  fontSize: { xs: "1rem", sm: "1.1rem", md: "1.2rem" },
+                  fontSize: { xs: "1.3rem", sm: "1.5rem", md: "1.8rem" },
                   "&:hover": {
                     transform: "scale(1.05)",
                     boxShadow: t.palette.mode === "dark"
@@ -528,7 +533,19 @@ export default function Home() {
                   },
                 })}
               >
-                {user?.firstName?.[0] || user?.username?.[0] || "U"}
+                {(() => {
+                  // Get avatar initials: lastName[0] + firstName[0] if available, otherwise username[0]
+                  if (user?.lastName && user?.firstName) {
+                    return `${user.lastName[0] || ''}${user.firstName[0] || ''}`.toUpperCase();
+                  }
+                  if (user?.firstName) {
+                    return user.firstName[0]?.toUpperCase() || '';
+                  }
+                  if (user?.lastName) {
+                    return user.lastName[0]?.toUpperCase() || '';
+                  }
+                  return user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+                })()}
               </Avatar>
               <TextField
                 fullWidth
@@ -538,18 +555,44 @@ export default function Home() {
                 sx={{
                   cursor: "pointer",
                   "& .MuiOutlinedInput-root": {
-                    borderRadius: { xs: 5, sm: 6 },
-                    fontSize: { xs: 14, sm: 15 },
-                    bgcolor: (t) =>
-                      t.palette.mode === "dark"
-                        ? alpha(t.palette.common.white, 0.04)
-                        : alpha(t.palette.common.black, 0.02),
-                    "& fieldset": { borderColor: "divider" },
-                    "&:hover fieldset": { borderColor: "primary.main" },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "primary.main",
-                      borderWidth: 2,
+                    borderRadius: 4,
+                    fontSize: { xs: 16, sm: 17, md: 18 },
+                    minHeight: { xs: 56, sm: 60, md: 64 },
+                    backgroundColor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.06)" 
+                      : "rgba(138, 43, 226, 0.04)",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    "&:hover": {
+                      backgroundColor: (t) => t.palette.mode === "dark" 
+                        ? "rgba(255, 255, 255, 0.1)" 
+                        : "rgba(138, 43, 226, 0.06)",
+                      transform: "translateY(-1px)",
                     },
+                    "&.Mui-focused": {
+                      backgroundColor: (t) => t.palette.mode === "dark" 
+                        ? "rgba(255, 255, 255, 0.1)" 
+                        : "rgba(138, 43, 226, 0.06)",
+                      transform: "translateY(-1px)",
+                      boxShadow: "0 4px 12px rgba(138, 43, 226, 0.15)",
+                    },
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.12)" 
+                      : "rgba(138, 43, 226, 0.25)",
+                    borderWidth: 1.5,
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  },
+                  "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(138, 43, 226, 0.6)" 
+                      : "rgba(138, 43, 226, 0.5)",
+                    borderWidth: 2,
+                  },
+                  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#8a2be2",
+                    borderWidth: 2.5,
+                    boxShadow: "0 0 0 4px rgba(138, 43, 226, 0.1)",
                   },
                   "& .MuiInputBase-input": {
                     cursor: "pointer",
@@ -561,7 +604,7 @@ export default function Home() {
               />
             </Box>
 
-            <Divider sx={{ mb: 1.5 }} />
+            <Divider sx={{ mb: 2.5, borderColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(138, 43, 226, 0.1)" }} />
 
             <Box
               sx={{
@@ -574,23 +617,33 @@ export default function Home() {
                 onClick={handleCreatePostClick}
                 sx={(t) => ({
                   color: "#45bd62",
-                  borderRadius: 2.5,
-                  px: { xs: 1, sm: 1.5, md: 2 },
-                  py: { xs: 0.75, sm: 1 },
-                  gap: { xs: 0.5, sm: 1 },
+                  borderRadius: 4,
+                  px: { xs: 2, sm: 2.5, md: 3 },
+                  py: { xs: 1.5, sm: 1.75, md: 2 },
+                  gap: { xs: 1, sm: 1.5 },
                   flex: 1,
-                  transition: "all 0.2s ease",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  backgroundColor: (t) => t.palette.mode === "dark" 
+                    ? "rgba(69, 189, 98, 0.08)" 
+                    : "rgba(69, 189, 98, 0.06)",
+                  border: (t) => t.palette.mode === "dark"
+                    ? "1px solid rgba(69, 189, 98, 0.2)"
+                    : "1px solid rgba(69, 189, 98, 0.15)",
                   "&:hover": {
-                    bgcolor: alpha("#45bd62", 0.08),
-                    transform: "scale(1.02)",
+                    bgcolor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(69, 189, 98, 0.15)" 
+                      : "rgba(69, 189, 98, 0.1)",
+                    transform: "translateY(-2px) scale(1.02)",
+                    boxShadow: "0 4px 12px rgba(69, 189, 98, 0.25)",
+                    borderColor: "#45bd62",
                   },
                 })}
               >
-                <ImageIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24 } }} />
+                <ImageIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
                 <Box
                   component="span"
                   sx={{
-                    fontSize: 14,
+                    fontSize: { xs: 15, sm: 16, md: 17 },
                     fontWeight: 600,
                     display: { xs: "none", sm: "inline" },
                   }}
@@ -603,23 +656,33 @@ export default function Home() {
                 onClick={handleCreatePostClick}
                 sx={(t) => ({
                   color: "#f3425f",
-                  borderRadius: 2.5,
-                  px: { xs: 1, sm: 1.5, md: 2 },
-                  py: { xs: 0.75, sm: 1 },
-                  gap: { xs: 0.5, sm: 1 },
+                  borderRadius: 4,
+                  px: { xs: 2, sm: 2.5, md: 3 },
+                  py: { xs: 1.5, sm: 1.75, md: 2 },
+                  gap: { xs: 1, sm: 1.5 },
                   flex: 1,
-                  transition: "all 0.2s ease",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  backgroundColor: (t) => t.palette.mode === "dark" 
+                    ? "rgba(243, 66, 95, 0.08)" 
+                    : "rgba(243, 66, 95, 0.06)",
+                  border: (t) => t.palette.mode === "dark"
+                    ? "1px solid rgba(243, 66, 95, 0.2)"
+                    : "1px solid rgba(243, 66, 95, 0.15)",
                   "&:hover": {
-                    bgcolor: alpha("#f3425f", 0.08),
-                    transform: "scale(1.02)",
+                    bgcolor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(243, 66, 95, 0.15)" 
+                      : "rgba(243, 66, 95, 0.1)",
+                    transform: "translateY(-2px) scale(1.02)",
+                    boxShadow: "0 4px 12px rgba(243, 66, 95, 0.25)",
+                    borderColor: "#f3425f",
                   },
                 })}
               >
-                <VideocamIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24 } }} />
+                <VideocamIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
                 <Box
                   component="span"
                   sx={{
-                    fontSize: 14,
+                    fontSize: { xs: 15, sm: 16, md: 17 },
                     fontWeight: 600,
                     display: { xs: "none", sm: "inline" },
                   }}
@@ -632,23 +695,33 @@ export default function Home() {
                 onClick={handleCreatePostClick}
                 sx={(t) => ({
                   color: "#f7b928",
-                  borderRadius: 2.5,
-                  px: { xs: 1, sm: 1.5, md: 2 },
-                  py: { xs: 0.75, sm: 1 },
-                  gap: { xs: 0.5, sm: 1 },
+                  borderRadius: 4,
+                  px: { xs: 2, sm: 2.5, md: 3 },
+                  py: { xs: 1.5, sm: 1.75, md: 2 },
+                  gap: { xs: 1, sm: 1.5 },
                   flex: 1,
-                  transition: "all 0.2s ease",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  backgroundColor: (t) => t.palette.mode === "dark" 
+                    ? "rgba(247, 185, 40, 0.08)" 
+                    : "rgba(247, 185, 40, 0.06)",
+                  border: (t) => t.palette.mode === "dark"
+                    ? "1px solid rgba(247, 185, 40, 0.2)"
+                    : "1px solid rgba(247, 185, 40, 0.15)",
                   "&:hover": {
-                    bgcolor: alpha("#f7b928", 0.08),
-                    transform: "scale(1.02)",
+                    bgcolor: (t) => t.palette.mode === "dark" 
+                      ? "rgba(247, 185, 40, 0.15)" 
+                      : "rgba(247, 185, 40, 0.1)",
+                    transform: "translateY(-2px) scale(1.02)",
+                    boxShadow: "0 4px 12px rgba(247, 185, 40, 0.25)",
+                    borderColor: "#f7b928",
                   },
                 })}
               >
-                <EmojiEmotionsIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24 } }} />
+                <EmojiEmotionsIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
                 <Box
                   component="span"
                   sx={{
-                    fontSize: 14,
+                    fontSize: { xs: 15, sm: 16, md: 17 },
                     fontWeight: 600,
                     display: { xs: "none", sm: "inline" },
                   }}
@@ -658,6 +731,7 @@ export default function Home() {
               </IconButton>
             </Box>
           </Paper>
+          </Fade>
 
           {posts.map((post, index) => {
             const isLast = posts.length === index + 1;
@@ -665,17 +739,20 @@ export default function Home() {
               <Box
                 key={post.id}
                 sx={{
-                  animation: `fadeInUp 0.5s ease ${index * 0.1}s both`,
+                  // Only animate first few posts to reduce lag
+                  animation: index < 5 ? `fadeInUp 0.4s ease ${Math.min(index * 0.08, 0.4)}s both` : 'none',
                   "@keyframes fadeInUp": {
                     from: {
                       opacity: 0,
-                      transform: "translateY(20px)",
+                      transform: "translateY(10px)",
                     },
                     to: {
                       opacity: 1,
                       transform: "translateY(0)",
                     },
                   },
+                  // Optimize rendering
+                  willChange: index < 5 ? "transform, opacity" : "auto",
                 }}
               >
                 <Post
@@ -840,39 +917,63 @@ export default function Home() {
       </Box>
 
       {/* button tạo post */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        onClick={handleCreatePostClick}
-        sx={(t) => ({
-          position: "fixed",
-          bottom: { xs: 80, md: 32 },
-          right: { xs: 16, md: 32 },
-          width: { xs: 56, md: 64 },
-          height: { xs: 56, md: 64 },
-          background: t.palette.mode === "dark"
-            ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
-            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          boxShadow: t.palette.mode === "dark"
-            ? "0 8px 32px rgba(139, 154, 255, 0.4), 0 4px 16px rgba(0, 0, 0, 0.5)"
-            : "0 8px 32px rgba(102, 126, 234, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2)",
-          "&:hover": {
-            background: t.palette.mode === "dark"
-              ? "linear-gradient(135deg, #7a89e6 0%, #8664bb 100%)"
-              : "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-            transform: "scale(1.15) rotate(90deg)",
+      <Zoom in={true} timeout={600}>
+        <Fab
+          color="primary"
+          aria-label="add"
+          onClick={handleCreatePostClick}
+          sx={(t) => ({
+            position: "fixed",
+            bottom: { xs: 80, md: 32 },
+            right: { xs: 20, md: 40 },
+            width: { xs: 64, md: 72 },
+            height: { xs: 64, md: 72 },
+            zIndex: 1000,
+            background: "linear-gradient(135deg, #8a2be2 0%, #4a00e0 50%, #8a2be2 100%)",
+            backgroundSize: "200% 200%",
             boxShadow: t.palette.mode === "dark"
-              ? "0 12px 48px rgba(139, 154, 255, 0.5), 0 6px 24px rgba(0, 0, 0, 0.6)"
-              : "0 12px 48px rgba(102, 126, 234, 0.5), 0 6px 24px rgba(0, 0, 0, 0.3)",
-          },
-          "&:active": {
-            transform: "scale(1.05) rotate(90deg)",
-          },
-          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-        })}
-      >
-        <AddIcon sx={{ fontSize: 28 }} />
-      </Fab>
+              ? "0 8px 32px rgba(138, 43, 226, 0.5), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(138, 43, 226, 0.7)"
+              : "0 8px 32px rgba(138, 43, 226, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 0 rgba(138, 43, 226, 0.5)",
+            animation: "gradientShift 3s ease infinite, pulse 2s ease-in-out infinite",
+            "@keyframes gradientShift": {
+              "0%, 100%": { backgroundPosition: "0% 50%" },
+              "50%": { backgroundPosition: "100% 50%" },
+            },
+            "@keyframes pulse": {
+              "0%": { boxShadow: t.palette.mode === "dark" ? "0 8px 32px rgba(138, 43, 226, 0.5), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(138, 43, 226, 0.7)" : "0 8px 32px rgba(138, 43, 226, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 0 rgba(138, 43, 226, 0.5)" },
+              "50%": { boxShadow: t.palette.mode === "dark" ? "0 8px 32px rgba(138, 43, 226, 0.5), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 8px rgba(138, 43, 226, 0)" : "0 8px 32px rgba(138, 43, 226, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 8px rgba(138, 43, 226, 0)" },
+              "100%": { boxShadow: t.palette.mode === "dark" ? "0 8px 32px rgba(138, 43, 226, 0.5), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(138, 43, 226, 0)" : "0 8px 32px rgba(138, 43, 226, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 0 rgba(138, 43, 226, 0)" },
+            },
+            "&:hover": {
+              backgroundPosition: "100% 50%",
+              transform: "scale(1.15) rotate(90deg)",
+              boxShadow: t.palette.mode === "dark"
+                ? "0 12px 48px rgba(138, 43, 226, 0.6), 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(138, 43, 226, 0.2)"
+                : "0 12px 48px rgba(138, 43, 226, 0.5), 0 6px 24px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(138, 43, 226, 0.2)",
+            },
+            "&:active": {
+              transform: "scale(1.05) rotate(90deg)",
+            },
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+          })}
+        >
+          <AddIcon sx={{ fontSize: { xs: 32, md: 36 }, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }} />
+          <AutoAwesomeIcon 
+            sx={{ 
+              position: "absolute",
+              top: "-10px",
+              right: "-10px",
+              fontSize: { xs: 24, md: 28 },
+              color: "#ffd700",
+              animation: "sparkle 2s ease-in-out infinite",
+              "@keyframes sparkle": {
+                "0%, 100%": { opacity: 0.6, transform: "scale(1) rotate(0deg)" },
+                "50%": { opacity: 1, transform: "scale(1.2) rotate(180deg)" },
+              },
+            }} 
+          />
+        </Fab>
+      </Zoom>
 
       <Popover
         id={popoverId}
@@ -904,9 +1005,60 @@ export default function Home() {
           },
         }}
       >
-        <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, fontSize: 19, color: "text.primary" }}>
-          Tạo bài viết mới
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2.5 }}>
+          <Avatar
+            src={user?.avatar && user.avatar.trim() !== '' ? user.avatar : undefined}
+            sx={(t) => ({
+              width: 48,
+              height: 48,
+              border: "2px solid",
+              borderColor: t.palette.mode === "dark"
+                ? alpha(t.palette.primary.main, 0.3)
+                : alpha(t.palette.primary.main, 0.2),
+              background: t.palette.mode === "dark"
+                ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              boxShadow: t.palette.mode === "dark"
+                ? "0 4px 12px rgba(139, 154, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+                : "0 4px 12px rgba(102, 126, 234, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.1)",
+              fontSize: "1.2rem",
+            })}
+          >
+            {(() => {
+              // Get avatar initials: lastName[0] + firstName[0] if available, otherwise username[0]
+              if (user?.lastName && user?.firstName) {
+                return `${user.lastName[0] || ''}${user.firstName[0] || ''}`.toUpperCase();
+              }
+              if (user?.firstName) {
+                return user.firstName[0]?.toUpperCase() || '';
+              }
+              if (user?.lastName) {
+                return user.lastName[0]?.toUpperCase() || '';
+              }
+              return user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+            })()}
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18, color: "text.primary", mb: 0.5 }}>
+              {(() => {
+                // Get display name: lastName firstName if available, otherwise username
+                if (user?.lastName && user?.firstName) {
+                  return `${user.lastName} ${user.firstName}`.trim();
+                }
+                if (user?.firstName) {
+                  return user.firstName;
+                }
+                if (user?.lastName) {
+                  return user.lastName;
+                }
+                return user?.username || user?.email || "User";
+              })()}
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: 13, color: "text.secondary" }}>
+              @{user?.username || user?.email || "user"}
+            </Typography>
+          </Box>
+        </Box>
 
         <TextField
           fullWidth

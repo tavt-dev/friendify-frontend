@@ -304,11 +304,11 @@ const MediaLightbox = ({ items = [], startIndex = 0, onClose, postData = {} }) =
               border: "2px solid rgba(255,255,255,0.2)",
             }}
           >
-            {postData.username?.charAt(0)}
+            {postData.avatarInitials || postData.username?.charAt(0) || "U"}
           </Avatar>
           <Box>
             <Typography sx={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>
-              {postData.username || "User"}
+              {postData.displayName || postData.username || "User"}
             </Typography>
             <Typography sx={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
               {postData.created || "Recently"}

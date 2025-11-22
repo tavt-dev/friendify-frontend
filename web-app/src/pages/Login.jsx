@@ -22,7 +22,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import LoginIcon from "@mui/icons-material/Login";
 import SparklesIcon from "@mui/icons-material/AutoAwesome";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { logIn, isAuthenticated, loginWithGoogle } from "../services/identityService";
 import { useUser } from "../contexts/UserContext";
@@ -43,11 +43,18 @@ export default function Login() {
   const [snack, setSnack] = useState({ open: false, message: "", severity: "error" });
   const [showPassword, setShowPassword] = useState(false);
   const [cursor, setCursor] = useState({ x: 50, y: 50 });
+  const cursorUpdateRef = useRef(null);
+  const lastCursorUpdateRef = useRef(0);
 
   useEffect(() => {
     if (isAuthenticated()) {
       navigate("/");
     }
+    return () => {
+      if (cursorUpdateRef.current) {
+        cancelAnimationFrame(cursorUpdateRef.current);
+      }
+    };
   }, [navigate]);
 
   // Handle OAuth callback errors
@@ -111,11 +118,24 @@ export default function Login() {
     }
   };
 
-  const handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 100;
-    const y = (e.clientY / window.innerHeight) * 100;
-    setCursor({ x, y });
-  };
+  const handleMouseMove = useCallback((e) => {
+    const now = Date.now();
+    // Throttle cursor updates to reduce lag (100ms)
+    if (now - lastCursorUpdateRef.current < 100) {
+      return;
+    }
+    lastCursorUpdateRef.current = now;
+
+    if (cursorUpdateRef.current) {
+      cancelAnimationFrame(cursorUpdateRef.current);
+    }
+
+    cursorUpdateRef.current = requestAnimationFrame(() => {
+      const x = Math.round((e.clientX / window.innerWidth) * 100);
+      const y = Math.round((e.clientY / window.innerHeight) * 100);
+      setCursor({ x, y });
+    });
+  }, []);
 
   return (
     <Box
@@ -172,6 +192,7 @@ export default function Login() {
               ? `radial-gradient(circle at ${cursor.x}% ${cursor.y}%, rgba(138, 43, 226, 0.2), rgba(10, 10, 26, 0.95) 70%)`
               : `radial-gradient(circle at ${cursor.x}% ${cursor.y}%, rgba(138, 43, 226, 0.1), rgba(247, 248, 250, 1) 70%)`,
           transition: "background 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          willChange: "background",
           "&::before": {
             content: '""',
             position: "absolute",
@@ -181,6 +202,7 @@ export default function Login() {
               : `radial-gradient(circle at ${100 - cursor.x}% ${100 - cursor.y}%, rgba(74, 0, 224, 0.08), transparent 60%)`,
             transition: "background 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
             zIndex: -1,
+            willChange: "background",
           },
         }}
       >
@@ -562,7 +584,19 @@ export default function Login() {
                   size="large"
                   fullWidth
                   disabled={submitting}
-                  startIcon={!submitting ? <LoginIcon /> : <CircularProgress size={20} sx={{ color: "white" }} />}
+                  startIcon={
+                    !submitting ? (
+                      <LoginIcon sx={{ fontSize: 20 }} />
+                    ) : (
+                      <CircularProgress 
+                        size={20} 
+                        sx={{ 
+                          color: "white",
+                          animationDuration: "550ms",
+                        }} 
+                      />
+                    )
+                  }
                   sx={{ 
                     mt: 1.5, 
                     mb: 3,
@@ -573,10 +607,15 @@ export default function Login() {
                     borderRadius: 3,
                     position: "relative",
                     overflow: "hidden",
-                    background: "linear-gradient(135deg, #8a2be2 0%, #4a00e0 50%, #8a2be2 100%)",
+                    background: submitting
+                      ? "rgba(138, 43, 226, 0.5)"
+                      : "linear-gradient(135deg, #8a2be2 0%, #4a00e0 50%, #8a2be2 100%)",
                     backgroundSize: "200% 200%",
-                    boxShadow: "0 8px 24px rgba(138, 43, 226, 0.4), 0 0 0 0 rgba(138, 43, 226, 0.5)",
+                    boxShadow: submitting
+                      ? "0 4px 12px rgba(138, 43, 226, 0.2)"
+                      : "0 8px 24px rgba(138, 43, 226, 0.4), 0 0 0 0 rgba(138, 43, 226, 0.5)",
                     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    animation: !submitting ? "gradientShift 3s ease infinite" : "none",
                     "@keyframes gradientShift": {
                       "0%, 100%": { backgroundPosition: "0% 50%" },
                       "50%": { backgroundPosition: "100% 50%" },
@@ -588,18 +627,34 @@ export default function Login() {
                       left: "-100%",
                       width: "100%",
                       height: "100%",
-                      background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
-                      transition: "left 0.5s ease",
+                      background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+                      transition: "left 0.6s ease",
                     },
-                    "&:hover": {
+                    "&::after": {
+                      content: '""',
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: 3,
+                      padding: "2px",
+                      background: "linear-gradient(135deg, rgba(255,255,255,0.3), transparent)",
+                      WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                      WebkitMaskComposite: "xor",
+                      maskComposite: "exclude",
+                      opacity: 0,
+                      transition: "opacity 0.3s ease",
+                    },
+                    "&:hover:not(:disabled)": {
                       backgroundPosition: "100% 50%",
                       boxShadow: "0 12px 36px rgba(138, 43, 226, 0.6), 0 0 0 4px rgba(138, 43, 226, 0.2)",
                       transform: "translateY(-3px) scale(1.02)",
                       "&::before": {
                         left: "100%",
                       },
+                      "&::after": {
+                        opacity: 1,
+                      },
                     },
-                    "&:active": {
+                    "&:active:not(:disabled)": {
                       transform: "translateY(-1px) scale(1)",
                       boxShadow: "0 6px 20px rgba(138, 43, 226, 0.5)",
                     },
@@ -607,10 +662,44 @@ export default function Login() {
                       background: "rgba(138, 43, 226, 0.3)",
                       boxShadow: "none",
                       transform: "none",
+                      cursor: "not-allowed",
                     },
                   }}
                 >
-                  {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+                  {submitting ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <span>Đang đăng nhập</span>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: "inline-block",
+                          width: 4,
+                          height: 4,
+                          borderRadius: "50%",
+                          backgroundColor: "white",
+                          animation: "dotPulse 1.4s ease-in-out infinite",
+                          "&:nth-of-type(2)": {
+                            animationDelay: "0.2s",
+                          },
+                          "&:nth-of-type(3)": {
+                            animationDelay: "0.4s",
+                          },
+                          "@keyframes dotPulse": {
+                            "0%, 60%, 100%": {
+                              transform: "scale(1)",
+                              opacity: 0.5,
+                            },
+                            "30%": {
+                              transform: "scale(1.5)",
+                              opacity: 1,
+                            },
+                          },
+                        }}
+                      />
+                    </Box>
+                  ) : (
+                    "Đăng nhập"
+                  )}
                 </Button>
               </Fade>
 
@@ -636,31 +725,62 @@ export default function Login() {
                 <Button
                   variant="outlined"
                   fullWidth
-                  startIcon={<GoogleIcon />}
+                  startIcon={
+                    <GoogleIcon 
+                      sx={{ 
+                        fontSize: 20,
+                        transition: "transform 0.3s ease",
+                      }} 
+                    />
+                  }
                   onClick={() => loginWithGoogle()}
                   sx={{
                     py: { xs: 1.5, sm: 1.75 },
                     fontSize: { xs: "0.9375rem", sm: "1rem" },
                     fontWeight: 600,
                     textTransform: "none",
-                    borderRadius: 2,
+                    borderRadius: 3,
+                    borderWidth: 1.5,
                     borderColor: (t) => t.palette.mode === "dark" 
                       ? "rgba(255,255,255,0.15)" 
-                      : "rgba(138, 43, 226, 0.2)",
+                      : "rgba(138, 43, 226, 0.25)",
                     color: (t) => t.palette.mode === "dark" ? "white" : "#8a2be2",
                     backgroundColor: (t) => t.palette.mode === "dark" 
                       ? "rgba(255, 255, 255, 0.03)" 
                       : "rgba(138, 43, 226, 0.03)",
-                    transition: "all 0.3s ease",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    position: "relative",
+                    overflow: "hidden",
+                    "&::before": {
+                      content: '""',
+                      position: "absolute",
+                      top: 0,
+                      left: "-100%",
+                      width: "100%",
+                      height: "100%",
+                      background: "linear-gradient(90deg, transparent, rgba(138, 43, 226, 0.1), transparent)",
+                      transition: "left 0.5s ease",
+                    },
                     "&:hover": {
                       borderColor: (t) => t.palette.mode === "dark" 
                         ? "rgba(255,255,255,0.3)" 
-                        : "rgba(138, 43, 226, 0.4)",
+                        : "rgba(138, 43, 226, 0.5)",
+                      borderWidth: 2,
                       backgroundColor: (t) => t.palette.mode === "dark" 
                         ? "rgba(255, 255, 255, 0.08)" 
                         : "rgba(138, 43, 226, 0.08)",
                       transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(138, 43, 226, 0.2)",
+                      boxShadow: "0 6px 20px rgba(138, 43, 226, 0.25)",
+                      "&::before": {
+                        left: "100%",
+                      },
+                      "& .MuiButton-startIcon": {
+                        transform: "scale(1.1) rotate(5deg)",
+                      },
+                    },
+                    "&:active": {
+                      transform: "translateY(0px)",
+                      boxShadow: "0 2px 8px rgba(138, 43, 226, 0.2)",
                     },
                   }}
                 >

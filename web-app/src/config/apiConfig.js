@@ -1,7 +1,10 @@
 // API Gateway configuration
 export const CONFIG = {
-  API_GATEWAY: "http://localhost:8080/api/v1",
-  IDENTITY_SERVICE: "http://localhost:8081/identity",
+  API_GATEWAY: "/api/v1",
+  IDENTITY_SERVICE: "/identity",
+  // WebSocket URLs - use gateway for production, direct service for development
+  WS_URL: "/ws", // Via API Gateway
+  WS_DIRECT_URL: "/ws", // Direct to chat service (using same path as gateway)
 };
 
 // Helper function to get full API URL
@@ -28,10 +31,12 @@ export const API_ENDPOINTS = {
     GET_BY_ID: '/post/:id',
     UPDATE: '/post/:id',
     DELETE: '/post/:id',
+    LIKE: '/post/:id/like',
+    COMMENTS: '/post/:id/comments',
+    SHARE: '/post/:id/share',
     SAVE: '/post/save/:id',
     UNSAVE: '/post/unsave/:id',
     SAVED_POSTS: '/post/saved-posts',
-    SHARE: '/post/share/:id',
     SHARED_POSTS: '/post/shared-posts/:id',
     SHARE_COUNT: '/post/share-count/:id',
     IS_SAVED: '/post/is-saved/:id',
@@ -55,14 +60,27 @@ export const API_ENDPOINTS = {
   },
   USER: {
     SEARCH: '/profile/users/search',
-    GET_PROFILE: '/profile/:id',
+    GET_PROFILE: '/profile/users/:id', // Note: Backend needs /users/{id} endpoint in ProfileController. Currently using /{profileId} which doesn't match API Gateway routing
     UPDATE_BACKGROUND: '/profile/users/background',
   },
   CHAT: {
     CONVERSATIONS: '/chat/conversations/my-conversations',
-    MESSAGES: '/chat/messages/:id',
-    SEND: '/chat/messages/:id',
-    CREATE_CONVERSATION: '/chat/conversations/create',
+    CONVERSATION_DETAIL: '/chat/conversations/:id',
+    MESSAGES: '/chat/messages', // GET /chat/messages?conversationId=xxx&page=1&size=50
+    MESSAGES_PAGINATED: '/chat/messages/paginated', // GET /chat/messages/paginated?conversationId=xxx&page=1&size=50
+    CREATE_MESSAGE: '/chat/messages/create', // POST /chat/messages/create
+    MESSAGE_DETAIL: '/chat/messages/:id', // GET /chat/messages/:id
+    UPDATE_MESSAGE: '/chat/messages/:id', // PUT /chat/messages/:id
+    DELETE_MESSAGE: '/chat/messages/:id', // DELETE /chat/messages/:id
+    MARK_READ: '/chat/messages/:id/read', // POST /chat/messages/:id/read
+    READ_RECEIPTS: '/chat/messages/:id/read-receipts', // GET /chat/messages/:id/read-receipts
+    UNREAD_COUNT: '/chat/messages/unread-count', // GET /chat/messages/unread-count?conversationId=xxx
+    CREATE_CONVERSATION: '/chat/conversations/create', // POST /chat/conversations/create
+    UPDATE_CONVERSATION: '/chat/conversations/:id', // PUT /chat/conversations/:id
+    DELETE_CONVERSATION: '/chat/conversations/:id', // DELETE /chat/conversations/:id
+    ADD_PARTICIPANTS: '/chat/conversations/:id/participants', // POST /chat/conversations/:id/participants
+    REMOVE_PARTICIPANT: '/chat/conversations/:id/participants/:participantId', // DELETE /chat/conversations/:id/participants/:participantId
+    LEAVE_CONVERSATION: '/chat/conversations/:id/leave', // POST /chat/conversations/:id/leave
   },
   GROUP: {
     MY_GROUPS: '/group/my-groups',
@@ -89,6 +107,12 @@ export const API_ENDPOINTS = {
   MARKETPLACE: {
     ITEMS: '/marketplace/items',
     CATEGORIES: '/marketplace/categories',
+  },
+  NOTIFICATION: {
+    LIST: '/notification/list',
+    MARK_READ: '/notification/:id/read',
+    MARK_ALL_READ: '/notification/read-all',
+    DELETE: '/notification/:id',
   },
 };
 

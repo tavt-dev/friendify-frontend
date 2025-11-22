@@ -68,7 +68,6 @@ export const withFallback = async (apiCall, fallbackData, useMock = false) => {
   try {
     return await apiCall();
   } catch (error) {
-    console.warn('API call failed, using fallback data:', handleApiError(error));
     return fallbackData;
   }
 };
@@ -115,7 +114,44 @@ export const clearLocalStorageByPrefix = (prefix) => {
     keysToRemove.forEach(key => localStorage.removeItem(key));
     return true;
   } catch (error) {
-    console.error('Failed to clear localStorage:', error);
     return false;
   }
+};
+
+/**
+ * Extract array from API response with pagination info
+ * @param {Object} data - API response data
+ * @returns {{items: Array, totalPages: number}}
+ */
+export const extractArrayFromResponse = (data) => {
+  if (!data) return { items: [], totalPages: 1 };
+  
+  if (data.result?.data && Array.isArray(data.result.data)) {
+    return { items: data.result.data, totalPages: data.result.totalPages || 1 };
+  }
+  if (data.result?.content && Array.isArray(data.result.content)) {
+    return { items: data.result.content, totalPages: data.result.totalPages || 1 };
+  }
+  if (data.result && Array.isArray(data.result)) {
+    return { items: data.result, totalPages: 1 };
+  }
+  if (data.content && Array.isArray(data.content)) {
+    return { items: data.content, totalPages: data.totalPages || 1 };
+  }
+  if (data.data && Array.isArray(data.data)) {
+    return { items: data.data, totalPages: data.totalPages || 1 };
+  }
+  if (Array.isArray(data)) {
+    return { items: data, totalPages: 1 };
+  }
+  
+  // Try to find any array in the response object
+  if (typeof data === 'object') {
+    const arrays = Object.values(data).filter(v => Array.isArray(v));
+    if (arrays.length > 0) {
+      return { items: arrays[0], totalPages: 1 };
+    }
+  }
+  
+  return { items: [], totalPages: 1 };
 };

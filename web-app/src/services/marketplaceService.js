@@ -1,57 +1,16 @@
-import { USE_MOCK_DATA_FOR_READS, getApiUrl, API_ENDPOINTS } from '../config/apiConfig';
-import { mockMarketplaceItems } from '../utils/comprehensiveMockData';
-import { getToken } from './localStorageService';
-
-const mockDelay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms));
+import { API_ENDPOINTS } from '../config/apiConfig';
+import { apiFetch } from './apiHelper';
 
 export const getMarketplaceItems = async (filters = {}) => {
-  if (USE_MOCK_DATA_FOR_READS) {
-    await mockDelay();
-    let items = [...mockMarketplaceItems];
-
-    if (filters.category && filters.category !== 'All') {
-      items = items.filter(item => item.category === filters.category);
-    }
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      items = items.filter(item => 
-        item.title.toLowerCase().includes(searchLower) ||
-        item.location.toLowerCase().includes(searchLower)
-      );
-    }
-
-    return {
-      data: { result: items },
-      status: 200,
-    };
-  }
-
-  const queryParams = new URLSearchParams(filters);
-  const response = await fetch(getApiUrl(`${API_ENDPOINTS.MARKETPLACE.ITEMS}?${queryParams}`), {
-    headers: {
-      'Authorization': `Bearer ${getToken()}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  return { data: await response.json(), status: response.status };
+  const queryParams = new URLSearchParams(
+    Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null && v !== ''))
+  );
+  const endpoint = queryParams.toString() 
+    ? `${API_ENDPOINTS.MARKETPLACE.ITEMS}?${queryParams}` 
+    : API_ENDPOINTS.MARKETPLACE.ITEMS;
+  return apiFetch(endpoint);
 };
 
 export const getMarketplaceCategories = async () => {
-  if (USE_MOCK_DATA_FOR_READS) {
-    await mockDelay();
-    const categories = ['All', ...new Set(mockMarketplaceItems.map(item => item.category))];
-    return {
-      data: { result: categories },
-      status: 200,
-    };
-  }
-
-  const response = await fetch(getApiUrl(API_ENDPOINTS.MARKETPLACE.CATEGORIES), {
-    headers: {
-      'Authorization': `Bearer ${getToken()}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  return { data: await response.json(), status: response.status };
+  return apiFetch(API_ENDPOINTS.MARKETPLACE.CATEGORIES);
 };

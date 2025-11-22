@@ -1,11 +1,11 @@
 export const CONFIG = {
-  API_GATEWAY: "http://localhost:8080/api/v1",
-  IDENTITY_SERVICE: "http://localhost:8081/identity",
+  API_GATEWAY: "/api/v1",
+  IDENTITY_SERVICE: "/identity",
 };
 
 export const API = {
   
-  LOGIN: "/identity/auth/token",
+  LOGIN: "/identity/auth/token", // Will become /api/v1/identity/auth/token via API gateway
   MY_INFO: "/profile/users/my-profile",
   MY_POST: "/post/my-posts",
   CREATE_POST: "/post/create",

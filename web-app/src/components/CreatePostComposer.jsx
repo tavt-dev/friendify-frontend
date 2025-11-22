@@ -12,16 +12,26 @@ import ImageIcon from "@mui/icons-material/Image";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
 import { isAuthenticated } from "../services/identityService";
-
-const getCurrentUser = () => {
-  const userStr = localStorage.getItem('mock_user');
-  return userStr ? JSON.parse(userStr) : null;
-};
+import { useUser } from "../contexts/UserContext";
 
 export default function CreatePostComposer({ onClick }) {
   if (!isAuthenticated()) return null;
 
-  const user = getCurrentUser();
+  const { user } = useUser();
+  
+  // Get display name: lastName firstName if available, otherwise username
+  const fullName = user?.firstName && user?.lastName
+    ? `${user.lastName} ${user.firstName}`.trim()
+    : user?.firstName || user?.lastName || user?.username || 'User';
+  
+  // Get avatar initials: lastName[0] + firstName[0] if available, otherwise username[0]
+  const avatarInitials = user?.firstName && user?.lastName
+    ? `${user.lastName[0] || ''}${user.firstName[0] || ''}`.toUpperCase()
+    : user?.firstName
+    ? user.firstName[0]?.toUpperCase() || ''
+    : user?.lastName
+    ? user.lastName[0]?.toUpperCase() || ''
+    : user?.username?.charAt(0)?.toUpperCase() || 'U';
 
   return (
     <Paper
@@ -53,7 +63,7 @@ export default function CreatePostComposer({ onClick }) {
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 1.5 }, mb: { xs: 1.5, sm: 2 } }}>
         <Avatar
-          src={user?.avatar}
+          src={user?.avatar && user.avatar.trim() !== '' ? user.avatar : undefined}
           sx={(t) => ({
             width: { xs: 40, sm: 44, md: 48 },
             height: { xs: 40, sm: 44, md: 48 },
@@ -77,7 +87,7 @@ export default function CreatePostComposer({ onClick }) {
             },
           })}
         >
-          {user?.username?.charAt(0)?.toUpperCase() || "U"}
+          {avatarInitials}
         </Avatar>
         <TextField
           fullWidth

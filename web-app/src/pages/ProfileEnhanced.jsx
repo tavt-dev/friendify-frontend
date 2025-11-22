@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   CircularProgress,
@@ -41,10 +41,12 @@ import {
   uploadAvatar,
   uploadBackground,
   updateProfile,
+  getUserProfileById,
+  getMyInfo,
 } from "../services/userService";
 import { isAuthenticated, logOut } from "../services/identityService";
 import { useUser } from "../contexts/UserContext";
-import { getMyPosts, updatePost, deletePost } from "../services/postService";
+import { getMyPosts, getUserPosts, updatePost, deletePost } from "../services/postService";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
 import Post from "../components/Post";
@@ -52,7 +54,10 @@ import Scene from "./Scene";
 
 export default function ProfileEnhanced() {
   const navigate = useNavigate();
-  const { user: userDetails, loadUser } = useUser();
+  const { id: profileUserId } = useParams(); // Get userId from route params
+  const { user: currentUser, loadUser } = useUser();
+  const [userDetails, setUserDetails] = useState(null); // Profile data to display (can be different user)
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [uploading, setUploading] = useState(false);
   const [editingAbout, setEditingAbout] = useState(false);
@@ -74,16 +79,28 @@ export default function ProfileEnhanced() {
   // Initialize editProfileData when entering edit mode
   useEffect(() => {
     if (editingAbout && userDetails && !editProfileData) {
+      // Format dob to YYYY-MM-DD if it exists
+      let formattedDob = null;
+      if (userDetails.dob) {
+        if (typeof userDetails.dob === 'string') {
+          // If it's a string, extract date part (remove time if present)
+          formattedDob = userDetails.dob.includes('T') ? userDetails.dob.split('T')[0] : userDetails.dob;
+        } else if (userDetails.dob instanceof Date) {
+          // If it's a Date object, format it
+          formattedDob = userDetails.dob.toISOString().split('T')[0];
+        }
+      }
+      
       setEditProfileData({
         bio: userDetails.bio || "",
         city: userDetails.city || "",
-        dob: userDetails.dob || null,
-        phone: userDetails.phone || "",
+        country: userDetails.country || "",
+        dob: formattedDob,
+        phoneNumber: userDetails.phoneNumber || userDetails.phone || "",
+        gender: userDetails.gender || "",
         website: userDetails.website || "",
-        workplace: userDetails.workplace || "",
-        position: userDetails.position || "",
-        education: userDetails.education || "",
-        relationship: userDetails.relationship || "",
+        firstName: userDetails.firstName || "",
+        lastName: userDetails.lastName || "",
       });
     }
     if (!editingAbout) {
@@ -94,8 +111,114 @@ export default function ProfileEnhanced() {
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate("/login");
+      return;
     }
-  }, [navigate]);
+
+    const loadProfile = async () => {
+      setLoadingProfile(true);
+      try {
+        if (profileUserId) {
+          // Load profile of the user specified in route
+          console.log('Loading profile for userId:', profileUserId);
+          const response = await getUserProfileById(profileUserId, false); // Don't suppress 404 for specific user
+          
+          // Parse response - handle different response formats
+          let profileData = null;
+          if (response?.data) {
+            profileData = response.data.result || response.data.data || response.data;
+          } else if (response?.result) {
+            profileData = response.result;
+          } else if (response && typeof response === 'object' && !response.status) {
+            profileData = response;
+          }
+          
+          if (profileData && typeof profileData === 'object') {
+            console.log('Profile loaded:', profileData.id || profileData.userId, profileData.username);
+            setUserDetails(profileData);
+          } else {
+            console.warn('Profile data not found or invalid format');
+            setUserDetails(null);
+          }
+        } else {
+          // No userId in route, load my own profile from API
+          console.log('Loading my profile from API');
+          try {
+            const response = await getMyInfo();
+            console.log('getMyInfo response:', response);
+            
+            // Parse response - handle different response formats
+            let profileData = null;
+            if (response?.data) {
+              profileData = response.data.result || response.data.data || response.data;
+            } else if (response?.result) {
+              profileData = response.result;
+            } else if (response && typeof response === 'object' && !response.status && !response.data) {
+              profileData = response;
+            }
+            
+            console.log('Parsed profileData:', profileData);
+            
+            if (profileData && typeof profileData === 'object' && Object.keys(profileData).length > 0) {
+              console.log('My profile loaded:', profileData.id || profileData.userId, profileData.username);
+              // Merge with currentUser context if available for complete info
+              if (currentUser) {
+                setUserDetails({
+                  ...profileData,
+                  // Ensure we have all fields from both sources
+                  id: profileData.id || profileData.userId || currentUser.id || currentUser.userId,
+                  userId: profileData.userId || profileData.id || currentUser.userId || currentUser.id,
+                  username: profileData.username || currentUser.username,
+                  email: profileData.email || currentUser.email,
+                  firstName: profileData.firstName || currentUser.firstName,
+                  lastName: profileData.lastName || currentUser.lastName,
+                  avatar: profileData.avatar || currentUser.avatar,
+                  backgroundImage: profileData.backgroundImage || profileData.coverImage || currentUser.backgroundImage,
+                  coverImage: profileData.coverImage || profileData.backgroundImage || currentUser.coverImage,
+                });
+              } else {
+                setUserDetails(profileData);
+              }
+            } else {
+              console.warn('My profile data not found or invalid format, using currentUser fallback');
+              // Fallback to currentUser from context if available
+              if (currentUser) {
+                console.log('Using currentUser as profile data');
+                setUserDetails(currentUser);
+              } else {
+                console.error('No profile data and no currentUser available');
+                setUserDetails(null);
+              }
+            }
+          } catch (profileError) {
+            console.error('Error in getMyInfo:', profileError);
+            // If getMyInfo fails, use currentUser as fallback
+            if (currentUser) {
+              console.log('Using currentUser as fallback after error');
+              setUserDetails(currentUser);
+            } else {
+              setUserDetails(null);
+            }
+            throw profileError; // Re-throw to be caught by outer catch
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+        console.error("Error details:", error?.response?.data || error?.message);
+        
+        // If loading own profile fails, try to use currentUser from context
+        if (!profileUserId && currentUser) {
+          console.log('Using currentUser from context as fallback');
+          setUserDetails(currentUser);
+        } else {
+          setUserDetails(null);
+        }
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [profileUserId, navigate, currentUser]);
 
   const handleAvatarClick = () => avatarInputRef.current?.click();
   const handleCoverClick = () => coverInputRef.current?.click();
@@ -105,7 +228,7 @@ export default function ProfileEnhanced() {
     if (!file) return;
 
     if (!file.type.match("image.*")) {
-      setSnackbar({ open: true, message: "Please select an image file", severity: "error" });
+      setSnackbar({ open: true, message: "Vui lòng chọn file ảnh", severity: "error" });
       return;
     }
 
@@ -113,11 +236,46 @@ export default function ProfileEnhanced() {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
-      await uploadAvatar(formData);
+      const response = await uploadAvatar(formData);
+      
+      // Reload user context
       await loadUser();
-      setSnackbar({ open: true, message: "Avatar updated successfully!", severity: "success" });
+      
+      // Update userDetails with new avatar
+      let updatedProfile = null;
+      if (response?.data) {
+        updatedProfile = response.data.result || response.data.data || response.data;
+      } else if (response?.result) {
+        updatedProfile = response.result;
+      }
+      
+      if (updatedProfile && typeof updatedProfile === 'object') {
+        setUserDetails(prev => ({
+          ...prev,
+          avatar: updatedProfile.avatar || prev?.avatar,
+        }));
+      } else {
+        // Reload profile to get updated avatar
+        const reloadResponse = await getMyInfo();
+        let reloadedProfile = null;
+        if (reloadResponse?.data) {
+          reloadedProfile = reloadResponse.data.result || reloadResponse.data.data || reloadResponse.data;
+        } else if (reloadResponse?.result) {
+          reloadedProfile = reloadResponse.result;
+        }
+        if (reloadedProfile && typeof reloadedProfile === 'object') {
+          setUserDetails(prev => ({
+            ...prev,
+            ...reloadedProfile,
+          }));
+        }
+      }
+      
+      setSnackbar({ open: true, message: "Đã cập nhật avatar thành công!", severity: "success" });
     } catch (error) {
-      setSnackbar({ open: true, message: "Failed to upload avatar", severity: "error" });
+      console.error('Error uploading avatar:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Không thể tải avatar. Vui lòng thử lại.";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
     } finally {
       setUploading(false);
     }
@@ -143,27 +301,54 @@ export default function ProfileEnhanced() {
       const formData = new FormData();
       formData.append("file", file);
       
-      console.log('Uploading background image...');
       const response = await uploadBackground(formData);
-      console.log('Background upload response:', response);
       
-      // Reload user data to get updated background
+      // Reload user context
       await loadUser();
+      
+      // Update userDetails with new background
+      let updatedProfile = null;
+      if (response?.data) {
+        updatedProfile = response.data.result || response.data.data || response.data;
+      } else if (response?.result) {
+        updatedProfile = response.result;
+      }
+      
+      if (updatedProfile && typeof updatedProfile === 'object') {
+        setUserDetails(prev => ({
+          ...prev,
+          backgroundImage: updatedProfile.backgroundImage || updatedProfile.coverImage || prev?.backgroundImage,
+          coverImage: updatedProfile.coverImage || updatedProfile.backgroundImage || prev?.coverImage,
+        }));
+      } else {
+        // Reload profile to get updated background
+        const reloadResponse = await getMyInfo();
+        let reloadedProfile = null;
+        if (reloadResponse?.data) {
+          reloadedProfile = reloadResponse.data.result || reloadResponse.data.data || reloadResponse.data;
+        } else if (reloadResponse?.result) {
+          reloadedProfile = reloadResponse.result;
+        }
+        if (reloadedProfile && typeof reloadedProfile === 'object') {
+          setUserDetails(prev => ({
+            ...prev,
+            ...reloadedProfile,
+            backgroundImage: reloadedProfile.backgroundImage || reloadedProfile.coverImage || prev?.backgroundImage,
+            coverImage: reloadedProfile.coverImage || reloadedProfile.backgroundImage || prev?.coverImage,
+          }));
+        }
+      }
       
       setSnackbar({ open: true, message: "Đã cập nhật ảnh bìa thành công!", severity: "success" });
     } catch (error) {
       console.error('Error uploading background:', error);
-      console.error('Error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       let errorMessage = "Không thể tải ảnh bìa. Vui lòng thử lại.";
       if (error.response?.status === 401) {
         errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
       
       setSnackbar({ open: true, message: errorMessage, severity: "error" });
@@ -173,14 +358,26 @@ export default function ProfileEnhanced() {
   };
 
   const loadMyPosts = useCallback(async (page = 1) => {
-    // Prevent loading if already loading
-    if (postsLoading) {
+    // Prevent loading if already loading or no userDetails
+    if (postsLoading || !userDetails?.id) {
       return;
     }
     
     setPostsLoading(true);
     try {
-      const response = await getMyPosts(page, 10);
+      // Determine which userId to use for loading posts
+      const targetUserId = userDetails.id;
+      const isCurrentUser = currentUser && targetUserId && currentUser.id && String(targetUserId) === String(currentUser.id);
+      
+      console.log('Loading posts - profileUserId:', profileUserId, 'targetUserId:', targetUserId, 'isCurrentUser:', isCurrentUser);
+      
+      // Always use getUserPosts when viewing another user's profile (when profileUserId exists and different from current user)
+      // Only use getMyPosts when viewing own profile (no profileUserId or profileUserId === currentUser.id)
+      const response = (profileUserId && profileUserId !== currentUser?.id)
+        ? await getUserPosts(targetUserId, page, 10)
+        : await getMyPosts(page, 10);
+      
+      console.log('Posts response:', response?.data?.result?.data?.length || 0, 'posts');
       
       // Handle different response formats
       let pageData = null;
@@ -198,26 +395,9 @@ export default function ProfileEnhanced() {
       }
       
       if (newPosts.length > 0) {
-        // Fetch avatar for current user (since these are my posts)
-        let userAvatar = null;
-        if (userDetails?.avatar) {
-          userAvatar = userDetails.avatar;
-        } else {
-          try {
-            const avatarResponse = await fetch(getApiUrl(API_ENDPOINTS.USER.GET_PROFILE.replace(':id', userDetails?.id)), {
-              headers: {
-                'Authorization': `Bearer ${getToken()}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            if (avatarResponse.ok) {
-              const avatarData = await avatarResponse.json();
-              userAvatar = avatarData?.result?.avatar || avatarData?.data?.avatar || avatarData?.avatar || null;
-            }
-          } catch (error) {
-            console.warn('Failed to fetch avatar:', error);
-          }
-        }
+        // Use userDetails (the profile being viewed) for avatar and name
+        const targetUser = userDetails || currentUser;
+        const userAvatar = targetUser?.avatar || null;
         
         // Map posts to format expected by Post component
         const mappedPosts = newPosts.map((post) => {
@@ -227,6 +407,9 @@ export default function ProfileEnhanced() {
             type: 'image',
             alt: `Post image ${post.id}`,
           }));
+          
+          // Get userId from multiple possible sources
+          const postUserId = post.userId || post.user?.id || post.user?.userId || userDetails?.id;
           
           // Format created date
           let created = 'Just now';
@@ -253,15 +436,25 @@ export default function ProfileEnhanced() {
             created = post.created;
           }
           
+          // Get display name from post response (backend already formats it)
+          // Or use targetUser's name if available
+          const displayName = post.username || 
+            (targetUser?.firstName && targetUser?.lastName
+              ? `${targetUser.lastName} ${targetUser.firstName}`.trim()
+              : targetUser?.firstName || targetUser?.lastName || targetUser?.username || 'Unknown');
+          
           return {
             id: post.id,
-            avatar: userAvatar || post.avatar || post.userAvatar || null,
-            username: post.username || userDetails?.username || 'Unknown',
+            avatar: post.userAvatar || userAvatar || post.avatar || null, // Use userAvatar from post response first
+            username: post.username || targetUser?.username || 'Unknown',
+            firstName: targetUser?.firstName || post.firstName || '',
+            lastName: targetUser?.lastName || post.lastName || '',
+            displayName: displayName,
             created: created,
             content: post.content || '',
             media: media,
-            userId: post.userId,
-            privacy: post.privacy || 'PUBLIC', // Ensure privacy is included
+            userId: postUserId, // Use the extracted userId from above
+            privacy: post.privacy || 'PUBLIC',
             ...post,
           };
         });
@@ -295,17 +488,41 @@ export default function ProfileEnhanced() {
     } finally {
       setPostsLoading(false);
     }
-  }, [userDetails]);
+  }, [userDetails, profileUserId, currentUser, postsLoading]);
 
-  // Load posts on mount - only once
+  // Load posts on mount - reset when userDetails or profileUserId changes
   const hasLoadedPosts = useRef(false);
+  const lastProfileUserIdRef = useRef(null);
+  
+  useEffect(() => {
+    // Reset when viewing different user (profileUserId changed)
+    if (profileUserId !== lastProfileUserIdRef.current) {
+      lastProfileUserIdRef.current = profileUserId;
+      hasLoadedPosts.current = false;
+      setPosts([]);
+      setPostsPage(1);
+      setPostsTotalPages(0);
+    }
+    
+    // Also reset when userDetails.id changes
+    if (userDetails?.id) {
+      const currentProfileId = profileUserId || userDetails.id;
+      if (currentProfileId !== lastProfileUserIdRef.current) {
+        hasLoadedPosts.current = false;
+        setPosts([]);
+        setPostsPage(1);
+        setPostsTotalPages(0);
+      }
+    }
+  }, [userDetails?.id, profileUserId]);
+  
   useEffect(() => {
     if (!hasLoadedPosts.current && posts.length === 0 && !postsLoading && userDetails?.id) {
       hasLoadedPosts.current = true;
       setPostsPage(1);
       loadMyPosts(1);
     }
-  }, [userDetails?.id]); // Only depend on userDetails.id
+  }, [userDetails?.id, posts.length, postsLoading, loadMyPosts]);
 
   // Infinite scroll for posts
   useEffect(() => {
@@ -351,14 +568,79 @@ export default function ProfileEnhanced() {
     if (!editProfileData) return;
     
     try {
-      await updateProfile(editProfileData);
+      // Prepare data according to backend UpdateProfileRequest format
+      const updateData = {
+        bio: editProfileData.bio || null,
+        city: editProfileData.city || null,
+        country: editProfileData.country || null,
+        dob: editProfileData.dob || null,
+        phoneNumber: editProfileData.phoneNumber || null,
+        gender: editProfileData.gender || null,
+        website: editProfileData.website || null,
+        firstName: editProfileData.firstName || null,
+        lastName: editProfileData.lastName || null,
+      };
+      
+      // Remove null/empty values to avoid sending unnecessary data
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === null || updateData[key] === "") {
+          delete updateData[key];
+        }
+      });
+      
+      const response = await updateProfile(updateData);
+      
+      // Reload user context first
       await loadUser();
+      
+      // Then reload profile to get updated data
+      // Parse updated profile from response
+      let updatedProfile = null;
+      if (response?.data) {
+        updatedProfile = response.data.result || response.data.data || response.data;
+      } else if (response?.result) {
+        updatedProfile = response.result;
+      }
+      
+      // Update userDetails with new data
+      if (updatedProfile && typeof updatedProfile === 'object') {
+        setUserDetails(prev => ({
+          ...prev,
+          ...updatedProfile,
+          // Ensure all fields are updated
+          bio: updatedProfile.bio !== undefined ? updatedProfile.bio : prev?.bio,
+          city: updatedProfile.city !== undefined ? updatedProfile.city : prev?.city,
+          country: updatedProfile.country !== undefined ? updatedProfile.country : prev?.country,
+          dob: updatedProfile.dob !== undefined ? updatedProfile.dob : prev?.dob,
+          phoneNumber: updatedProfile.phoneNumber !== undefined ? updatedProfile.phoneNumber : prev?.phoneNumber,
+          phone: updatedProfile.phoneNumber || updatedProfile.phone || prev?.phone,
+          gender: updatedProfile.gender !== undefined ? updatedProfile.gender : prev?.gender,
+          website: updatedProfile.website !== undefined ? updatedProfile.website : prev?.website,
+          firstName: updatedProfile.firstName !== undefined ? updatedProfile.firstName : prev?.firstName,
+          lastName: updatedProfile.lastName !== undefined ? updatedProfile.lastName : prev?.lastName,
+        }));
+      } else {
+        // If response doesn't have updated data, reload profile
+        // Trigger reload by calling loadProfile logic
+        const reloadResponse = await getMyInfo();
+        let reloadedProfile = null;
+        if (reloadResponse?.data) {
+          reloadedProfile = reloadResponse.data.result || reloadResponse.data.data || reloadResponse.data;
+        } else if (reloadResponse?.result) {
+          reloadedProfile = reloadResponse.result;
+        }
+        if (reloadedProfile && typeof reloadedProfile === 'object') {
+          setUserDetails(reloadedProfile);
+        }
+      }
+      
       setEditingAbout(false);
       setEditProfileData(null);
       setSnackbar({ open: true, message: "Cập nhật thông tin thành công!", severity: "success" });
     } catch (error) {
       console.error('Error updating profile:', error);
-      setSnackbar({ open: true, message: "Không thể cập nhật thông tin. Vui lòng thử lại.", severity: "error" });
+      const errorMessage = error?.response?.data?.message || error?.message || "Không thể cập nhật thông tin. Vui lòng thử lại.";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
     }
   };
 
@@ -393,27 +675,33 @@ export default function ProfileEnhanced() {
     );
   }
 
+  const isOwnProfile = !profileUserId || (currentUser && profileUserId === currentUser.id);
+
   return (
     <Scene>
-      <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto", pb: 4 }}>
+      <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto", pb: 4, pt: { xs: 0, sm: 2 } }}>
+        {/* Cover Photo Section */}
         <Paper
           elevation={0}
           sx={(t) => ({
             position: "relative",
-            height: { xs: 280, sm: 380, md: 420 },
-            borderRadius: { xs: 0, sm: "20px 20px 0 0" },
+            height: { xs: 300, sm: 400, md: 450 },
+            borderRadius: { xs: 0, sm: "24px 24px 0 0" },
             overflow: "hidden",
             border: "1px solid",
             borderColor: "divider",
             borderBottom: "none",
             boxShadow: t.palette.mode === "dark"
-              ? "0 8px 32px rgba(0, 0, 0, 0.4)"
-              : "0 8px 32px rgba(0, 0, 0, 0.08)",
-            transition: "all 0.3s ease",
+              ? "0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)"
+              : "0 12px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            background: t.palette.mode === "dark"
+              ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
+              : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             "&:hover": {
               boxShadow: t.palette.mode === "dark"
-                ? "0 12px 48px rgba(0, 0, 0, 0.5)"
-                : "0 12px 48px rgba(0, 0, 0, 0.12)",
+                ? "0 16px 56px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08)"
+                : "0 16px 56px rgba(102, 126, 234, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08)",
             },
           })}
           onMouseEnter={() => setCoverHover(true)}
@@ -427,8 +715,9 @@ export default function ProfileEnhanced() {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              transition: "transform 0.5s ease",
-              transform: coverHover ? "scale(1.05)" : "scale(1)",
+              transition: "transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.6s ease",
+              transform: coverHover ? "scale(1.08)" : "scale(1)",
+              filter: coverHover ? "brightness(1.1)" : "brightness(1)",
             }}
           />
           <Box
@@ -438,30 +727,36 @@ export default function ProfileEnhanced() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.5) 100%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%)",
             }}
           />
-          <Tooltip title="Change cover photo" arrow>
-            <IconButton
-              onClick={handleCoverClick}
-              sx={{
-                position: "absolute",
-                bottom: 20,
-                right: 20,
-                bgcolor: "rgba(255, 255, 255, 0.95)",
-                backdropFilter: "blur(10px)",
-                opacity: coverHover ? 1 : 0,
-                transition: "all 0.3s ease",
-                "&:hover": { 
-                  bgcolor: "white",
-                  transform: "scale(1.1)",
-                },
-                boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
-              }}
-            >
-              <PhotoCameraIcon />
-            </IconButton>
-          </Tooltip>
+          {isOwnProfile && (
+            <Tooltip title="Thay đổi ảnh bìa" arrow>
+              <IconButton
+                onClick={handleCoverClick}
+                disabled={uploading}
+                sx={{
+                  position: "absolute",
+                  bottom: 24,
+                  right: 24,
+                  bgcolor: "rgba(255, 255, 255, 0.95)",
+                  backdropFilter: "blur(12px)",
+                  opacity: coverHover ? 1 : 0,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": { 
+                    bgcolor: "white",
+                    transform: "scale(1.15) rotate(5deg)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                  },
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                  width: 48,
+                  height: 48,
+                }}
+              >
+                <PhotoCameraIcon sx={{ fontSize: 24 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <input
             ref={coverInputRef}
             type="file"
@@ -471,30 +766,34 @@ export default function ProfileEnhanced() {
           />
         </Paper>
 
+        {/* Profile Info Section */}
         <Paper
           elevation={0}
           sx={(t) => ({
-            borderRadius: { xs: 0, sm: "0 0 20px 20px" },
+            borderRadius: { xs: 0, sm: "0 0 24px 24px" },
             border: "1px solid",
             borderColor: "divider",
             borderTop: "none",
-            p: { xs: 2, sm: 3, md: 4 },
+            p: { xs: 2.5, sm: 3.5, md: 4.5 },
             mb: 3,
             bgcolor: "background.paper",
             boxShadow: t.palette.mode === "dark"
-              ? "0 4px 24px rgba(0, 0, 0, 0.3)"
-              : "0 4px 24px rgba(0, 0, 0, 0.06)",
+              ? "0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)"
+              : "0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)",
             backgroundImage: t.palette.mode === "dark"
-              ? "linear-gradient(135deg, rgba(139, 154, 255, 0.02) 0%, rgba(151, 117, 212, 0.02) 100%)"
-              : "linear-gradient(135deg, rgba(102, 126, 234, 0.01) 0%, rgba(118, 75, 162, 0.01) 100%)",
+              ? "linear-gradient(135deg, rgba(139, 154, 255, 0.03) 0%, rgba(151, 117, 212, 0.03) 100%)"
+              : "linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)",
+            transition: "all 0.3s ease",
           })}
         >
-          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, alignItems: { xs: "center", md: "flex-start" } }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: { xs: 2, md: 4 }, alignItems: { xs: "center", md: "flex-start" } }}>
+            {/* Avatar Section */}
             <Box 
               sx={{ 
                 position: "relative", 
-                mt: { xs: -14, md: -10 },
-                alignSelf: { xs: "center", md: "flex-start" }
+                mt: { xs: -16, md: -12 },
+                alignSelf: { xs: "center", md: "flex-start" },
+                zIndex: 1,
               }}
               onMouseEnter={() => setAvatarHover(true)}
               onMouseLeave={() => setAvatarHover(false)}
@@ -502,67 +801,84 @@ export default function ProfileEnhanced() {
               <Avatar
                 src={userDetails?.avatar}
                 sx={(t) => ({
-                  width: { xs: 150, sm: 160, md: 180 },
-                  height: { xs: 150, sm: 160, md: 180 },
-                  border: "6px solid",
+                  width: { xs: 160, sm: 180, md: 200 },
+                  height: { xs: 160, sm: 180, md: 200 },
+                  border: "8px solid",
                   borderColor: "background.paper",
                   bgcolor: t.palette.mode === "dark"
                     ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
                     : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  fontSize: { xs: 56, sm: 64, md: 72 },
-                  cursor: "pointer",
-                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  fontSize: { xs: 64, sm: 72, md: 80 },
+                  cursor: isOwnProfile ? "pointer" : "default",
+                  transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
                   boxShadow: t.palette.mode === "dark"
-                    ? "0 8px 32px rgba(139, 154, 255, 0.4), 0 4px 16px rgba(0, 0, 0, 0.5)"
-                    : "0 8px 32px rgba(102, 126, 234, 0.3), 0 4px 16px rgba(0, 0, 0, 0.15)",
-                  "&:hover": {
-                    transform: "scale(1.05)",
+                    ? "0 12px 40px rgba(139, 154, 255, 0.5), 0 6px 20px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1)"
+                    : "0 12px 40px rgba(102, 126, 234, 0.4), 0 6px 20px rgba(0, 0, 0, 0.2)",
+                  "&:hover": isOwnProfile ? {
+                    transform: "scale(1.08) rotate(5deg)",
                     boxShadow: t.palette.mode === "dark"
-                      ? "0 12px 48px rgba(139, 154, 255, 0.5), 0 6px 24px rgba(0, 0, 0, 0.6)"
-                      : "0 12px 48px rgba(102, 126, 234, 0.4), 0 6px 24px rgba(0, 0, 0, 0.2)",
-                  },
+                      ? "0 16px 56px rgba(139, 154, 255, 0.6), 0 8px 28px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.15)"
+                      : "0 16px 56px rgba(102, 126, 234, 0.5), 0 8px 28px rgba(0, 0, 0, 0.25)",
+                  } : {},
                 })}
-                onClick={handleAvatarClick}
+                onClick={isOwnProfile ? handleAvatarClick : undefined}
               >
-                {userDetails?.firstName?.[0] || ""}{userDetails?.lastName?.[0] || ""}
+                {(() => {
+                  if (userDetails?.lastName && userDetails?.firstName) {
+                    return `${userDetails.lastName[0] || ''}${userDetails.firstName[0] || ''}`.toUpperCase();
+                  }
+                  if (userDetails?.firstName) {
+                    return userDetails.firstName[0]?.toUpperCase() || '';
+                  }
+                  if (userDetails?.lastName) {
+                    return userDetails.lastName[0]?.toUpperCase() || '';
+                  }
+                  return userDetails?.username?.[0]?.toUpperCase() || userDetails?.email?.[0]?.toUpperCase() || 'U';
+                })()}
               </Avatar>
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  bgcolor: "rgba(0, 0, 0, 0.5)",
-                  opacity: avatarHover ? 1 : 0,
-                  transition: "opacity 0.3s ease",
-                  cursor: "pointer",
-                }}
-                onClick={handleAvatarClick}
-              >
-                <PhotoCameraIcon sx={{ color: "white", fontSize: 40 }} />
-              </Box>
-              {uploading && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: "50%",
-                    bgcolor: "rgba(0, 0, 0, 0.5)",
-                  }}
-                >
-                  <CircularProgress size={48} sx={{ color: "white" }} />
-                </Box>
+              {isOwnProfile && (
+                <>
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "50%",
+                      bgcolor: "rgba(0, 0, 0, 0.6)",
+                      backdropFilter: "blur(4px)",
+                      opacity: avatarHover ? 1 : 0,
+                      transition: "opacity 0.3s ease",
+                      cursor: "pointer",
+                    }}
+                    onClick={handleAvatarClick}
+                  >
+                    <PhotoCameraIcon sx={{ color: "white", fontSize: 48 }} />
+                  </Box>
+                  {uploading && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        bgcolor: "rgba(0, 0, 0, 0.7)",
+                        backdropFilter: "blur(4px)",
+                      }}
+                    >
+                      <CircularProgress size={56} sx={{ color: "white" }} />
+                    </Box>
+                  )}
+                </>
               )}
               <input
                 ref={avatarInputRef}
@@ -573,23 +889,36 @@ export default function ProfileEnhanced() {
               />
             </Box>
 
-            <Box sx={{ flex: 1, textAlign: { xs: "center", md: "left" }, width: "100%" }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: { xs: "center", md: "flex-start" }, flexWrap: "wrap", mb: 1 }}>
+            {/* User Info Section */}
+            <Box sx={{ flex: 1, textAlign: { xs: "center", md: "left" }, width: "100%", mt: { xs: 2, md: 0 } }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, justifyContent: { xs: "center", md: "flex-start" }, flexWrap: "wrap", mb: 1.5 }}>
                 <Typography 
                   variant="h4" 
                   sx={{ 
-                    fontWeight: 700, 
-                    fontSize: { xs: 28, sm: 32, md: 36 },
+                    fontWeight: 800, 
+                    fontSize: { xs: 30, sm: 36, md: 42 },
                     background: (t) => t.palette.mode === "dark"
                       ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
                       : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                     backgroundClip: "text",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
-                    lineHeight: 1.2,
+                    lineHeight: 1.1,
+                    letterSpacing: "-0.02em",
                   }}
                 >
-                  {[userDetails?.firstName, userDetails?.lastName].filter(Boolean).join(" ") || userDetails?.username || "User"}
+                  {(() => {
+                    if (userDetails?.lastName && userDetails?.firstName) {
+                      return `${userDetails.lastName} ${userDetails.firstName}`.trim();
+                    }
+                    if (userDetails?.firstName) {
+                      return userDetails.firstName;
+                    }
+                    if (userDetails?.lastName) {
+                      return userDetails.lastName;
+                    }
+                    return userDetails?.username || userDetails?.email || "User";
+                  })()}
                 </Typography>
               </Box>
               
@@ -598,9 +927,10 @@ export default function ProfileEnhanced() {
                 variant="body1" 
                 color="text.secondary" 
                 sx={{ 
-                  mb: 1.5, 
-                  fontSize: 15,
-                  fontWeight: 500,
+                  mb: 2, 
+                  fontSize: 16,
+                  fontWeight: 600,
+                  opacity: 0.8,
                 }}
               >
                 @{userDetails?.username || userDetails?.email || "user"}
@@ -612,12 +942,13 @@ export default function ProfileEnhanced() {
                   variant="body2" 
                   color="text.secondary" 
                   sx={{ 
-                    mb: 2, 
-                    fontSize: 14,
+                    mb: 2.5, 
+                    fontSize: 15,
                     display: "flex",
                     alignItems: "center",
-                    gap: 0.5,
+                    gap: 1,
                     justifyContent: { xs: "center", md: "flex-start" },
+                    opacity: 0.7,
                   }}
                 >
                   📧 {userDetails.email}
@@ -661,9 +992,9 @@ export default function ProfileEnhanced() {
               {/* Additional Info Chips */}
               <Stack
                 direction="row"
-                spacing={1}
+                spacing={1.5}
                 sx={{ 
-                  mb: 2.5, 
+                  mb: 3, 
                   justifyContent: { xs: "center", md: "flex-start" }, 
                   flexWrap: "wrap", 
                   gap: 1.5,
@@ -671,43 +1002,70 @@ export default function ProfileEnhanced() {
               >
                 {userDetails?.city && (
                   <Chip 
-                    icon={<LocationOnIcon sx={{ fontSize: 16 }} />}
+                    icon={<LocationOnIcon sx={{ fontSize: 18, ml: 0.5 }} />}
                     label={userDetails.city}
-                    size="small"
+                    size="medium"
                     sx={{ 
-                      fontWeight: 500,
-                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      fontWeight: 600,
+                      fontSize: 14,
+                      height: 36,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.12),
                       color: "primary.main",
-                      borderRadius: 3,
-                      px: 1,
+                      borderRadius: 4,
+                      px: 1.5,
+                      border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.2)}`,
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        bgcolor: (t) => alpha(t.palette.primary.main, 0.18),
+                        transform: "translateY(-2px)",
+                        boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.2)}`,
+                      },
                     }}
                   />
                 )}
                 {userDetails?.workplace && (
                   <Chip 
-                    icon={<WorkIcon sx={{ fontSize: 16 }} />}
+                    icon={<WorkIcon sx={{ fontSize: 18, ml: 0.5 }} />}
                     label={userDetails.workplace}
-                    size="small"
+                    size="medium"
                     sx={{ 
-                      fontWeight: 500,
-                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      fontWeight: 600,
+                      fontSize: 14,
+                      height: 36,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.12),
                       color: "primary.main",
-                      borderRadius: 3,
-                      px: 1,
+                      borderRadius: 4,
+                      px: 1.5,
+                      border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.2)}`,
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        bgcolor: (t) => alpha(t.palette.primary.main, 0.18),
+                        transform: "translateY(-2px)",
+                        boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.2)}`,
+                      },
                     }}
                   />
                 )}
                 {userDetails?.position && (
                   <Chip 
-                    icon={<WorkIcon sx={{ fontSize: 16 }} />}
+                    icon={<WorkIcon sx={{ fontSize: 18, ml: 0.5 }} />}
                     label={userDetails.position}
-                    size="small"
+                    size="medium"
                     sx={{ 
-                      fontWeight: 500,
-                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                      fontWeight: 600,
+                      fontSize: 14,
+                      height: 36,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.12),
                       color: "primary.main",
-                      borderRadius: 3,
-                      px: 1,
+                      borderRadius: 4,
+                      px: 1.5,
+                      border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.2)}`,
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        bgcolor: (t) => alpha(t.palette.primary.main, 0.18),
+                        transform: "translateY(-2px)",
+                        boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.2)}`,
+                      },
                     }}
                   />
                 )}
@@ -725,49 +1083,79 @@ export default function ProfileEnhanced() {
               <Paper
                 elevation={0}
                 sx={(t) => ({
-                  borderRadius: 5,
-                  p: { xs: 2.5, sm: 3, md: 4 },
+                  borderRadius: 4,
+                  p: { xs: 3, sm: 3.5, md: 4 },
                   border: "1px solid",
                   borderColor: "divider",
                   boxShadow: t.palette.mode === "dark"
-                    ? "0 4px 20px rgba(0, 0, 0, 0.3)"
-                    : "0 4px 20px rgba(0, 0, 0, 0.06)",
+                    ? "0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)"
+                    : "0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)",
                   backgroundImage: t.palette.mode === "dark"
-                    ? "linear-gradient(135deg, rgba(139, 154, 255, 0.03) 0%, rgba(151, 117, 212, 0.03) 100%)"
-                    : "linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)",
-                  transition: "all 0.3s ease",
+                    ? "linear-gradient(135deg, rgba(139, 154, 255, 0.04) 0%, rgba(151, 117, 212, 0.04) 100%)"
+                    : "linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%)",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                   "&:hover": {
                     boxShadow: t.palette.mode === "dark"
-                      ? "0 8px 32px rgba(0, 0, 0, 0.4)"
-                      : "0 8px 32px rgba(0, 0, 0, 0.1)",
-                    transform: "translateY(-2px)",
+                      ? "0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)"
+                      : "0 12px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08)",
+                    transform: "translateY(-4px)",
                   },
                   position: "sticky",
                   top: 20,
                   maxHeight: "calc(100vh - 40px)",
                   overflowY: "auto",
+                  "&::-webkit-scrollbar": {
+                    width: "8px",
+                  },
+                  "&::-webkit-scrollbar-track": {
+                    background: "transparent",
+                  },
+                  "&::-webkit-scrollbar-thumb": {
+                    background: (t) => alpha(t.palette.primary.main, 0.2),
+                    borderRadius: "4px",
+                    "&:hover": {
+                      background: (t) => alpha(t.palette.primary.main, 0.3),
+                    },
+                  },
                 })}
               >
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: 18, sm: 20 } }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3.5 }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 800, 
+                      fontSize: { xs: 20, sm: 22 },
+                      background: (t) => t.palette.mode === "dark"
+                        ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                        : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      backgroundClip: "text",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
                     Giới thiệu
                   </Typography>
+                  {isOwnProfile && (
                     <IconButton
-                      size="small"
+                      size="medium"
                       onClick={() => setEditingAbout(!editingAbout)}
                       sx={{
-                        bgcolor: editingAbout ? "primary.main" : alpha("#667eea", 0.1),
+                        bgcolor: editingAbout ? "primary.main" : alpha("#667eea", 0.12),
                         color: editingAbout ? "white" : "primary.main",
+                        width: 40,
+                        height: 40,
                         "&:hover": {
                           bgcolor: editingAbout ? "primary.dark" : alpha("#667eea", 0.2),
-                          transform: "scale(1.1)",
+                          transform: "scale(1.1) rotate(15deg)",
+                          boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.3)}`,
                         },
-                        transition: "all 0.2s ease",
+                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                       }}
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
-                  </Box>
+                  )}
+                </Box>
 
                   {editingAbout ? (
                     <Stack spacing={3}>
@@ -801,10 +1189,28 @@ export default function ProfileEnhanced() {
                       />
                       <TextField
                         fullWidth
-                        label="Phone"
-                        value={editProfileData?.phone || ""}
+                        label="First Name"
+                        value={editProfileData?.firstName || ""}
                         onChange={(e) => {
-                          setEditProfileData({ ...editProfileData, phone: e.target.value });
+                          setEditProfileData({ ...editProfileData, firstName: e.target.value });
+                        }}
+                        placeholder="First Name"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Last Name"
+                        value={editProfileData?.lastName || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, lastName: e.target.value });
+                        }}
+                        placeholder="Last Name"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Phone Number"
+                        value={editProfileData?.phoneNumber || ""}
+                        onChange={(e) => {
+                          setEditProfileData({ ...editProfileData, phoneNumber: e.target.value });
                         }}
                         placeholder="+1 234 567 8900"
                       />
@@ -819,51 +1225,30 @@ export default function ProfileEnhanced() {
                       />
                       <TextField
                         fullWidth
-                        label="Workplace"
-                        value={editProfileData?.workplace || ""}
+                        label="Country"
+                        value={editProfileData?.country || ""}
                         onChange={(e) => {
-                          setEditProfileData({ ...editProfileData, workplace: e.target.value });
+                          setEditProfileData({ ...editProfileData, country: e.target.value });
                         }}
-                        placeholder="Company Name"
-                      />
-                      <TextField
-                        fullWidth
-                        label="Position/Job Title"
-                        value={editProfileData?.position || ""}
-                        onChange={(e) => {
-                          setEditProfileData({ ...editProfileData, position: e.target.value });
-                        }}
-                        placeholder="Senior Developer"
-                      />
-                      <TextField
-                        fullWidth
-                        label="Education"
-                        value={editProfileData?.education || ""}
-                        onChange={(e) => {
-                          setEditProfileData({ ...editProfileData, education: e.target.value });
-                        }}
-                        placeholder="University, Degree"
+                        placeholder="Country"
                       />
                       <TextField
                         fullWidth
                         select
-                        label="Relationship Status"
-                        value={editProfileData?.relationship || ""}
+                        label="Gender"
+                        value={editProfileData?.gender || ""}
                         onChange={(e) => {
-                          setEditProfileData({ ...editProfileData, relationship: e.target.value });
+                          setEditProfileData({ ...editProfileData, gender: e.target.value });
                         }}
                         SelectProps={{
                           native: true,
                         }}
                       >
                         <option value="">Select...</option>
-                        <option value="Single">Single</option>
-                        <option value="In a relationship">In a relationship</option>
-                        <option value="Engaged">Engaged</option>
-                        <option value="Married">Married</option>
-                        <option value="Divorced">Divorced</option>
-                        <option value="Widowed">Widowed</option>
-                        <option value="Prefer not to say">Prefer not to say</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                        <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
                       </TextField>
                       
                       <Stack direction="row" spacing={1.5} justifyContent="flex-end">
@@ -902,158 +1287,376 @@ export default function ProfileEnhanced() {
                       </Stack>
                     </Stack>
                   ) : (
-                    <Stack spacing={3}>
+                    <Stack spacing={2.5}>
                       {userDetails?.city && (
                         <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <LocationOnIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                          <Box 
+                            sx={{ 
+                              display: "flex", 
+                              alignItems: "flex-start", 
+                              gap: 2,
+                              p: 2,
+                              borderRadius: 3,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                              border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                                transform: "translateX(4px)",
+                              },
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                p: 1,
+                                borderRadius: 2,
+                                bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <LocationOnIcon sx={{ color: "primary.main", fontSize: 24 }} />
+                            </Box>
                             <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Lives in
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                                Sống tại
                               </Typography>
-                              <Typography variant="body1" fontWeight={600}>
+                              <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
                                 {userDetails.city}
                               </Typography>
                             </Box>
                           </Box>
-                          <Divider />
                         </>
                       )}
 
                       {userDetails?.dob && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <CakeIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Date of Birth
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {new Date(userDetails.dob).toLocaleDateString()}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <CakeIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Ngày sinh
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {new Date(userDetails.dob).toLocaleDateString('vi-VN')}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.email && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <WorkIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Email
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {userDetails.email}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <WorkIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Email
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {userDetails.email}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.phone && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <PhoneIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Phone
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {userDetails.phone}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <PhoneIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Số điện thoại
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {userDetails.phone}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.website && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <LanguageIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Website
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                <a 
-                                  href={userDetails.website.startsWith('http') ? userDetails.website : `https://${userDetails.website}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ color: 'inherit', textDecoration: 'none' }}
-                                >
-                                  {userDetails.website}
-                                </a>
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <LanguageIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Website
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              <a 
+                                href={userDetails.website.startsWith('http') ? userDetails.website : `https://${userDetails.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ 
+                                  color: 'inherit', 
+                                  textDecoration: 'none',
+                                  transition: 'all 0.2s ease',
+                                }}
+                                onMouseEnter={(e) => e.target.style.color = 'var(--mui-palette-primary-main)'}
+                                onMouseLeave={(e) => e.target.style.color = 'inherit'}
+                              >
+                                {userDetails.website}
+                              </a>
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.workplace && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <BusinessIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Workplace
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {userDetails.workplace}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <BusinessIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Nơi làm việc
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {userDetails.workplace}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.position && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <WorkIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Position
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {userDetails.position}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <WorkIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Chức vụ
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {userDetails.position}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.education && (
-                        <>
-                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                            <SchoolIcon sx={{ color: "primary.main", mt: 0.5 }} />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Education
-                              </Typography>
-                              <Typography variant="body1" fontWeight={600}>
-                                {userDetails.education}
-                              </Typography>
-                            </Box>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <SchoolIcon sx={{ color: "primary.main", fontSize: 24 }} />
                           </Box>
-                          <Divider />
-                        </>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Học vấn
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
+                              {userDetails.education}
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
 
                       {userDetails?.relationship && (
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                          <FavoriteIcon sx={{ color: "primary.main", mt: 0.5 }} />
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            alignItems: "flex-start", 
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                              transform: "translateX(4px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 2,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <FavoriteIcon sx={{ color: "primary.main", fontSize: 24 }} />
+                          </Box>
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Relationship
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: 13, fontWeight: 500 }}>
+                              Mối quan hệ
                             </Typography>
-                            <Typography variant="body1" fontWeight={600}>
+                            <Typography variant="body1" fontWeight={700} sx={{ fontSize: 15 }}>
                               {userDetails.relationship}
                             </Typography>
                           </Box>

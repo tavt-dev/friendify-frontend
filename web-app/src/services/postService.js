@@ -1,5 +1,5 @@
-import { getToken } from "./localStorageService";
-import { getApiUrl, API_ENDPOINTS } from '../config/apiConfig';
+import { API_ENDPOINTS } from '../config/apiConfig';
+import { apiFetch } from './apiHelper';
 
 /**
  * Get my posts with pagination
@@ -8,24 +8,7 @@ import { getApiUrl, API_ENDPOINTS } from '../config/apiConfig';
  * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
  */
 export const getMyPosts = async (page = 1, size = 10) => {
-  try {
-    const response = await fetch(getApiUrl(`${API_ENDPOINTS.POST.MY_POSTS}?page=${page}&size=${size}`), {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    return { data: await response.json(), status: response.status };
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    throw error;
-  }
+  return apiFetch(`${API_ENDPOINTS.POST.MY_POSTS}?page=${page}&size=${size}`);
 };
 
 /**
@@ -35,44 +18,7 @@ export const getMyPosts = async (page = 1, size = 10) => {
  * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
  */
 export const getPublicPosts = async (page = 1, size = 10) => {
-  try {
-    const url = getApiUrl(`${API_ENDPOINTS.POST.PUBLIC_POSTS}?page=${page}&size=${size}`);
-    console.log('Fetching public posts from:', url);
-    
-    const token = getToken();
-    if (!token) {
-      throw { response: { status: 401, data: { message: 'No token found' } } };
-    }
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Response headers:', response.headers);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Error response:', errorData);
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    const data = await response.json();
-    console.log('Response data:', data);
-    return { data, status: response.status };
-  } catch (error) {
-    console.error('Error fetching public posts:', error);
-    // If it's already formatted error, re-throw
-    if (error.response) {
-      throw error;
-    }
-    // Otherwise, wrap it
-    throw { response: { status: error.status || 500, data: { message: error.message } } };
-  }
+  return apiFetch(`${API_ENDPOINTS.POST.PUBLIC_POSTS}?page=${page}&size=${size}`);
 };
 
 /**
@@ -81,24 +27,7 @@ export const getPublicPosts = async (page = 1, size = 10) => {
  * @returns {Promise<{data: {result: PostResponse}, status: number}>}
  */
 export const getPostById = async (postId) => {
-  try {
-    const response = await fetch(getApiUrl(API_ENDPOINTS.POST.GET_BY_ID.replace(':id', postId)), {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    return { data: await response.json(), status: response.status };
-  } catch (error) {
-    console.error('Error fetching post:', error);
-    throw error;
-  }
+  return apiFetch(API_ENDPOINTS.POST.GET_BY_ID.replace(':id', postId));
 };
 
 /**
@@ -110,49 +39,28 @@ export const getPostById = async (postId) => {
  * @returns {Promise<{data: {result: PostResponse}, status: number}>}
  */
 export const createPost = async (postData) => {
-  try {
-    // Backend expects multipart/form-data
-    const formData = new FormData();
-    
-    // Add content if provided
-    if (postData.content) {
-      formData.append('content', postData.content);
-    }
-    
-    // Add images if provided (expecting File objects)
-    if (postData.images && Array.isArray(postData.images)) {
-      postData.images.forEach((image) => {
-        if (image instanceof File) {
-          formData.append('images', image);
-        }
-      });
-    }
-
-    // Add privacy if provided (PUBLIC, FRIENDS, PRIVATE)
-    if (postData.privacy) {
-      formData.append('privacy', postData.privacy);
-    }
-
-    const response = await fetch(getApiUrl(API_ENDPOINTS.POST.CREATE), {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-        // Don't set Content-Type header - browser will set it with boundary for FormData
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    const data = await response.json();
-    return { data, status: response.status };
-  } catch (error) {
-    console.error('Error creating post:', error);
-    throw error;
+  const formData = new FormData();
+  
+  if (postData.content) {
+    formData.append('content', postData.content);
   }
+  
+  if (postData.images && Array.isArray(postData.images)) {
+    postData.images.forEach((image) => {
+      if (image instanceof File) {
+        formData.append('images', image);
+      }
+    });
+  }
+
+  if (postData.privacy) {
+    formData.append('privacy', postData.privacy);
+  }
+
+  return apiFetch(API_ENDPOINTS.POST.CREATE, {
+    method: 'POST',
+    body: formData,
+  });
 };
 
 /**
@@ -165,43 +73,28 @@ export const createPost = async (postData) => {
  * @returns {Promise<{data: {result: PostResponse}, status: number}>}
  */
 export const updatePost = async (postId, postData) => {
-  try {
-    const formData = new FormData();
-    
-    if (postData.content) {
-      formData.append('content', postData.content);
-    }
-    
-    if (postData.images && Array.isArray(postData.images)) {
-      postData.images.forEach((image) => {
-        if (image instanceof File) {
-          formData.append('images', image);
-        }
-      });
-    }
-
-    if (postData.privacy) {
-      formData.append('privacy', postData.privacy);
-    }
-
-    const response = await fetch(getApiUrl(API_ENDPOINTS.POST.UPDATE.replace(':id', postId)), {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw { response: { status: response.status, data: errorData } };
-    }
-
-    return { data: await response.json(), status: response.status };
-  } catch (error) {
-    console.error('Error updating post:', error);
-    throw error;
+  const formData = new FormData();
+  
+  if (postData.content) {
+    formData.append('content', postData.content);
   }
+  
+  if (postData.images && Array.isArray(postData.images)) {
+    postData.images.forEach((image) => {
+      if (image instanceof File) {
+        formData.append('images', image);
+      }
+    });
+  }
+
+  if (postData.privacy) {
+    formData.append('privacy', postData.privacy);
+  }
+
+  return apiFetch(API_ENDPOINTS.POST.UPDATE.replace(':id', postId), {
+    method: 'PUT',
+    body: formData,
+  });
 };
 
 /**
@@ -210,23 +103,129 @@ export const updatePost = async (postId, postData) => {
  * @returns {Promise<{data: {result: void}, status: number}>}
  */
 export const deletePost = async (postId) => {
-  try {
-    const response = await fetch(getApiUrl(API_ENDPOINTS.POST.DELETE.replace(':id', postId)), {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-        'Content-Type': 'application/json',
-      },
-    });
+  return apiFetch(API_ENDPOINTS.POST.DELETE.replace(':id', postId), {
+    method: 'DELETE',
+  });
+};
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw { response: { status: response.status, data: errorData } };
-    }
+/**
+ * Save a post
+ * @param {string} postId - Post ID
+ * @returns {Promise<{data: {result: void}, status: number}>}
+ */
+export const savePost = async (postId) => {
+  return apiFetch(API_ENDPOINTS.POST.SAVE.replace(':id', postId), {
+    method: 'POST',
+  });
+};
 
-    return { data: await response.json(), status: response.status };
-  } catch (error) {
-    console.error('Error deleting post:', error);
-    throw error;
+/**
+ * Unsave a post
+ * @param {string} postId - Post ID
+ * @returns {Promise<{data: {result: void}, status: number}>}
+ */
+export const unsavePost = async (postId) => {
+  return apiFetch(API_ENDPOINTS.POST.UNSAVE.replace(':id', postId), {
+    method: 'DELETE',
+  });
+};
+
+/**
+ * Get saved posts
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const getSavedPosts = async (page = 1, size = 10) => {
+  return apiFetch(`${API_ENDPOINTS.POST.SAVED_POSTS}?page=${page}&size=${size}`);
+};
+
+/**
+ * Get shared posts by user ID
+ * @param {string} userId - User ID
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const getSharedPosts = async (userId, page = 1, size = 10) => {
+  const endpoint = `${API_ENDPOINTS.POST.SHARED_POSTS.replace(':id', userId)}?page=${page}&size=${size}`;
+  return apiFetch(endpoint);
+};
+
+/**
+ * Get share count for a post
+ * @param {string} postId - Post ID
+ * @returns {Promise<{data: {result: number}, status: number}>}
+ */
+export const getShareCount = async (postId) => {
+  return apiFetch(API_ENDPOINTS.POST.SHARE_COUNT.replace(':id', postId));
+};
+
+/**
+ * Check if a post is saved
+ * @param {string} postId - Post ID
+ * @returns {Promise<{data: {result: boolean}, status: number}>}
+ */
+export const isPostSaved = async (postId) => {
+  return apiFetch(API_ENDPOINTS.POST.IS_SAVED.replace(':id', postId));
+};
+
+/**
+ * Get posts by user ID
+ * @param {string} userId - User ID
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const getUserPosts = async (userId, page = 1, size = 10) => {
+  const endpoint = `${API_ENDPOINTS.POST.USER_POSTS.replace(':id', userId)}?page=${page}&size=${size}`;
+  return apiFetch(endpoint);
+};
+
+/**
+ * Get my shared posts
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const getMySharedPosts = async (page = 1, size = 10) => {
+  return apiFetch(`${API_ENDPOINTS.POST.MY_SHARED_POSTS}?page=${page}&size=${size}`);
+};
+
+/**
+ * Get saved posts count
+ * @returns {Promise<{data: {result: number}, status: number}>}
+ */
+export const getSavedCount = async () => {
+  return apiFetch(API_ENDPOINTS.POST.SAVED_COUNT);
+};
+
+/**
+ * Search posts
+ * @param {string} keyword - Search keyword
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const searchPosts = async (keyword, page = 1, size = 10) => {
+  if (!keyword || keyword.trim().length === 0) {
+    return { data: { result: { content: [], totalElements: 0, totalPages: 0 } }, status: 200 };
   }
+  const endpoint = `${API_ENDPOINTS.POST.SEARCH}?keyword=${encodeURIComponent(keyword.trim())}&page=${page}&size=${size}`;
+  return apiFetch(endpoint);
+};
+
+/**
+ * Search posts from friends
+ * @param {string} keyword - Search keyword
+ * @param {number} page - Page number (default: 1)
+ * @param {number} size - Page size (default: 10)
+ * @returns {Promise<{data: {result: PageResponse<PostResponse>}, status: number}>}
+ */
+export const searchFriendsPosts = async (keyword, page = 1, size = 10) => {
+  if (!keyword || keyword.trim().length === 0) {
+    return { data: { result: { content: [], totalElements: 0, totalPages: 0 } }, status: 200 };
+  }
+  const endpoint = `${API_ENDPOINTS.POST.SEARCH_FRIENDS}?keyword=${encodeURIComponent(keyword.trim())}&page=${page}&size=${size}`;
+  return apiFetch(endpoint);
 };

@@ -123,8 +123,8 @@ export default function Header({
   // Format user data from API to match expected format
   const user = userData ? {
     name: userData.firstName && userData.lastName 
-      ? `${userData.firstName} ${userData.lastName}` 
-      : userData.username || userData.email || "User",
+      ? `${userData.lastName} ${userData.firstName}`.trim()
+      : userData.firstName || userData.lastName || userData.username || userData.email || "User",
     title: userData.bio || userData.title || userData.email || "Member",
     avatar: userData.avatar || null,
     id: userData.id,

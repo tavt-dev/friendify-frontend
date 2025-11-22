@@ -1,4 +1,5 @@
 import React, { forwardRef, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Avatar,
@@ -35,9 +36,34 @@ const REACTIONS = [
 ];
 
 const Post = forwardRef((props, ref) => {
-  const { avatar, username, created, content, id, media, userId, privacy } = props.post;
+  const navigate = useNavigate();
+  const { avatar, username, firstName, lastName, displayName, created, content, id, media, userId, privacy } = props.post;
   const { onEdit, onDelete, currentUserId } = props;
+  
+  // Get display name: lastName firstName if available, otherwise username
+  const fullName = displayName || (firstName && lastName 
+    ? `${lastName} ${firstName}`.trim() 
+    : firstName || lastName || username || 'Unknown');
+  
+  // Get avatar initials: lastName[0] + firstName[0] if available, otherwise username[0]
+  const avatarInitials = firstName && lastName
+    ? `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase()
+    : firstName
+    ? firstName[0]?.toUpperCase() || ''
+    : lastName
+    ? lastName[0]?.toUpperCase() || ''
+    : username?.charAt(0)?.toUpperCase() || 'U';
   const isOwner = currentUserId && userId && String(currentUserId) === String(userId);
+
+  const handleUserClick = (e) => {
+    e.stopPropagation(); // Prevent event bubbling
+    if (userId) {
+      console.log('Navigating to profile:', userId);
+      navigate(`/profile/${userId}`);
+    } else {
+      console.warn('No userId found in post:', props.post);
+    }
+  };
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [reactionAnchor, setReactionAnchor] = useState(null);
@@ -178,7 +204,8 @@ const Post = forwardRef((props, ref) => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box sx={{ position: "relative" }}>
               <Avatar
-                src={avatar}
+                src={avatar && avatar.trim() !== '' ? avatar : undefined}
+                onClick={handleUserClick}
                 sx={(t) => ({
                   width: { xs: 40, sm: 46, md: 52 },
                   height: { xs: 40, sm: 46, md: 52 },
@@ -194,9 +221,16 @@ const Post = forwardRef((props, ref) => {
                     ? `0 6px 16px ${alpha(t.palette.primary.main, 0.35)}, inset 0 -2px 4px rgba(0, 0, 0, 0.3)`
                     : `0 6px 16px ${alpha(t.palette.primary.main, 0.3)}, inset 0 -2px 4px rgba(0, 0, 0, 0.15)`,
                   transition: "all 0.3s ease",
+                  cursor: "pointer",
+                  "&:hover": {
+                    transform: "scale(1.05)",
+                    boxShadow: t.palette.mode === "dark"
+                      ? `0 8px 20px ${alpha(t.palette.primary.main, 0.5)}, inset 0 -2px 4px rgba(0, 0, 0, 0.3)`
+                      : `0 8px 20px ${alpha(t.palette.primary.main, 0.4)}, inset 0 -2px 4px rgba(0, 0, 0, 0.15)`,
+                  },
                 })}
               >
-                {username?.charAt(0)}
+                {avatarInitials}
               </Avatar>
               <Box
                 sx={(t) => ({
@@ -213,8 +247,21 @@ const Post = forwardRef((props, ref) => {
               />
             </Box>
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: { xs: 14, sm: 15, md: 16 }, color: "text.primary" }}>
-                {username}
+              <Typography 
+                onClick={handleUserClick}
+                sx={{ 
+                  fontWeight: 700, 
+                  fontSize: { xs: 14, sm: 15, md: 16 }, 
+                  color: "text.primary",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    color: "primary.main",
+                    textDecoration: "underline",
+                  },
+                }}
+              >
+                {fullName}
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                 <Typography sx={{ fontSize: { xs: 11, sm: 12 }, color: "text.secondary" }}>
@@ -403,7 +450,7 @@ const Post = forwardRef((props, ref) => {
       {media && media.length > 0 && (
         <MediaCarousel
           media={media}
-          postData={{ avatar, username, created, content }}
+          postData={{ avatar, username, firstName, lastName, displayName: fullName, avatarInitials, created, content }}
         />
       )}
 

@@ -19,17 +19,9 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
-
-// MOCK USERS (tùy bạn thay / mở rộng)
-const MOCK_USERS = [
-  { id: "u-1", username: "mai.le", firstName: "Mai", lastName: "Lê", avatar: "https://i.pravatar.cc/150?u=mai.le" },
-  { id: "u-2", username: "kien.tran", firstName: "Kiên", lastName: "Trần", avatar: "https://i.pravatar.cc/150?u=kien.tran" },
-  { id: "u-3", username: "thuy.nguyen", firstName: "Thuý", lastName: "Nguyễn", avatar: "https://i.pravatar.cc/150?u=thuy.nguyen" },
-  { id: "u-4", username: "nhom-kientruc", firstName: "Nhóm", lastName: "Kiến Trúc", avatar: "https://i.pravatar.cc/150?u=team1" },
-];
-
-// simulate network delay
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+import { apiFetch } from "../services/apiHelper";
+import { API_ENDPOINTS } from "../config/apiConfig";
+import { extractArrayFromResponse } from "../utils/apiHelper";
 
 const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
   const theme = useTheme();
@@ -47,7 +39,7 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState(null);
 
-  // mock search function (filter by username / firstName / lastName)
+  // Search users from API
   const handleSearch = useCallback(
     async (query) => {
       if (!query?.trim()) {
@@ -62,23 +54,63 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
       setError(null);
 
       try {
-        // simulate network latency
-        await delay(300);
+        const keyword = query.trim();
+        // Use POST method as per userService.js
+        const response = await apiFetch(API_ENDPOINTS.USER.SEARCH, {
+          method: 'POST',
+          body: JSON.stringify({ keyword }),
+        });
 
-        const q = query.trim().toLowerCase();
-        const filtered = MOCK_USERS.filter(
-          (u) =>
-            (u.username && u.username.toLowerCase().includes(q)) ||
-            (u.firstName && u.firstName.toLowerCase().includes(q)) ||
-            (u.lastName && u.lastName.toLowerCase().includes(q)) ||
-            `${u.firstName} ${u.lastName}`.toLowerCase().includes(q)
-        );
+        const { items: usersList } = extractArrayFromResponse(response.data);
+        
+        // Normalize user data
+        const normalizedUsers = usersList.map(user => ({
+          id: user.id || user.userId || user._id,
+          username: user.username || user.userName || '',
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          avatar: user.avatar || user.avatarUrl || null,
+          email: user.email || null,
+        }));
 
-        setSearchResults(filtered);
+        setSearchResults(normalizedUsers);
       } catch (err) {
-        console.error("Mock search error:", err);
-        setError("Đã xảy ra lỗi khi tìm kiếm (mock).");
+        setLoading(false);
         setSearchResults([]);
+        
+        // Handle different error cases
+        if (!err || !err.response) {
+          // Network error or unexpected error
+          setError("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.");
+          return;
+        }
+
+        const status = err.response.status;
+        const errorData = err.response.data || {};
+        const errorMessage = errorData.message || errorData.error || errorData.msg;
+
+        // Don't show error for 404 (no results found)
+        if (status === 404) {
+          setHasSearched(true);
+          setError(null);
+          return;
+        }
+
+        // Handle specific status codes
+        if (status === 401) {
+          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        } else if (status === 403) {
+          setError("Bạn không có quyền thực hiện thao tác này.");
+        } else if (status === 400) {
+          // Bad Request - might be invalid search query
+          setError(errorMessage || "Từ khóa tìm kiếm không hợp lệ. Vui lòng thử lại.");
+        } else if (status === 500) {
+          setError("Lỗi server. Vui lòng thử lại sau.");
+        } else if (status >= 400 && status < 500) {
+          setError(errorMessage || "Yêu cầu không hợp lệ. Vui lòng thử lại.");
+        } else {
+          setError(errorMessage || "Không thể tìm kiếm người dùng. Vui lòng thử lại.");
+        }
       } finally {
         setLoading(false);
       }
@@ -119,11 +151,23 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
   };
 
   const handleUserSelect = (user) => {
+    // Validate user has ID
+    if (!user || !user.id) {
+      setError("Người dùng không hợp lệ. Vui lòng chọn lại.");
+      return;
+    }
+
     // normalize shape so parent gets: { userId, displayName, avatar }
+    const fullName = user.firstName && user.lastName 
+      ? `${user.lastName} ${user.firstName}`.trim()
+      : user.firstName || user.lastName || '';
+    
+    const displayName = fullName || user.username || `User ${user.id}`;
+    
     const normalized = {
-      userId: user.id,
-      displayName: user.username || `${user.firstName} ${user.lastName}`.trim(),
-      avatar: user.avatar || "",
+      userId: String(user.id), // Ensure it's a string
+      displayName: displayName,
+      avatar: user.avatar || null,
     };
     onSelectUser(normalized);
     // reset local state
@@ -156,12 +200,12 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
       }}
     >
       <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: "bold", color: "text.primary" }}>
-        Start a new conversation
+        Bắt đầu cuộc trò chuyện mới
       </Typography>
 
       <TextField
         fullWidth
-        placeholder="Start typing to search users..."
+        placeholder="Tìm kiếm người dùng..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         InputProps={{
@@ -241,11 +285,16 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
                 </ListItemAvatar>
                 <ListItemText
                   primary={
-                    <Typography sx={{ color: "text.primary", fontWeight: 600 }}>{user.username}</Typography>
+                    <Typography sx={{ color: "text.primary", fontWeight: 600 }}>
+                      {user.firstName && user.lastName 
+                        ? `${user.lastName} ${user.firstName}`.trim()
+                        : user.firstName || user.lastName || user.username || `User ${user.id}`
+                      }
+                    </Typography>
                   }
                   secondary={
                     <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                      {`${user.firstName || ""} ${user.lastName || ""}`.trim()}
+                      {user.username && (user.firstName || user.lastName) ? `@${user.username}` : user.email || ''}
                     </Typography>
                   }
                   primaryTypographyProps={{ variant: "body1" }}
@@ -257,13 +306,13 @@ const NewChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
 
         {!loading && !error && searchResults.length === 0 && hasSearched && (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary">No users found matching "{searchQuery}"</Typography>
+            <Typography color="text.secondary">Không tìm thấy người dùng nào khớp với "{searchQuery}"</Typography>
           </Box>
         )}
 
         {!loading && !error && !hasSearched && (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary">Search for a user to start a conversation</Typography>
+            <Typography color="text.secondary">Tìm kiếm người dùng để bắt đầu cuộc trò chuyện</Typography>
           </Box>
         )}
       </Box>

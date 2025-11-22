@@ -23,7 +23,7 @@ export default function OAuthCallback() {
       } else if (error === "invalid_client") {
         errorMessage = "Lỗi: Client ID không tồn tại hoặc không đúng. Vui lòng kiểm tra:\n1. Biến môi trường GOOGLE_CLIENT_ID đã được set chưa?\n2. Client ID trong Google Console có đúng không?\n3. Đã khởi động lại identity-service sau khi set biến môi trường chưa?\n\nXem file GOOGLE_OAUTH_SETUP.md để biết thêm chi tiết.";
       } else if (error === "redirect_uri_mismatch") {
-        errorMessage = "Lỗi: Redirect URI không khớp. Vui lòng kiểm tra redirect URI trong Google Console phải là: http://localhost:8081/identity/login/oauth2/code/google";
+        errorMessage = "Lỗi: Redirect URI không khớp. Vui lòng kiểm tra redirect URI trong Google Console phải là: /identity/login/oauth2/code/google";
       } else if (errorDescription) {
         errorMessage = `Lỗi: ${errorDescription}`;
       }

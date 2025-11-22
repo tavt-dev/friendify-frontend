@@ -3,14 +3,25 @@ import httpClient from "../configurations/httpClient";
 import { API, CONFIG } from "../configurations/configuration";
 
 export const logIn = async (username, password) => {
-  const response = await httpClient.post(API.LOGIN, {
-    username: username,
-    password: password,
-  });
+  try {
+    const response = await httpClient.post(API.LOGIN, {
+      username: username,
+      password: password,
+    });
 
-  setToken(response.data?.result?.token);
+    // Handle different response formats
+    const token = response.data?.result?.token || response.data?.token || response.data?.data?.token;
+    if (token) {
+      setToken(token);
+    } else {
+      console.warn("No token found in response:", response.data);
+    }
 
-  return response;
+    return response;
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
+  }
 };
 
 export const logOut = () => {
@@ -65,8 +76,13 @@ export const verifyUser = async ({ email, otpCode }) => {
 }
 
 export const loginWithGoogle = () => {
-  // Redirect to Google OAuth endpoint (direct to identity service, not through API gateway)
-  // OAuth2 needs direct connection for session/cookie handling
-  const googleLoginUrl = `${CONFIG.IDENTITY_SERVICE}${API.GOOGLE_LOGIN}`;
+  // Redirect to Google OAuth endpoint
+  // OAuth2 flow: Frontend -> Identity Service -> Google -> Identity Service -> Frontend callback
+  // The proxy in vite.config will forward /identity to http://localhost:8080 (API Gateway)
+  // API Gateway will route /api/v1/identity/** to identity service at http://localhost:8081
+  // But OAuth2 endpoint should be accessed via API Gateway: /api/v1/identity/oauth2/authorization/google
+  const googleLoginUrl = `${CONFIG.API_GATEWAY}${CONFIG.IDENTITY_SERVICE}${API.GOOGLE_LOGIN}`;
+  
+  // Use relative path - proxy will handle forwarding
   window.location.href = googleLoginUrl;
 }
