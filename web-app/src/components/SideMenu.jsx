@@ -13,7 +13,6 @@ import PeopleIcon from "@mui/icons-material/People";
 import GroupsIcon from "@mui/icons-material/Groups";
 import ChatIcon from "@mui/icons-material/Chat";
 import FlagIcon from "@mui/icons-material/Flag";
-import StorefrontIcon from "@mui/icons-material/Storefront";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import { Link, useLocation } from "react-router-dom";
 
@@ -25,7 +24,6 @@ function SideMenu({ onNavigate }) {
     if (p.startsWith("/groups")) return "groups";
     if (p.startsWith("/chat")) return "chat";
     if (p.startsWith("/pages")) return "pages";
-    if (p.startsWith("/marketplace")) return "marketplace";
     if (p.startsWith("/saved")) return "saved";
     return "home";
   });
@@ -36,7 +34,6 @@ function SideMenu({ onNavigate }) {
     else if (p.startsWith("/groups")) setActiveItem("groups");
     else if (p.startsWith("/chat")) setActiveItem("chat");
     else if (p.startsWith("/pages")) setActiveItem("pages");
-    else if (p.startsWith("/marketplace")) setActiveItem("marketplace");
     else if (p.startsWith("/saved")) setActiveItem("saved");
     else setActiveItem("home");
   }, [location.pathname]);
@@ -47,7 +44,6 @@ function SideMenu({ onNavigate }) {
     { key: "friends", icon: <PeopleIcon />, text: "Bạn Bè", to: "/friends" },
     { key: "groups", icon: <GroupsIcon />, text: "Nhóm", to: "/groups" },
     { key: "pages", icon: <FlagIcon />, text: "Trang", to: "/pages" },
-    { key: "marketplace", icon: <StorefrontIcon />, text: "Chợ", to: "/marketplace" },
     { key: "saved", icon: <BookmarkIcon />, text: "Đã Lưu", to: "/saved" },
   ];
 

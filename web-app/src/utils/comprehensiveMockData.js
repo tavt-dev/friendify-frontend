@@ -406,63 +406,6 @@ export const mockGroupPosts = {
   ],
 };
 
-export const mockMarketplaceItems = [
-  {
-    id: 1,
-    title: 'MacBook Pro 16-inch',
-    price: 2499,
-    location: 'San Francisco, CA',
-    image: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1' },
-    category: 'Electronics',
-  },
-  {
-    id: 2,
-    title: 'iPhone 15 Pro Max',
-    price: 1199,
-    location: 'New York, NY',
-    image: 'https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'Jane Smith', avatar: 'https://i.pravatar.cc/150?img=2' },
-    category: 'Electronics',
-  },
-  {
-    id: 3,
-    title: 'Vintage Sofa',
-    price: 450,
-    location: 'Los Angeles, CA',
-    image: 'https://images.pexels.com/photos/1866149/pexels-photo-1866149.jpeg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'Mike Johnson', avatar: 'https://i.pravatar.cc/150?img=3' },
-    category: 'Furniture',
-  },
-  {
-    id: 4,
-    title: 'Mountain Bike',
-    price: 800,
-    location: 'Seattle, WA',
-    image: 'https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'Sarah Wilson', avatar: 'https://i.pravatar.cc/150?img=4' },
-    category: 'Sports',
-  },
-  {
-    id: 5,
-    title: 'Canon EOS R5 Camera',
-    price: 3899,
-    location: 'Chicago, IL',
-    image: 'https://images.pexels.com/photos/90946/pexels-photo-90946.jpeg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'Tom Brown', avatar: 'https://i.pravatar.cc/150?img=5' },
-    category: 'Electronics',
-  },
-  {
-    id: 6,
-    title: 'Designer Desk Chair',
-    price: 350,
-    location: 'Austin, TX',
-    image: 'https://images.pexels.com/photos/2762247/pexels-photo-2762247.jpeg?auto=compress&cs=tinysrgb&w=800',
-    seller: { name: 'Emily Davis', avatar: 'https://i.pravatar.cc/150?img=6' },
-    category: 'Furniture',
-  },
-];
-
 export const mockPages = [
   {
     id: 1,

@@ -104,10 +104,6 @@ export const API_ENDPOINTS = {
     FOLLOW: '/page/:id/follow',
     UNFOLLOW: '/page/:id/unfollow',
   },
-  MARKETPLACE: {
-    ITEMS: '/marketplace/items',
-    CATEGORIES: '/marketplace/categories',
-  },
   NOTIFICATION: {
     LIST: '/notification/list',
     MARK_READ: '/notification/:id/read',

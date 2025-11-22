@@ -1,38 +1,36 @@
 import { Route, Routes, Navigate } from 'react-router-dom'
-import Home from '../pages/Home'
-import Profile from '../pages/ProfileEnhanced'
+import HomePage from '../pages/HomePage'
+import ProfileEnhancedPage from '../pages/ProfileEnhancedPage'
 import ChatPage from '../pages/ChatPage'
 import FriendsPage from '../pages/FriendsPage'
 import GroupPage from '../pages/GroupPage'
-import Marketplace from '../pages/Marketplace'
-import Pages from '../pages/Pages'
-import Saved from '../pages/Saved'
-import Settings from '../pages/Settings'
+import PagesPage from '../pages/PagesPage'
+import SavedPage from '../pages/SavedPage'
+import SettingsPage from '../pages/SettingsPage'
 import SearchPage from '../pages/SearchPage'
-import Login from '../pages/Login'
-import Register from '../pages/Register'
-import ForgotPassword from '../pages/ForgotPassword'
+import LoginPage from '../pages/LoginPage'
+import RegisterPage from '../pages/RegisterPage'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import VerifyOtpPage from "../pages/VerifyOtpPage";
-import OAuthCallback from "../pages/OAuthCallback";
+import OAuthCallbackPage from "../pages/OAuthCallbackPage";
 
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/profile/:id" element={<Profile />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/profile/:id" element={<ProfileEnhancedPage />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/friends" element={<FriendsPage />} />
       <Route path="/groups" element={<GroupPage />} />
-      <Route path="/marketplace" element={<Marketplace />} />
-      <Route path="/pages" element={<Pages />} />
-      <Route path="/saved" element={<Saved />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route path="/pages" element={<PagesPage />} />
+      <Route path="/saved" element={<SavedPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/verify-user" element={<VerifyOtpPage />} />
-      <Route path="/oauth2/redirect" element={<OAuthCallback />} />
+      <Route path="/oauth2/redirect" element={<OAuthCallbackPage />} />
 
 
       <Route path="*" element={<Navigate to="/" replace />} />
