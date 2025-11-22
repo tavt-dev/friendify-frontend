@@ -79,18 +79,31 @@ const normalizeConversation = (item, currentUserId) => ({
 });
 
 const normalizeMessage = (item, currentUserId) => {
-  const senderId = item.senderId || item.userId || item.sender?.id;
-  const isMe = currentUserId && senderId && String(senderId) === String(currentUserId);
+  const senderId = item.senderId || item.userId || item.sender?.userId || item.sender?.id;
+  
+  let isMe;
+  if (typeof item.me === 'boolean') {
+    isMe = item.me;
+  } else {
+    isMe = currentUserId && senderId && String(senderId) === String(currentUserId);
+  }
   
   return {
     id: item.id || item._id || `m-${Date.now()}-${Math.random()}`,
     message: item.message ?? item.content ?? item.text ?? "",
     createdDate: item.createdDate ?? item.timestamp ?? item.createdAt ?? new Date().toISOString(),
     me: isMe,
-    sender: item.sender || (isMe ? null : { 
+    sender: item.sender ? {
+      id: item.sender.userId || item.sender.id,
+      userId: item.sender.userId || item.sender.id,
+      avatar: item.sender.avatar || null,
+      name: item.sender.username || item.sender.firstName || item.sender.name || null,
+      username: item.sender.username || null,
+    } : (isMe ? null : { 
       id: senderId,
+      userId: senderId,
       avatar: item.senderAvatar || item.avatar || null,
-      name: item.senderName || item.sender?.name || null,
+      name: item.senderName || null,
     }),
     pending: !!item.pending,
     failed: !!item.failed,
@@ -940,20 +953,39 @@ export default function ChatPage() {
   // Calculate height based on screen size
   const cardHeight = isMobile 
     ? 'calc(100vh - 64px - 64px)' // subtract header and bottom nav
-    : 'calc(100vh - 64px)'; // only subtract header
+    : 'calc(100vh - 64px - 32px)'; // subtract header and padding
 
   return (
     <PageLayout>
-      <Card
+      <Box
         sx={{
           width: "100%",
+          maxWidth: { xs: "100%", md: 1400 },
           height: cardHeight,
           maxHeight: "100%",
+          mx: "auto",
           display: "flex",
           flexDirection: "row",
           overflow: "hidden",
+          pl: 0,
+          pr: { xs: 1, md: 1 },
         }}
       >
+        <Card
+          sx={(t) => ({
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+            borderRadius: { xs: 0, md: 2 },
+            boxShadow: t.shadows[1],
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
+            boxSizing: "border-box",
+          })}
+        >
         {/* Conversations List */}
         <Box
           sx={{
@@ -973,9 +1005,16 @@ export default function ChatPage() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              bgcolor: "background.paper",
             }}
           >
-            <Typography variant="h6" sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                fontWeight: 600,
+              }}
+            >
               Chats
             </Typography>
             <IconButton
@@ -983,10 +1022,8 @@ export default function ChatPage() {
               size="small"
               onClick={handleNewChatClick}
               sx={{
-                bgcolor: "primary.light",
-                color: "white",
                 "&:hover": {
-                  bgcolor: "primary.main",
+                  transform: "scale(1.1)",
                 },
               }}
             >
@@ -1020,9 +1057,9 @@ export default function ChatPage() {
                 </Alert>
               </Box>
             ) : conversations == null || conversations.length === 0 ? (
-              <Box sx={{ p: 2, textAlign: "center" }}>
+              <Box sx={{ p: 3, textAlign: "center" }}>
                 <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                  No conversations yet. Start a new chat to begin.
+                  Chưa có cuộc trò chuyện. Bấm nút + để bắt đầu.
                 </Typography>
               </Box>
             ) : (
@@ -1032,13 +1069,19 @@ export default function ChatPage() {
                     <ListItem
                       alignItems="flex-start"
                       onClick={() => handleConversationSelect(conversation)}
-                      sx={{
+                      sx={(t) => ({
                         cursor: "pointer",
                         py: { xs: 1, sm: 1.5 },
                         px: { xs: 1.5, sm: 2 },
-                        bgcolor: selectedConversation?.id === conversation.id ? "rgba(0,0,0,0.04)" : "transparent",
-                        "&:hover": { bgcolor: "rgba(0,0,0,0.08)" },
-                      }}
+                        borderRadius: 1,
+                        bgcolor: selectedConversation?.id === conversation.id 
+                          ? "action.selected"
+                          : "transparent",
+                        transition: "all 0.2s ease",
+                        "&:hover": { 
+                          bgcolor: "action.hover",
+                        },
+                      })}
                     >
                       <ListItemAvatar>
                         <Badge color="error" badgeContent={conversation.unread} invisible={conversation.unread === 0} overlap="circular">
@@ -1118,7 +1161,8 @@ export default function ChatPage() {
                   borderBottom: 1, 
                   borderColor: "divider", 
                   display: "flex", 
-                  alignItems: "center" 
+                  alignItems: "center",
+                  bgcolor: "background.paper",
                 }}
               >
                 {isMobile && (
@@ -1140,7 +1184,10 @@ export default function ChatPage() {
                 />
                 <Typography 
                   variant="h6" 
-                  sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                  sx={{ 
+                    fontSize: { xs: '1rem', sm: '1.25rem' },
+                    fontWeight: 600,
+                  }}
                 >
                   {selectedConversation.conversationName}
                 </Typography>
@@ -1245,31 +1292,30 @@ export default function ChatPage() {
                       sx={{ 
                         display: "flex", 
                         justifyContent: msg.me ? "flex-end" : "flex-start", 
-                        mb: { xs: 1.5, sm: 2 } 
+                        alignItems: "flex-end",
+                        mb: { xs: 1.5, sm: 2 },
+                        gap: 1,
                       }}
                     >
                       {!msg.me && (
                         <Avatar 
                           src={msg.sender?.avatar} 
                           sx={{ 
-                            mr: 1, 
-                            alignSelf: "flex-end", 
-                            width: { xs: 28, sm: 32 }, 
-                            height: { xs: 28, sm: 32 },
+                            width: { xs: 32, sm: 36 }, 
+                            height: { xs: 32, sm: 36 },
                             display: { xs: 'none', sm: 'flex' }
                           }} 
                         />
                       )}
-                      <Box sx={{ position: 'relative' }}>
+                      <Box sx={{ position: 'relative', maxWidth: { xs: '85%', sm: '75%', md: '65%' } }}>
                         {editingMessage?.id === msg.id ? (
                           <Paper
-                            elevation={1}
-                            sx={{
+                            elevation={2}
+                            sx={(t) => ({
                               p: { xs: 1.5, sm: 2 },
-                              maxWidth: { xs: '85%', sm: '80%', md: '70%' },
-                              backgroundColor: "#fff3cd",
-                              borderRadius: 2,
-                            }}
+                              backgroundColor: t.palette.mode === "dark" ? "rgba(255, 243, 205, 0.1)" : "#fff3cd",
+                              borderRadius: 3,
+                            })}
                           >
                             <TextField
                               fullWidth
@@ -1282,53 +1328,88 @@ export default function ChatPage() {
                             />
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                               <Button size="small" onClick={handleCancelEdit}>
-                                Cancel
+                                Hủy
                               </Button>
                               <Button size="small" variant="contained" onClick={handleSaveEditMessage}>
-                                Save
+                                Lưu
                               </Button>
                             </Stack>
                           </Paper>
                         ) : (
                           <>
                             <Paper
-                              elevation={1}
+                              elevation={0}
                               onContextMenu={(e) => msg.me && handleMessageMenuOpen(e, msg)}
-                              sx={{
-                                p: { xs: 1.5, sm: 2 },
-                                maxWidth: { xs: '85%', sm: '80%', md: '70%' },
-                                backgroundColor: msg.me ? (msg.failed ? "#ffebee" : "#e3f2fd") : "#f5f5f5",
-                                borderRadius: 2,
+                              sx={(t) => ({
+                                p: { xs: 1.25, sm: 1.5 },
+                                backgroundColor: msg.me 
+                                  ? (msg.failed 
+                                    ? t.palette.error.light 
+                                    : t.palette.mode === "dark" 
+                                      ? "rgba(25, 118, 210, 0.3)"
+                                      : "rgba(25, 118, 210, 0.15)")
+                                  : (t.palette.mode === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)"),
+                                borderRadius: msg.me ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
                                 opacity: msg.pending ? 0.7 : 1,
                                 cursor: msg.me ? 'context-menu' : 'default',
-                              }}
+                                color: msg.me ? t.palette.text.primary : t.palette.text.primary,
+                                transition: "all 0.2s ease",
+                                "&:hover": msg.me ? {
+                                  boxShadow: t.shadows[2],
+                                } : {},
+                              })}
                             >
                               <Typography 
                                 variant="body1" 
-                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                                sx={{ 
+                                  fontSize: { xs: '0.875rem', sm: '0.9375rem' },
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                }}
                               >
                                 {msg.message}
                               </Typography>
-                              <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
+                              <Stack 
+                                direction="row" 
+                                spacing={0.5} 
+                                alignItems="center" 
+                                justifyContent="flex-end" 
+                                sx={{ mt: 0.75 }}
+                              >
                                 {msg.failed && (
-                                  <Typography variant="caption" color="error" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                      color: "error.main"
+                                    }}
+                                  >
                                     Gửi thất bại
                                   </Typography>
                                 )}
                                 {msg.pending && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                      color: "text.secondary"
+                                    }}
+                                  >
                                     Đang gửi...
                                   </Typography>
                                 )}
                                 <Typography 
                                   variant="caption" 
                                   sx={{ 
-                                    display: "block", 
-                                    textAlign: "right",
-                                    fontSize: { xs: '0.65rem', sm: '0.75rem' }
+                                    fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                    color: "text.secondary",
+                                    ml: 0.5,
                                   }}
                                 >
-                                  {new Date(msg.createdDate).toLocaleString()}
+                                  {new Date(msg.createdDate).toLocaleTimeString('vi-VN', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
                                 </Typography>
                               </Stack>
                             </Paper>
@@ -1338,8 +1419,9 @@ export default function ChatPage() {
                                 sx={{
                                   position: 'absolute',
                                   top: 0,
-                                  right: msg.me ? -32 : -28,
-                                  opacity: 0.6,
+                                  right: -36,
+                                  opacity: 0,
+                                  transition: "opacity 0.2s ease",
                                   '&:hover': { opacity: 1 },
                                 }}
                                 onClick={(e) => handleMessageMenuOpen(e, msg)}
@@ -1352,17 +1434,14 @@ export default function ChatPage() {
                       </Box>
                       {msg.me && (
                         <Avatar 
+                          src={user?.avatar}
                           sx={{ 
-                            ml: 1, 
-                            alignSelf: "flex-end", 
-                            width: { xs: 28, sm: 32 }, 
-                            height: { xs: 28, sm: 32 }, 
-                            bgcolor: "#1976d2",
-                            fontSize: { xs: '0.7rem', sm: '0.875rem' },
+                            width: { xs: 32, sm: 36 }, 
+                            height: { xs: 32, sm: 36 },
                             display: { xs: 'none', sm: 'flex' }
                           }}
                         >
-                          You
+                          {user?.username?.charAt(0)?.toUpperCase() || "Y"}
                         </Avatar>
                       )}
                     </Box>
@@ -1398,6 +1477,8 @@ export default function ChatPage() {
                     }
                   }}
                   size="small"
+                  multiline
+                  maxRows={4}
                   sx={{
                     '& .MuiInputBase-input': {
                       fontSize: { xs: '0.875rem', sm: '1rem' }
@@ -1415,21 +1496,22 @@ export default function ChatPage() {
               </Box>
             </>
           ) : (
-            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", p: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", p: 3 }}>
               <Typography 
                 variant="h6" 
                 color="text.secondary" 
                 sx={{ 
-                  fontSize: { xs: '0.875rem', sm: '1.25rem' },
+                  fontSize: { xs: '1rem', sm: '1.25rem' },
                   textAlign: 'center'
                 }}
               >
-                Select a conversation to start chatting
+                Chọn một cuộc trò chuyện để bắt đầu
               </Typography>
             </Box>
           )}
         </Box>
-      </Card>
+        </Card>
+      </Box>
 
       {/* Message Context Menu */}
       <Menu

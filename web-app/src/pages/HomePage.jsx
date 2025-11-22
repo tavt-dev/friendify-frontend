@@ -427,12 +427,12 @@ export default function HomePage() {
         onMouseLeave={() => setEnableCursorTracking(false)}
         sx={{
           display: "flex",
-          justifyContent: "center",
+          justifyContent: "flex-start",
           width: "100%",
-          maxWidth: 1440,
-          mx: "auto",
-          gap: 3,
-          px: { xs: 0, md: 2 },
+          maxWidth: { xs: "100%", md: "100%" },
+          mx: 0,
+          gap: 0,
+          px: 0,
           pb: { xs: 2, md: 0 },
           alignItems: "flex-start",
           position: "relative",
@@ -441,297 +441,24 @@ export default function HomePage() {
         <Box
           sx={{
             width: "100%",
-            maxWidth: { xs: "100%", sm: 720, md: 800 },
             flex: "1 1 auto",
             minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            pl: 0,
+            pr: { xs: 1, md: 2 },
+            minHeight: 0,
           }}
         >
-          {/* Create Post Composer */}
-          <Fade in={true} timeout={600}>
-            <Paper
-              elevation={0}
-              sx={(t) => ({
-                mb: { xs: 3, sm: 3.5, md: 4 },
-                borderRadius: { xs: 5, sm: 6, md: 7 },
-                border: (t) => t.palette.mode === "dark" 
-                  ? "1px solid rgba(255,255,255,0.12)" 
-                  : "1px solid rgba(138, 43, 226, 0.15)",
-                background: (t) => t.palette.mode === "dark"
-                  ? "rgba(18, 18, 28, 0.75)"
-                  : "rgba(255, 255, 255, 0.85)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-                p: { xs: 3, sm: 3.5, md: 4 },
-                position: "relative",
-                overflow: "hidden",
-                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                boxShadow: (t) => t.palette.mode === "dark"
-                  ? `
-                    0 20px 60px rgba(0, 0, 0, 0.5),
-                    0 0 0 1px rgba(138, 43, 226, 0.15),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1)
-                  `
-                  : `
-                    0 20px 60px rgba(138, 43, 226, 0.12),
-                    0 0 0 1px rgba(138, 43, 226, 0.08),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.9)
-                  `,
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: "4px",
-                  background: "linear-gradient(90deg, #8a2be2, #4a00e0, #8a2be2)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 3s linear infinite",
-                  "@keyframes shimmer": {
-                    "0%": { backgroundPosition: "0% 0%" },
-                    "100%": { backgroundPosition: "200% 0%" },
-                  },
-                },
-                "&:hover": {
-                  boxShadow: (t) => t.palette.mode === "dark"
-                    ? `
-                      0 24px 72px rgba(138, 43, 226, 0.25),
-                      0 0 0 1px rgba(138, 43, 226, 0.25),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.15)
-                    `
-                    : `
-                      0 24px 72px rgba(138, 43, 226, 0.18),
-                      0 0 0 1px rgba(138, 43, 226, 0.12),
-                      inset 0 1px 0 rgba(255, 255, 255, 1)
-                    `,
-                  transform: "translateY(-4px) scale(1.01)",
-                },
-              })}
-            >
-            <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 } }}>
-              <Avatar
-                src={user?.avatar && user.avatar.trim() !== '' ? user.avatar : undefined}
-                sx={(t) => ({
-                  width: { xs: 52, sm: 56, md: 64 },
-                  height: { xs: 52, sm: 56, md: 64 },
-                  border: { xs: "2px solid", sm: "3px solid" },
-                  borderColor: t.palette.mode === "dark"
-                    ? alpha(t.palette.primary.main, 0.3)
-                    : alpha(t.palette.primary.main, 0.2),
-                  background: t.palette.mode === "dark"
-                    ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
-                    : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  boxShadow: t.palette.mode === "dark"
-                    ? "0 4px 12px rgba(139, 154, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
-                    : "0 4px 12px rgba(102, 126, 234, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.3s ease",
-                  fontSize: { xs: "1.3rem", sm: "1.5rem", md: "1.8rem" },
-                  "&:hover": {
-                    transform: "scale(1.05)",
-                    boxShadow: t.palette.mode === "dark"
-                      ? "0 6px 16px rgba(139, 154, 255, 0.4)"
-                      : "0 6px 16px rgba(102, 126, 234, 0.35)",
-                  },
-                })}
-              >
-                {(() => {
-                  // Get avatar initials: lastName[0] + firstName[0] if available, otherwise username[0]
-                  if (user?.lastName && user?.firstName) {
-                    return `${user.lastName[0] || ''}${user.firstName[0] || ''}`.toUpperCase();
-                  }
-                  if (user?.firstName) {
-                    return user.firstName[0]?.toUpperCase() || '';
-                  }
-                  if (user?.lastName) {
-                    return user.lastName[0]?.toUpperCase() || '';
-                  }
-                  return user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
-                })()}
-              </Avatar>
-              <TextField
-                fullWidth
-                placeholder="Bạn đang nghĩ gì?"
-                onClick={handleCreatePostClick}
-                variant="outlined"
-                sx={{
-                  cursor: "pointer",
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 4,
-                    fontSize: { xs: 16, sm: 17, md: 18 },
-                    minHeight: { xs: 56, sm: 60, md: 64 },
-                    backgroundColor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(255, 255, 255, 0.06)" 
-                      : "rgba(138, 43, 226, 0.04)",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": {
-                      backgroundColor: (t) => t.palette.mode === "dark" 
-                        ? "rgba(255, 255, 255, 0.1)" 
-                        : "rgba(138, 43, 226, 0.06)",
-                      transform: "translateY(-1px)",
-                    },
-                    "&.Mui-focused": {
-                      backgroundColor: (t) => t.palette.mode === "dark" 
-                        ? "rgba(255, 255, 255, 0.1)" 
-                        : "rgba(138, 43, 226, 0.06)",
-                      transform: "translateY(-1px)",
-                      boxShadow: "0 4px 12px rgba(138, 43, 226, 0.15)",
-                    },
-                  },
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(255, 255, 255, 0.12)" 
-                      : "rgba(138, 43, 226, 0.25)",
-                    borderWidth: 1.5,
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  },
-                  "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(138, 43, 226, 0.6)" 
-                      : "rgba(138, 43, 226, 0.5)",
-                    borderWidth: 2,
-                  },
-                  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#8a2be2",
-                    borderWidth: 2.5,
-                    boxShadow: "0 0 0 4px rgba(138, 43, 226, 0.1)",
-                  },
-                  "& .MuiInputBase-input": {
-                    cursor: "pointer",
-                  },
-                }}
-                InputProps={{
-                  readOnly: true,
-                }}
-              />
-            </Box>
-
-            <Divider sx={{ mb: 2.5, borderColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(138, 43, 226, 0.1)" }} />
-
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-around",
-                alignItems: "center",
-              }}
-            >
-              <IconButton
-                onClick={handleCreatePostClick}
-                sx={(t) => ({
-                  color: "#45bd62",
-                  borderRadius: 4,
-                  px: { xs: 2, sm: 2.5, md: 3 },
-                  py: { xs: 1.5, sm: 1.75, md: 2 },
-                  gap: { xs: 1, sm: 1.5 },
-                  flex: 1,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  backgroundColor: (t) => t.palette.mode === "dark" 
-                    ? "rgba(69, 189, 98, 0.08)" 
-                    : "rgba(69, 189, 98, 0.06)",
-                  border: (t) => t.palette.mode === "dark"
-                    ? "1px solid rgba(69, 189, 98, 0.2)"
-                    : "1px solid rgba(69, 189, 98, 0.15)",
-                  "&:hover": {
-                    bgcolor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(69, 189, 98, 0.15)" 
-                      : "rgba(69, 189, 98, 0.1)",
-                    transform: "translateY(-2px) scale(1.02)",
-                    boxShadow: "0 4px 12px rgba(69, 189, 98, 0.25)",
-                    borderColor: "#45bd62",
-                  },
-                })}
-              >
-                <ImageIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: { xs: 15, sm: 16, md: 17 },
-                    fontWeight: 600,
-                    display: { xs: "none", sm: "inline" },
-                  }}
-                >
-                  Ảnh
-                </Box>
-              </IconButton>
-
-              <IconButton
-                onClick={handleCreatePostClick}
-                sx={(t) => ({
-                  color: "#f3425f",
-                  borderRadius: 4,
-                  px: { xs: 2, sm: 2.5, md: 3 },
-                  py: { xs: 1.5, sm: 1.75, md: 2 },
-                  gap: { xs: 1, sm: 1.5 },
-                  flex: 1,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  backgroundColor: (t) => t.palette.mode === "dark" 
-                    ? "rgba(243, 66, 95, 0.08)" 
-                    : "rgba(243, 66, 95, 0.06)",
-                  border: (t) => t.palette.mode === "dark"
-                    ? "1px solid rgba(243, 66, 95, 0.2)"
-                    : "1px solid rgba(243, 66, 95, 0.15)",
-                  "&:hover": {
-                    bgcolor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(243, 66, 95, 0.15)" 
-                      : "rgba(243, 66, 95, 0.1)",
-                    transform: "translateY(-2px) scale(1.02)",
-                    boxShadow: "0 4px 12px rgba(243, 66, 95, 0.25)",
-                    borderColor: "#f3425f",
-                  },
-                })}
-              >
-                <VideocamIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: { xs: 15, sm: 16, md: 17 },
-                    fontWeight: 600,
-                    display: { xs: "none", sm: "inline" },
-                  }}
-                >
-                  Video
-                </Box>
-              </IconButton>
-
-              <IconButton
-                onClick={handleCreatePostClick}
-                sx={(t) => ({
-                  color: "#f7b928",
-                  borderRadius: 4,
-                  px: { xs: 2, sm: 2.5, md: 3 },
-                  py: { xs: 1.5, sm: 1.75, md: 2 },
-                  gap: { xs: 1, sm: 1.5 },
-                  flex: 1,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  backgroundColor: (t) => t.palette.mode === "dark" 
-                    ? "rgba(247, 185, 40, 0.08)" 
-                    : "rgba(247, 185, 40, 0.06)",
-                  border: (t) => t.palette.mode === "dark"
-                    ? "1px solid rgba(247, 185, 40, 0.2)"
-                    : "1px solid rgba(247, 185, 40, 0.15)",
-                  "&:hover": {
-                    bgcolor: (t) => t.palette.mode === "dark" 
-                      ? "rgba(247, 185, 40, 0.15)" 
-                      : "rgba(247, 185, 40, 0.1)",
-                    transform: "translateY(-2px) scale(1.02)",
-                    boxShadow: "0 4px 12px rgba(247, 185, 40, 0.25)",
-                    borderColor: "#f7b928",
-                  },
-                })}
-              >
-                <EmojiEmotionsIcon sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: { xs: 15, sm: 16, md: 17 },
-                    fontWeight: 600,
-                    display: { xs: "none", sm: "inline" },
-                  }}
-                >
-                  Cảm xúc
-                </Box>
-              </IconButton>
-            </Box>
-          </Paper>
-          </Fade>
+          <Box
+            sx={{
+              width: "100%",
+              maxWidth: { xs: "100%", sm: 600, md: 680 },
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
 
           {posts.map((post, index) => {
             const isLast = posts.length === index + 1;
@@ -903,6 +630,7 @@ export default function HomePage() {
               </Typography>
             </Box>
           )}
+          </Box>
         </Box>
 
         <Box

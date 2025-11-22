@@ -253,7 +253,7 @@ export default function GroupDetailPage() {
           justifyContent: "center",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 1200, py: { xs: 1, sm: 2 }, px: { xs: 1, sm: 2 } }}>
+        <Box sx={{ width: "100%", maxWidth: 1200, py: { xs: 1, sm: 2 }, pl: 0, pr: { xs: 1, sm: 2 } }}>
           {/* Cover & Header */}
           <Card
             elevation={0}

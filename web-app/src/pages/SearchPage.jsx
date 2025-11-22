@@ -108,7 +108,7 @@ export default function SearchPage() {
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", py: 6 }}>
-      <Box sx={{ maxWidth: 1200, mx: "auto", px: 2 }}>
+      <Box sx={{ maxWidth: 1200, mx: "auto", pl: 0, pr: 2 }}>
         {/* Header */}
         <Card variant="outlined" sx={{ borderRadius: 3, mb: 4 }}>
           <CardContent>

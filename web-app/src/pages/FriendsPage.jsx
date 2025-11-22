@@ -490,7 +490,7 @@ export default function FriendsPage() {
 
   return (
     <PageLayout>
-      <Box sx={{ display: "flex", justifyContent: "center", width: "100%", mt: 4, px: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", width: "100%", mt: 4, pl: 0, pr: 2 }}>
         <Box sx={{ width: "100%", maxWidth: 1200 }}>
           {/* Header */}
           <Card

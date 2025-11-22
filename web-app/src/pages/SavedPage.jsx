@@ -120,7 +120,7 @@ export default function SavedPage() {
 
   return (
     <PageLayout>
-      <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto", px: 2 }}>
+      <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto", pl: 0, pr: 2 }}>
         {/* Header */}
         <Paper
           elevation={0}

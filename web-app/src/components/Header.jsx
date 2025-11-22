@@ -280,42 +280,8 @@ export default function Header({
   );
 
   return (
-    <AppBar
-      position="sticky"
-      elevation={0}
-      color="transparent"
-      sx={(t) => ({
-        width: "100vw",
-        left: 0, right: 0,
-        ml: "calc(50% - 50vw)",
-        mr: "calc(50% - 50vw)",
-        bgcolor: t.palette.mode === "dark"
-          ? alpha(t.palette.grey[900], 0.9)
-          : alpha(t.palette.background.paper, 0.95),
-        backdropFilter: "saturate(180%) blur(20px)",
-        WebkitBackdropFilter: "saturate(180%) blur(20px)",
-        borderBottom: `1px solid ${t.palette.mode === "dark" 
-          ? alpha(t.palette.common.white, 0.08) 
-          : alpha(t.palette.common.black, 0.06)}`,
-        boxShadow: t.palette.mode === "dark"
-          ? "0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(138, 43, 226, 0.1)"
-          : "0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(138, 43, 226, 0.05)",
-        zIndex: t.zIndex.appBar,
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "1px",
-          background: t.palette.mode === "dark"
-            ? "linear-gradient(90deg, transparent, rgba(138, 43, 226, 0.3), transparent)"
-            : "linear-gradient(90deg, transparent, rgba(138, 43, 226, 0.2), transparent)",
-        },
-      })}
-    >
-      <Toolbar sx={{ minHeight: "64px !important", height: 64, px: { xs: 2, md: 3 }, gap: { xs: 1.5, md: 2.5 } }}>
+    <Box sx={{ width: "100%", display: "flex", alignItems: "center" }}>
+      <Toolbar sx={{ minHeight: "64px !important", height: 64, width: "100%", px: { xs: 2, md: 3 }, gap: { xs: 1.5, md: 2.5 } }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, md: 2 }, flex: { xs: 1, md: 'initial' } }}>
           <IconButton
             size="medium"
@@ -686,6 +652,6 @@ export default function Header({
         anchorEl={notificationAnchor}
         onClose={handleNotificationClose}
       />
-    </AppBar>
+    </Box>
   );
 }

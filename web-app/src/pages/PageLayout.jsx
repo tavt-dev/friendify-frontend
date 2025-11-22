@@ -28,15 +28,19 @@ function PageLayout({ children }) {
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "background.default",
-        color: "text.primary",
-        height: "100vh",
-        overflow: "hidden",
-        position: "relative",
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "background.default",
+          color: "text.primary",
+          height: "100vh",
+          width: "100%",
+          overflow: "hidden",
+          position: "relative",
+          maxWidth: "100vw",
+          ml: 0,
+          pl: 0,
         "&::before": {
           content: '""',
           position: "absolute",
@@ -82,7 +86,7 @@ function PageLayout({ children }) {
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ display: "flex", flexDirection: "row", flex: "1 1 auto", minHeight: 0, position: "relative", zIndex: 1 }}>
+      <Box sx={{ display: "flex", flexDirection: "row", flex: "1 1 auto", minHeight: 0, position: "relative", zIndex: 1, ml: 0 }}>
         <Box component="nav" sx={{ width: { lg: drawerWidth }, flexShrink: { lg: 0 } }} aria-label="side menu">
           <Drawer
             variant="temporary"
@@ -122,6 +126,8 @@ function PageLayout({ children }) {
                 borderColor: "divider",
                 top: "64px",
                 height: "calc(100vh - 64px)",
+                left: 0,
+                position: "fixed",
                 backgroundImage: theme.palette.mode === "dark"
                   ? `linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.95)} 0%, ${alpha(theme.palette.background.paper, 1)} 100%),
                      radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 70%)`
@@ -145,10 +151,11 @@ function PageLayout({ children }) {
             flex: "1 1 auto",
             display: "flex",
             flexDirection: "column",
-            width: { lg: `calc(100% - ${drawerWidth}px)` },
-            ml: { lg: `${drawerWidth}px` },
+            width: "100%",
+            ml: 0,
             minHeight: 0,
             position: "relative",
+            pl: 0,
           }}
         >
           <Toolbar />
@@ -156,13 +163,14 @@ function PageLayout({ children }) {
           <Box
             sx={{
               display: "flex",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               width: "100%",
               flex: "1 1 auto",
               minHeight: 0,
-              px: { xs: 2, md: 3 },
-              py: { xs: 2, md: 3 },
-              pb: { xs: 10, md: 3 },
+              pl: 0,
+              pr: { xs: 1, md: 1 },
+              py: { xs: 2, md: 2 },
+              pb: { xs: 10, md: 2 },
               overflowY: "auto",
               overflowX: "hidden",
               position: "relative",
