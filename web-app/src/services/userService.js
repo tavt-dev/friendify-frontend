@@ -39,7 +39,7 @@ export const getMyInfo = async () => {
 export const updateProfile = async (profileData) => {
   try {
     const endpoint = API_ENDPOINTS.USER.GET_PROFILE.replace(':id', 'my-profile');
-    return await apiFetch(endpoint, {
+    return await apiFetch('/profile/users/my-profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });

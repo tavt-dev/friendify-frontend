@@ -96,7 +96,7 @@ export default function Header({
       : userData.firstName || userData.lastName || userData.username || userData.email || "User",
     title: userData.bio || userData.title || userData.email || "Member",
     avatar: userData.avatar || null,
-    id: userData.id,
+    id: userData.id || userData.userId,
   } : { name: "User", title: "Member", avatar: null };
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
@@ -116,11 +116,12 @@ export default function Header({
 
   const handleOpenProfile = () => { 
     handleMenuClose(); 
-    if (user?.id) {
-      navigate(`/profile/${user.id}`); 
-    } else {
-      navigate("/profile"); 
-    }
+    // if (user?.id) {
+    //   navigate(`/profile/${user.id}`); 
+    // } else {
+    //   navigate("/profile"); 
+    // }
+     navigate("/profile"); 
   };
   const handleLogout = () => { handleMenuClose(); logOut(); navigate("/login"); };
 

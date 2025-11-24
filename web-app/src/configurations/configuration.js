@@ -1,11 +1,14 @@
+// src/configurations/configuration.js
+
 export const CONFIG = {
-  API_GATEWAY: "/api/v1",
+  // Trỏ thẳng về Gateway đang chạy ở port 8080
+  API_GATEWAY: "http://localhost:8080/api/v1", 
   IDENTITY_SERVICE: "/identity",
 };
 
 export const API = {
   // ==========================
-  // Identity Service - Authentication
+  // Identity Service
   // ==========================
   LOGIN: "/identity/auth/token",
   REGISTER: "/identity/auth/registration",
@@ -13,7 +16,8 @@ export const API = {
   RESEND_OTP: "/identity/auth/resend-verification",
   FORGOT_PASSWORD: "/identity/auth/forgot-password",
   RESET_PASSWORD: "/identity/auth/reset-password",
-  GOOGLE_LOGIN: "/oauth2/authorization/google",
+  // Endpoint này đi qua gateway vào identity service
+  GOOGLE_LOGIN: "/identity/oauth2/authorization/google",
 
   // ==========================
   // Profile Service

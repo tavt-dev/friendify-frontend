@@ -22,6 +22,7 @@ const AppRoutes = () => {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/profile/:id" element={<ProfileEnhancedPage />} />
+      <Route path="/profile" element={<ProfileEnhancedPage />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/friends" element={<FriendsPage />} />
       <Route path="/groups" element={<GroupPage />} />
