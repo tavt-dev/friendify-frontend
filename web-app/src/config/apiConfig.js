@@ -2,9 +2,7 @@
 export const CONFIG = {
   API_GATEWAY: "/api/v1",
   IDENTITY_SERVICE: "/identity",
-  // WebSocket URLs - use gateway for production, direct service for development
-  WS_URL: "/ws", // Via API Gateway
-  WS_DIRECT_URL: "/ws", // Direct to chat service (using same path as gateway)
+  WS_URL: "/api/v1/chat/ws",
 };
 
 // Helper function to get full API URL

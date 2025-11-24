@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useState } from "react";
+import React, { forwardRef, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -15,6 +15,11 @@ import {
   Popover,
   Tooltip,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  Stack,
+  CircularProgress,
 } from "@mui/material";
 import {
   ThumbUpOutlined,
@@ -25,6 +30,12 @@ import {
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import MediaCarousel from "./MediaCarousel";
+import {
+  likePost,
+  unlikePost,
+  commentOnPost,
+  getPostComments,
+} from "../services/postInteractionService";
 
 const REACTIONS = [
   { emoji: "👍", label: "Thích", color: "#3b82f6" },
@@ -68,10 +79,14 @@ const Post = forwardRef((props, ref) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [reactionAnchor, setReactionAnchor] = useState(null);
   const [reaction, setReaction] = useState(null);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(props.post?.likeCount || 0);
+  const [isLiked, setIsLiked] = useState(props.post?.isLiked || false);
+  const [commentCount, setCommentCount] = useState(props.post?.commentCount || 0);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [loadingLike, setLoadingLike] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "");
   const [editedPrivacy, setEditedPrivacy] = useState(privacy || "PUBLIC");
@@ -98,38 +113,188 @@ const Post = forwardRef((props, ref) => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
-  const handleQuickLike = () => {
-    if (reaction) {
-      setReaction(null);
-      setLikeCount((p) => Math.max(p - 1, 0));
-    } else {
-      setReaction({ emoji: "👍", label: "Like", color: "#3b82f6" });
-      setLikeCount((p) => p + 1);
+  const handleQuickLike = async () => {
+    if (loadingLike || !id) return;
+    
+    setLoadingLike(true);
+    try {
+      if (isLiked) {
+        await unlikePost(id);
+        setReaction(null);
+        setIsLiked(false);
+        setLikeCount((p) => Math.max(p - 1, 0));
+      } else {
+        await likePost(id);
+        setReaction({ emoji: "👍", label: "Thích", color: "#3b82f6" });
+        setIsLiked(true);
+        setLikeCount((p) => p + 1);
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    } finally {
+      setLoadingLike(false);
     }
   };
 
-  const handleSelectReaction = (react) => {
-    if (reaction?.label === react.label) {
-      setReaction(null);
-      setLikeCount((p) => Math.max(p - 1, 0));
-    } else {
-      if (!reaction) setLikeCount((p) => p + 1);
-      setReaction(react);
+  const handleSelectReaction = async (react) => {
+    if (loadingLike || !id) return;
+    
+    setLoadingLike(true);
+    try {
+      if (reaction?.label === react.label) {
+        await unlikePost(id);
+        setReaction(null);
+        setIsLiked(false);
+        setLikeCount((p) => Math.max(p - 1, 0));
+      } else {
+        if (!isLiked) {
+          await likePost(id);
+          setIsLiked(true);
+        }
+        if (!reaction) setLikeCount((p) => p + 1);
+        setReaction(react);
+      }
+    } catch (error) {
+      console.error("Error selecting reaction:", error);
+    } finally {
+      setLoadingLike(false);
+      setReactionAnchor(null);
     }
-    setReactionAnchor(null);
   };
 
   const handleCloseReactions = () => setReactionAnchor(null);
 
-  const handleComment = () => {
-    if (commentText.trim()) {
-      setComments((prev) => [
-        ...prev,
-        { id: Date.now(), text: commentText, author: "You", time: "Just now" },
-      ]);
-      setCommentText("");
+  const handleComment = async () => {
+    if (!commentText.trim() || !id || loadingComments) return;
+    
+    const commentContent = commentText.trim();
+    setCommentText("");
+    const tempId = `temp-${Date.now()}`;
+    
+    const tempComment = {
+      id: tempId,
+      text: commentContent,
+      author: "You",
+      avatar: null,
+      userId: currentUserId,
+      time: "Vừa xong",
+      createdAt: new Date().toISOString(),
+      likeCount: 0,
+      isLiked: false,
+      pending: true,
+    };
+    
+    setComments((prev) => [tempComment, ...prev]);
+    setCommentCount((prev) => prev + 1);
+    setLoadingComments(true);
+    
+    try {
+      const response = await commentOnPost(id, commentContent);
+      const newComment = response.data?.result || response.data;
+      
+      if (newComment) {
+        const formattedComment = {
+          id: newComment.id,
+          text: newComment.content || newComment.text,
+          author: newComment.username || "You",
+          avatar: newComment.userAvatar,
+          userId: newComment.userId,
+          time: newComment.createdAt ? new Date(newComment.createdAt).toLocaleString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "numeric",
+            month: "numeric",
+          }) : "Vừa xong",
+          createdAt: newComment.createdAt,
+          likeCount: newComment.likeCount || 0,
+          isLiked: newComment.isLiked || false,
+        };
+        
+        setComments((prev) => {
+          const filtered = prev.filter((c) => c.id !== tempId);
+          return [formattedComment, ...filtered];
+        });
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    } catch (error) {
+      console.error("Error posting comment:", error);
+      setCommentText(commentContent);
+      setComments((prev) => prev.filter((c) => c.id !== tempId));
+      setCommentCount((prev) => Math.max(prev - 1, 0));
+      
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể đăng bình luận. Vui lòng thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoadingComments(false);
     }
   };
+
+  const loadComments = async () => {
+    if (!id || loadingComments) return;
+    
+    setLoadingComments(true);
+    try {
+      const response = await getPostComments(id, 1, 20);
+      const result = response.data?.result || response.data;
+      const commentsList = result?.content || (Array.isArray(result) ? result : []);
+      
+      const formattedComments = commentsList
+        .filter((comment) => comment && comment.id)
+        .map((comment) => ({
+          id: comment.id,
+          text: comment.content || comment.text || "",
+          author: comment.username || "Unknown",
+          avatar: comment.userAvatar,
+          userId: comment.userId,
+          time: comment.createdAt ? new Date(comment.createdAt).toLocaleString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "numeric",
+            month: "numeric",
+          }) : "Unknown",
+          createdAt: comment.createdAt,
+          likeCount: comment.likeCount || 0,
+          isLiked: comment.isLiked || false,
+        }));
+      
+      setComments(formattedComments);
+      if (result?.totalElements !== undefined) {
+        setCommentCount(result.totalElements);
+      }
+    } catch (error) {
+      console.error("Error loading comments:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể tải bình luận. Vui lòng thử lại.";
+      console.error(errorMessage);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showComments && comments.length === 0 && id) {
+      loadComments();
+    }
+  }, [showComments]);
+  
+  useEffect(() => {
+    if (props.post?.isLiked) {
+      setIsLiked(true);
+      setReaction({ emoji: "👍", label: "Thích", color: "#3b82f6" });
+    }
+    if (props.post?.likeCount !== undefined) {
+      setLikeCount(props.post.likeCount);
+    }
+    if (props.post?.commentCount !== undefined) {
+      setCommentCount(props.post.commentCount);
+    }
+  }, [props.post?.isLiked, props.post?.likeCount, props.post?.commentCount]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -481,7 +646,7 @@ const Post = forwardRef((props, ref) => {
                 </Box>
               </Box>
             )}
-            {comments.length > 0 && (
+            {commentCount > 0 && (
               <Typography
                 sx={(t) => ({
                   fontSize: 13,
@@ -492,7 +657,7 @@ const Post = forwardRef((props, ref) => {
                 })}
                 onClick={() => setShowComments(!showComments)}
               >
-                {comments.length} bình luận
+                {commentCount} bình luận
               </Typography>
             )}
           </Box>
@@ -536,7 +701,9 @@ const Post = forwardRef((props, ref) => {
               },
             })}
           >
-            {reaction ? (
+            {loadingLike ? (
+              <CircularProgress size={18} />
+            ) : reaction ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box
                   component="span"
@@ -654,45 +821,60 @@ const Post = forwardRef((props, ref) => {
                 : alpha(t.palette.common.black, 0.02),
           })}
         >
-          {comments.map((c) => (
-            <Box key={c.id} sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
-              <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main", fontWeight: 700, fontSize: 14 }}>
-                {c.author.charAt(0)}
-              </Avatar>
-              <Box sx={{ flex: 1 }}>
-                <Box
-                  sx={(t) => ({
-                    bgcolor: "background.paper",
-                    borderRadius: 4,
-                    p: 1.5,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    boxShadow: 0,
-                  })}
+            {loadingComments && comments.length === 0 ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : comments.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+              </Typography>
+            </Box>
+          ) : (
+            comments.map((c) => (
+              <Box key={c.id} sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
+                <Avatar
+                  src={c.avatar}
+                  sx={{ width: 36, height: 36, bgcolor: "primary.main", fontWeight: 700, fontSize: 14 }}
                 >
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
-                    {c.author}
-                  </Typography>
-                  <Typography sx={{ fontSize: 14, color: "text.primary" }}>{c.text}</Typography>
-                </Box>
-                <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1 }}>
-                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                    {c.time}
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                    Thích
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                    Trả lời
-                  </Typography>
+                  {c.author.charAt(0)}
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                  <Box
+                    sx={(t) => ({
+                      bgcolor: "background.paper",
+                      borderRadius: 4,
+                      p: 1.5,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      boxShadow: 0,
+                    })}
+                  >
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
+                      {c.author}
+                    </Typography>
+                    <Typography sx={{ fontSize: 14, color: "text.primary" }}>{c.text}</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1 }}>
+                    <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 600 }}>
+                      {c.time}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
+                      Thích {c.likeCount > 0 && `(${c.likeCount})`}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
+                      Trả lời
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-          ))}
+            ))
+          )}
 
           <Box sx={{ display: "flex", gap: 1.5, mt: 2 }}>
             <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main", fontWeight: 700, fontSize: 14 }}>
-              Y
+              {currentUserId ? String(currentUserId).charAt(0).toUpperCase() : "Y"}
             </Avatar>
             <TextField
               fullWidth
@@ -706,12 +888,15 @@ const Post = forwardRef((props, ref) => {
                   handleComment();
                 }
               }}
+              disabled={loadingComments}
               InputProps={{
-                endAdornment: (
+                endAdornment: loadingComments ? (
+                  <CircularProgress size={18} />
+                ) : (
                   <IconButton
                     size="small"
                     onClick={handleComment}
-                    disabled={!commentText.trim()}
+                    disabled={!commentText.trim() || loadingComments}
                     sx={(t) => ({
                       color: "primary.main",
                       "&:disabled": { color: "text.disabled" },

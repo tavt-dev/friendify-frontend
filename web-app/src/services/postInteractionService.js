@@ -2,21 +2,26 @@ import { apiFetch } from './apiHelper';
 import { API_ENDPOINTS } from '../config/apiConfig';
 
 export const likePost = async (postId) => {
-  return apiFetch(API_ENDPOINTS.POST.LIKE.replace(':id', postId), {
+  return apiFetch('/api/likes', {
     method: 'POST',
+    body: JSON.stringify({ postId }),
   });
 };
 
 export const unlikePost = async (postId) => {
-  return apiFetch(API_ENDPOINTS.POST.LIKE.replace(':id', postId), {
+  return apiFetch(`/api/likes/post/${postId}`, {
     method: 'DELETE',
   });
 };
 
-export const commentOnPost = async (postId, commentText) => {
-  return apiFetch(API_ENDPOINTS.POST.COMMENTS.replace(':id', postId), {
+export const commentOnPost = async (postId, content, parentCommentId = null) => {
+  const body = { postId, content };
+  if (parentCommentId) {
+    body.parentCommentId = parentCommentId;
+  }
+  return apiFetch('/api/comments', {
     method: 'POST',
-    body: JSON.stringify({ text: commentText }),
+    body: JSON.stringify(body),
   });
 };
 
@@ -41,30 +46,31 @@ export const deletePost = async (postId) => {
 };
 
 export const getPostComments = async (postId, page = 1, size = 20) => {
-  const endpoint = `${API_ENDPOINTS.POST.COMMENTS.replace(':id', postId)}?page=${page}&size=${size}`;
-  return apiFetch(endpoint);
+  return apiFetch(`/api/comments/post/${postId}?page=${page}&size=${size}`);
 };
 
-/**
- * Update a comment
- * @param {string} commentId - Comment ID
- * @param {string} commentText - Updated comment text
- * @returns {Promise<{data: any, status: number}>}
- */
-export const updateComment = async (commentId, commentText) => {
-  return apiFetch(`/post/comments/${commentId}`, {
+export const updateComment = async (commentId, content) => {
+  return apiFetch(`/api/comments/${commentId}`, {
     method: 'PUT',
-    body: JSON.stringify({ text: commentText }),
+    body: JSON.stringify({ content }),
   });
 };
 
-/**
- * Delete a comment
- * @param {string} commentId - Comment ID
- * @returns {Promise<{data: any, status: number}>}
- */
 export const deleteComment = async (commentId) => {
-  return apiFetch(`/post/comments/${commentId}`, {
+  return apiFetch(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const likeComment = async (commentId) => {
+  return apiFetch('/api/likes', {
+    method: 'POST',
+    body: JSON.stringify({ commentId }),
+  });
+};
+
+export const unlikeComment = async (commentId) => {
+  return apiFetch(`/api/likes/comment/${commentId}`, {
     method: 'DELETE',
   });
 };

@@ -45,8 +45,50 @@ class WebSocketService {
       this.disconnect();
     }
 
+    // Get WebSocket URL
+    // In development, connect directly to chat service (bypass gateway)
+    // In production, use API Gateway
+    const gatewayUrl = CONFIG.WS_URL || '/api/v1/chat/ws';
+    const directUrl = 'http://localhost:8086/chat/ws';
+    
+    const wsUrl = import.meta.env.DEV ? directUrl : gatewayUrl;
+    
+    console.log('🔌 Connecting to WebSocket:', wsUrl);
+    console.log('📍 Mode:', import.meta.env.DEV ? 'DEVELOPMENT (direct)' : 'PRODUCTION (gateway)');
+    console.log('📍 Current origin:', window.location.origin);
+    if (import.meta.env.DEV) {
+      console.log('📍 Gateway URL (not used):', gatewayUrl);
+    }
+    
     // Create SockJS connection
-    const socket = new SockJS(CONFIG.WS_URL);
+    const socket = new SockJS(wsUrl);
+    
+    // Handle SockJS connection events
+    socket.onopen = () => {
+      console.log('✅ SockJS connection opened');
+    };
+    
+    socket.onerror = (error) => {
+      console.error('❌ SockJS connection error:', error);
+      console.error('Error details:', {
+        type: error.type,
+        target: error.target,
+        currentTarget: error.currentTarget,
+      });
+      this.isConnected = false;
+      if (onError) onError(new Error('SockJS connection failed'));
+    };
+    
+    socket.onclose = (event) => {
+      console.log('SockJS closed:', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+      if (event.code !== 1000) {
+        console.warn('⚠️ SockJS closed unexpectedly');
+      }
+    };
     
     // Create STOMP client
     this.client = new Client({
@@ -55,17 +97,36 @@ class WebSocketService {
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       debug: (str) => {
-        // Only log in development
         if (import.meta.env.DEV) {
           console.log('STOMP:', str);
         }
       },
       onConnect: (frame) => {
-        console.log('WebSocket connected:', frame);
+        console.log('✅ WebSocket connected successfully:', frame);
         this.isConnected = true;
         this.reconnectAttempts = 0;
         
-        // Notify all connection handlers
+        // Subscribe to error queue
+        try {
+          const errorSubscription = this.client.subscribe('/user/queue/errors', (message) => {
+            try {
+              const errorData = JSON.parse(message.body);
+              console.error('❌ WebSocket error from server:', errorData);
+              if (onError) {
+                onError(new Error(typeof errorData === 'string' ? errorData : JSON.stringify(errorData)));
+              }
+            } catch (e) {
+              console.error('❌ WebSocket error (string):', message.body);
+              if (onError) {
+                onError(new Error(message.body || 'Server error'));
+              }
+            }
+          });
+          console.log('✅ Subscribed to error queue');
+        } catch (error) {
+          console.warn('⚠️ Could not subscribe to error queue:', error);
+        }
+        
         this.connectionHandlers.forEach(handler => {
           try {
             handler(true);
@@ -77,10 +138,11 @@ class WebSocketService {
         if (onConnect) onConnect();
       },
       onStompError: (frame) => {
-        console.error('STOMP error:', frame);
+        console.error('❌ STOMP error:', frame);
+        const errorMessage = frame.headers?.['message'] || frame.body || 'STOMP connection error';
+        console.error('Error details:', errorMessage);
         this.isConnected = false;
         
-        // Notify all connection handlers
         this.connectionHandlers.forEach(handler => {
           try {
             handler(false);
@@ -89,13 +151,26 @@ class WebSocketService {
           }
         });
 
-        if (onError) onError(new Error(frame.headers['message'] || 'STOMP error'));
+        if (onError) onError(new Error(errorMessage));
+      },
+      onWebSocketError: (event) => {
+        console.error('❌ WebSocket error:', event);
+        this.isConnected = false;
+        
+        this.connectionHandlers.forEach(handler => {
+          try {
+            handler(false);
+          } catch (error) {
+            console.error('Error in connection handler:', error);
+          }
+        });
+
+        if (onError) onError(new Error('WebSocket connection error'));
       },
       onWebSocketClose: (event) => {
-        console.log('WebSocket closed:', event);
+        console.log('WebSocket closed:', event.code, event.reason || 'No reason');
         this.isConnected = false;
         
-        // Notify all connection handlers
         this.connectionHandlers.forEach(handler => {
           try {
             handler(false);
@@ -104,17 +179,16 @@ class WebSocketService {
           }
         });
 
-        // Attempt to reconnect if not manually disconnected
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        if (this.reconnectAttempts < this.maxReconnectAttempts && event.code !== 1000) {
           this.reconnectAttempts++;
-          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+          console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
           setTimeout(() => {
             if (!this.isConnected) {
               this.connect(onConnect, onError);
             }
           }, this.reconnectDelay);
-        } else {
-          console.error('Max reconnection attempts reached');
+        } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('❌ Max reconnection attempts reached');
         }
       },
     });
@@ -127,7 +201,14 @@ class WebSocketService {
     });
 
     // Activate the client
-    this.client.activate();
+    try {
+      this.client.activate();
+      console.log('🚀 WebSocket client activated');
+    } catch (error) {
+      console.error('❌ Error activating WebSocket client:', error);
+      this.isConnected = false;
+      if (onError) onError(error);
+    }
   }
 
   /**
@@ -318,7 +399,7 @@ class WebSocketService {
    */
   sendMessage(conversationId, messageText) {
     if (!this.client || !this.client.connected) {
-      console.error('WebSocket not connected');
+      console.error('❌ WebSocket not connected, cannot send message');
       throw new Error('WebSocket not connected');
     }
 
@@ -328,12 +409,16 @@ class WebSocketService {
       message: messageText,
     };
 
-    this.client.publish({
-      destination,
-      body: JSON.stringify(payload),
-    });
-
-    console.log('Sent message via WebSocket:', payload);
+    try {
+      this.client.publish({
+        destination,
+        body: JSON.stringify(payload),
+      });
+      console.log('✅ Sent message via WebSocket:', payload);
+    } catch (error) {
+      console.error('❌ Error sending message via WebSocket:', error);
+      throw error;
+    }
   }
 
   /**

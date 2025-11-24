@@ -15,6 +15,7 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import EventIcon from "@mui/icons-material/Event";
 import CloseIcon from "@mui/icons-material/Close";
+import ChatWidget from "./ChatWidget";
 
 const FRIEND_SUGGESTIONS = [
   {
@@ -102,6 +103,8 @@ export default function RightSidebar() {
         },
       }}
     >
+      <ChatWidget />
+
       {/* Friend Suggestions */}
       <Paper
         elevation={0}

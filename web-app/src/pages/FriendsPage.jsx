@@ -131,7 +131,7 @@ export default function FriendsPage() {
   const loadFriendRequests = async () => {
     try {
       const response = await getFriendRequests(1, 20);
-      const { items: requests } = extractArrayFromResponse(response.data);
+      let { items: requests } = extractArrayFromResponse(response.data);
       
       if (!Array.isArray(requests)) {
         requests = [];
