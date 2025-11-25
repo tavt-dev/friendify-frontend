@@ -116,13 +116,30 @@ export default function ProfileEnhancedPage() {
 
     const loadProfile = async () => {
       setLoadingProfile(true);
+      setUserDetails(null);
+      
       try {
         if (profileUserId) {
-          // Load profile of the user specified in route
-          console.log('Loading profile for userId:', profileUserId);
-          const response = await getUserProfileById(profileUserId, false); // Don't suppress 404 for specific user
+          const targetUserId = String(profileUserId).trim();
           
-          // Parse response - handle different response formats
+          if (!targetUserId || targetUserId === 'undefined' || targetUserId === 'null') {
+            console.error('Invalid profileUserId:', profileUserId);
+            setSnackbar({ open: true, message: "ID người dùng không hợp lệ", severity: "error" });
+            setLoadingProfile(false);
+            return;
+          }
+          
+          console.log('Loading profile for userId:', targetUserId);
+          const response = await getUserProfileById(targetUserId, false);
+          
+          if (!response || response.status === 404 || response.data === null) {
+            console.warn('Profile not found for userId:', targetUserId);
+            setSnackbar({ open: true, message: "Không tìm thấy người dùng này", severity: "error" });
+            setUserDetails(null);
+            setLoadingProfile(false);
+            return;
+          }
+          
           let profileData = null;
           if (response?.data) {
             profileData = response.data.result || response.data.data || response.data;
@@ -132,11 +149,12 @@ export default function ProfileEnhancedPage() {
             profileData = response;
           }
           
-          if (profileData && typeof profileData === 'object') {
-            console.log('Profile loaded:', profileData.id || profileData.userId, profileData.username);
+          if (profileData && typeof profileData === 'object' && Object.keys(profileData).length > 0) {
+            console.log('Profile loaded successfully:', profileData.id || profileData.userId, profileData.username);
             setUserDetails(profileData);
           } else {
             console.warn('Profile data not found or invalid format');
+            setSnackbar({ open: true, message: "Không thể tải thông tin người dùng", severity: "error" });
             setUserDetails(null);
           }
         } else {
@@ -203,9 +221,17 @@ export default function ProfileEnhancedPage() {
         }
       } catch (error) {
         console.error("Error loading profile:", error);
-        console.error("Error details:", error?.response?.data || error?.message);
+        const errorData = error?.response?.data || {};
+        const errorMessage = errorData.message || errorData.error || error?.message || "Không thể tải thông tin người dùng";
         
-        // If loading own profile fails, try to use currentUser from context
+        if (error?.response?.status === 404) {
+          setSnackbar({ open: true, message: "Không tìm thấy người dùng này", severity: "error" });
+        } else if (error?.response?.status === 403) {
+          setSnackbar({ open: true, message: "Bạn không có quyền xem trang này", severity: "error" });
+        } else {
+          setSnackbar({ open: true, message: errorMessage, severity: "error" });
+        }
+        
         if (!profileUserId && currentUser) {
           console.log('Using currentUser from context as fallback');
           setUserDetails(currentUser);
@@ -218,7 +244,7 @@ export default function ProfileEnhancedPage() {
     };
 
     loadProfile();
-  }, [profileUserId, navigate, currentUser]);
+  }, [profileUserId, navigate, currentUser, loadUser]);
 
   const handleAvatarClick = () => avatarInputRef.current?.click();
   const handleCoverClick = () => coverInputRef.current?.click();
@@ -358,24 +384,35 @@ export default function ProfileEnhancedPage() {
   };
 
   const loadMyPosts = useCallback(async (page = 1) => {
-    // Prevent loading if already loading or no userDetails
-    if (postsLoading || !userDetails?.id) {
+    if (postsLoading) {
       return;
     }
     
     setPostsLoading(true);
     try {
-      // Determine which userId to use for loading posts
-      const targetUserId = userDetails.id;
-      const isCurrentUser = currentUser && targetUserId && currentUser.id && String(targetUserId) === String(currentUser.id);
+      let targetUserId = null;
+      let isCurrentUser = false;
+      
+      if (profileUserId) {
+        targetUserId = String(profileUserId).trim();
+        const currentUserId = currentUser?.id || currentUser?.userId;
+        isCurrentUser = currentUserId && String(targetUserId) === String(currentUserId);
+      } else {
+        targetUserId = currentUser?.id || currentUser?.userId;
+        isCurrentUser = true;
+      }
+      
+      if (!targetUserId) {
+        console.warn('No targetUserId available for loading posts');
+        setPostsLoading(false);
+        return;
+      }
       
       console.log('Loading posts - profileUserId:', profileUserId, 'targetUserId:', targetUserId, 'isCurrentUser:', isCurrentUser);
       
-      // Always use getUserPosts when viewing another user's profile (when profileUserId exists and different from current user)
-      // Only use getMyPosts when viewing own profile (no profileUserId or profileUserId === currentUser.id)
-      const response = (profileUserId && profileUserId !== currentUser?.id)
-        ? await getUserPosts(targetUserId, page, 10)
-        : await getMyPosts(page, 10);
+      const response = isCurrentUser
+        ? await getMyPosts(page, 10)
+        : await getUserPosts(targetUserId, page, 10);
       
       console.log('Posts response:', response?.data?.result?.data?.length || 0, 'posts');
       
@@ -445,7 +482,7 @@ export default function ProfileEnhancedPage() {
           
           return {
             id: post.id,
-            avatar: post.userAvatar || userAvatar || post.avatar || null, // Use userAvatar from post response first
+            avatar: post.userAvatar || userAvatar || post.avatar || null,
             username: post.username || targetUser?.username || 'Unknown',
             firstName: targetUser?.firstName || post.firstName || '',
             lastName: targetUser?.lastName || post.lastName || '',
@@ -453,8 +490,11 @@ export default function ProfileEnhancedPage() {
             created: created,
             content: post.content || '',
             media: media,
-            userId: postUserId, // Use the extracted userId from above
+            userId: postUserId,
             privacy: post.privacy || 'PUBLIC',
+            likeCount: post.likeCount || 0,
+            commentCount: post.commentCount || 0,
+            isLiked: post.isLiked || false,
             ...post,
           };
         });
@@ -488,41 +528,28 @@ export default function ProfileEnhancedPage() {
     } finally {
       setPostsLoading(false);
     }
-  }, [userDetails, profileUserId, currentUser, postsLoading]);
+  }, [profileUserId, currentUser, postsLoading]);
 
-  // Load posts on mount - reset when userDetails or profileUserId changes
-  const hasLoadedPosts = useRef(false);
   const lastProfileUserIdRef = useRef(null);
   
   useEffect(() => {
-    // Reset when viewing different user (profileUserId changed)
+    const targetUserId = profileUserId || userDetails?.id;
+    
+    if (!targetUserId) {
+      return;
+    }
+    
     if (profileUserId !== lastProfileUserIdRef.current) {
       lastProfileUserIdRef.current = profileUserId;
-      hasLoadedPosts.current = false;
       setPosts([]);
       setPostsPage(1);
       setPostsTotalPages(0);
     }
     
-    // Also reset when userDetails.id changes
-    if (userDetails?.id) {
-      const currentProfileId = profileUserId || userDetails.id;
-      if (currentProfileId !== lastProfileUserIdRef.current) {
-        hasLoadedPosts.current = false;
-        setPosts([]);
-        setPostsPage(1);
-        setPostsTotalPages(0);
-      }
-    }
-  }, [userDetails?.id, profileUserId]);
-  
-  useEffect(() => {
-    if (!hasLoadedPosts.current && posts.length === 0 && !postsLoading && userDetails?.id) {
-      hasLoadedPosts.current = true;
-      setPostsPage(1);
+    if (!postsLoading && posts.length === 0) {
       loadMyPosts(1);
     }
-  }, [userDetails?.id, posts.length, postsLoading, loadMyPosts]);
+  }, [profileUserId, userDetails?.id, postsLoading, posts.length, loadMyPosts]);
 
   // Infinite scroll for posts
   useEffect(() => {
@@ -1979,3 +2006,4 @@ export default function ProfileEnhancedPage() {
     </PageLayout>
   );
 }
+
