@@ -55,7 +55,7 @@ export const API_ENDPOINTS = {
 
   // --- POST SERVICE (Port 8084) ---
   POST: {
-    CREATE: '/post/create',
+    CREATE: '/post',
     MY_POSTS: '/post/my-posts',
     GET_BY_ID: '/post/:id',
     UPDATE: '/post/:id',

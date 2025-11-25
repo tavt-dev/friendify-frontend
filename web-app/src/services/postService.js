@@ -41,11 +41,20 @@ export const getPostById = async (postId) => {
 export const createPost = async (postData) => {
   const formData = new FormData();
   
-  if (postData.content) {
-    formData.append('content', postData.content);
-  }
+  // Backend: @RequestParam(value = "content", required = false) String content
+  // Backend: @RequestPart(value = "images", required = false) List<MultipartFile> images
+  // Backend: @RequestParam(value = "privacy", required = false) PrivacyType privacy
   
-  if (postData.images && Array.isArray(postData.images)) {
+  // Content - append only if it has actual content (not empty after trim)
+  // If empty but has images, still append empty string to satisfy @RequestParam
+  const contentValue = postData.content !== undefined && postData.content !== null 
+    ? String(postData.content).trim() 
+    : '';
+  formData.append('content', contentValue);
+  
+  // Append images - backend uses @RequestPart(value = "images")
+  // Each file must be appended with the same key "images" for Spring to bind to List<MultipartFile>
+  if (postData.images && Array.isArray(postData.images) && postData.images.length > 0) {
     postData.images.forEach((image) => {
       if (image instanceof File) {
         formData.append('images', image);
@@ -53,9 +62,19 @@ export const createPost = async (postData) => {
     });
   }
 
-  if (postData.privacy) {
-    formData.append('privacy', postData.privacy);
-  }
+  // Privacy - backend defaults to PUBLIC if not provided
+  const privacy = postData.privacy || 'PUBLIC';
+  formData.append('privacy', privacy);
+
+  // Debug log
+  console.log('Creating post - FormData:', {
+    content: contentValue,
+    contentLength: contentValue.length,
+    hasImages: postData.images?.length > 0,
+    imageCount: postData.images?.length || 0,
+    privacy: privacy,
+    endpoint: API_ENDPOINTS.POST.CREATE
+  });
 
   return apiFetch(API_ENDPOINTS.POST.CREATE, {
     method: 'POST',

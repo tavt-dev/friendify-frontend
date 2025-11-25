@@ -52,6 +52,7 @@ import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
 import Post from "../components/Post";
 import PageLayout from "./PageLayout";
+import CreatePostButton from "../components/CreatePostButton";
 
 export default function ProfileEnhancedPage() {
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ export default function ProfileEnhancedPage() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsPage, setPostsPage] = useState(1);
   const [postsTotalPages, setPostsTotalPages] = useState(0);
+  const [postsInitialized, setPostsInitialized] = useState(false);
   // Local state for editing profile
   const [editProfileData, setEditProfileData] = useState(null);
   const avatarInputRef = useRef(null);
@@ -514,18 +516,27 @@ export default function ProfileEnhancedPage() {
         if (mappedPosts.length > 0) {
           setPostsPage(page);
         }
+        setPostsInitialized(true);
       } else if (page === 1) {
         setPosts([]);
         setPostsPage(1);
+        setPostsTotalPages(0);
+        setPostsInitialized(true);
       } else {
         // No more posts, update total pages to prevent further loading
         if (postsTotalPages > page - 1) {
           setPostsTotalPages(page - 1);
         }
+        setPostsInitialized(true);
       }
     } catch (error) {
       console.error('Error loading posts:', error);
       setSnackbar({ open: true, message: "Không thể tải bài viết. Vui lòng thử lại.", severity: "error" });
+      // Mark as initialized to prevent continuous loading on error
+      if (page === 1) {
+        setPostsInitialized(true);
+        setPostsTotalPages(0);
+      }
     } finally {
       setPostsLoading(false);
     }
@@ -545,17 +556,19 @@ export default function ProfileEnhancedPage() {
       setPosts([]);
       setPostsPage(1);
       setPostsTotalPages(0);
+      setPostsInitialized(false);
     }
     
-    if (!postsLoading && posts.length === 0) {
+    // Only load if not loading, not initialized, and no posts
+    if (!postsLoading && !postsInitialized && posts.length === 0) {
       loadMyPosts(1);
     }
-  }, [profileUserId, userDetails?.id, postsLoading, posts.length, loadMyPosts]);
+  }, [profileUserId, userDetails?.id, postsLoading, posts.length, postsInitialized, loadMyPosts]);
 
   // Infinite scroll for posts
   useEffect(() => {
-    // Disconnect if loading or no more pages
-    if (postsLoading || postsPage >= postsTotalPages || postsTotalPages === 0 || posts.length === 0) {
+    // Disconnect if loading, no more pages, or no posts
+    if (postsLoading || postsPage >= postsTotalPages || postsTotalPages === 0 || posts.length === 0 || !postsInitialized) {
       if (postsObserver.current) {
         postsObserver.current.disconnect();
       }
@@ -569,7 +582,7 @@ export default function ProfileEnhancedPage() {
 
     // Create new observer with proper configuration
     postsObserver.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !postsLoading && postsPage < postsTotalPages) {
+      if (entries[0].isIntersecting && !postsLoading && postsPage < postsTotalPages && postsInitialized) {
         const nextPage = postsPage + 1;
         setPostsPage(nextPage);
         loadMyPosts(nextPage);
@@ -590,7 +603,7 @@ export default function ProfileEnhancedPage() {
         postsObserver.current.disconnect();
       }
     };
-  }, [posts.length, postsLoading, postsPage, postsTotalPages]); // Removed loadMyPosts to prevent infinite loop
+  }, [posts.length, postsLoading, postsPage, postsTotalPages, postsInitialized, loadMyPosts]);
 
   const handleSaveAbout = async () => {
     if (!editProfileData) return;
@@ -703,7 +716,16 @@ export default function ProfileEnhancedPage() {
     );
   }
 
-  const isOwnProfile = !profileUserId || (currentUser && profileUserId === currentUser.id);
+  const isOwnProfile = !profileUserId || (currentUser && (String(profileUserId) === String(currentUser.id) || String(profileUserId) === String(currentUser.userId)));
+
+  const handlePostCreated = (formattedPost) => {
+    setPosts((prev) => {
+      const exists = prev.some(p => p.id === formattedPost.id);
+      if (exists) return prev;
+      return [formattedPost, ...prev];
+    });
+    setSnackbar({ open: true, message: "Đã tạo bài viết thành công!", severity: "success" });
+  };
 
   return (
     <PageLayout>
@@ -2053,6 +2075,14 @@ export default function ProfileEnhancedPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {isOwnProfile && (
+        <CreatePostButton 
+          user={currentUser} 
+          onPostCreated={handlePostCreated}
+          show={isOwnProfile}
+        />
+      )}
     </PageLayout>
   );
 }
