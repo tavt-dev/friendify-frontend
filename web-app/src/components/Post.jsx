@@ -20,6 +20,10 @@ import {
   Select,
   Stack,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   ThumbUpOutlined,
@@ -35,7 +39,13 @@ import {
   unlikePost,
   commentOnPost,
   getPostComments,
+  sharePost,
+  likeComment,
+  unlikeComment,
 } from "../services/postInteractionService";
+import { getUserProfileById } from "../services/userService";
+import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
+import { apiFetch } from "../services/apiHelper";
 
 const REACTIONS = [
   { emoji: "👍", label: "Thích", color: "#3b82f6" },
@@ -45,6 +55,188 @@ const REACTIONS = [
   { emoji: "😢", label: "Buồn", color: "#6366f1" },
   { emoji: "😡", label: "Phẫn nộ", color: "#f97316" },
 ];
+
+const CommentItem = ({ comment, currentUserId, replyingTo, setReplyingTo, replyText, setReplyText, onReply, loadingReply, onLikeComment }) => {
+  const isReplying = replyingTo === comment.id;
+  const avatarInitials = comment.avatarInitials || comment.author?.charAt(0)?.toUpperCase() || "U";
+  const [likingComment, setLikingComment] = useState(false);
+
+  const handleLikeClick = async () => {
+    if (likingComment || !onLikeComment) return;
+    setLikingComment(true);
+    try {
+      await onLikeComment(comment.id, comment.isLiked);
+    } finally {
+      setLikingComment(false);
+    }
+  };
+
+  return (
+    <Box sx={{ mb: 2.5 }}>
+      <Box sx={{ display: "flex", gap: 1.5 }}>
+        <Avatar
+          src={comment.avatar || undefined}
+          sx={{ width: 36, height: 36, bgcolor: "primary.main", fontWeight: 700, fontSize: 14 }}
+        >
+          {avatarInitials}
+        </Avatar>
+        <Box sx={{ flex: 1 }}>
+          <Box
+            sx={(t) => ({
+              bgcolor: "background.paper",
+              borderRadius: 4,
+              p: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              boxShadow: 0,
+            })}
+          >
+            <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
+              {comment.author}
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: "text.primary", whiteSpace: "pre-wrap" }}>
+              {comment.text}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1, alignItems: "center" }}>
+            <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 600 }}>
+              {comment.time}
+            </Typography>
+            <Typography
+              onClick={handleLikeClick}
+              sx={(t) => ({
+                fontSize: 12,
+                color: comment.isLiked ? t.palette.primary.main : "text.secondary",
+                cursor: likingComment ? "not-allowed" : "pointer",
+                fontWeight: 600,
+                opacity: likingComment ? 0.6 : 1,
+                "&:hover": {
+                  color: likingComment ? undefined : t.palette.primary.main,
+                  textDecoration: likingComment ? undefined : "underline",
+                },
+              })}
+            >
+              {likingComment ? "Đang xử lý..." : `Thích ${comment.likeCount > 0 ? `(${comment.likeCount})` : ""}`}
+            </Typography>
+            <Typography
+              onClick={() => setReplyingTo(isReplying ? null : comment.id)}
+              sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}
+            >
+              Trả lời
+            </Typography>
+            {comment.replyCount > 0 && (
+              <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 600 }}>
+                {comment.replyCount} phản hồi
+              </Typography>
+            )}
+          </Box>
+
+          {isReplying && (
+            <Box sx={{ display: "flex", gap: 1.5, mt: 1.5, ml: 4.5 }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontWeight: 700, fontSize: 12 }}>
+                {currentUserId ? String(currentUserId).charAt(0).toUpperCase() : "Y"}
+              </Avatar>
+              <Box sx={{ flex: 1, display: "flex", gap: 1 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Viết phản hồi..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onReply(comment.id);
+                    }
+                  }}
+                  disabled={loadingReply}
+                  sx={(t) => ({
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      bgcolor: "background.paper",
+                      fontSize: 13,
+                      "& fieldset": { borderColor: "divider" },
+                      "&:hover fieldset": { borderColor: "primary.main" },
+                      "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 },
+                    },
+                  })}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => onReply(comment.id)}
+                  disabled={!replyText.trim() || loadingReply}
+                  sx={(t) => ({
+                    color: "primary.main",
+                    "&:disabled": { color: "text.disabled" },
+                  })}
+                >
+                  <Send sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            </Box>
+          )}
+
+          {comment.replies && comment.replies.length > 0 && (
+            <Box sx={{ mt: 1.5, ml: 4.5 }}>
+              {comment.replies.map((reply) => {
+                const replyInitials = reply.avatarInitials || reply.author?.charAt(0)?.toUpperCase() || "U";
+                return (
+                  <Box key={reply.id} sx={{ display: "flex", gap: 1.5, mb: 1.5 }}>
+                    <Avatar
+                      src={reply.avatar || undefined}
+                      sx={{ width: 32, height: 32, bgcolor: "primary.main", fontWeight: 700, fontSize: 12 }}
+                    >
+                      {replyInitials}
+                    </Avatar>
+                  <Box sx={{ flex: 1 }}>
+                    <Box
+                      sx={(t) => ({
+                        bgcolor: "background.paper",
+                        borderRadius: 3,
+                        p: 1.25,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        boxShadow: 0,
+                      })}
+                    >
+                      <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
+                        {reply.author}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13, color: "text.primary", whiteSpace: "pre-wrap" }}>
+                        {reply.text}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1, alignItems: "center" }}>
+                      <Typography sx={{ fontSize: 11, color: "text.secondary", fontWeight: 600 }}>
+                        {reply.time}
+                      </Typography>
+                      <Typography
+                        onClick={() => onLikeComment && onLikeComment(reply.id, reply.isLiked)}
+                        sx={(t) => ({
+                          fontSize: 11,
+                          color: reply.isLiked ? t.palette.primary.main : "text.secondary",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          "&:hover": {
+                            color: t.palette.primary.main,
+                            textDecoration: "underline",
+                          },
+                        })}
+                      >
+                        Thích {reply.likeCount > 0 && `(${reply.likeCount})`}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+};
 
 const Post = forwardRef((props, ref) => {
   const navigate = useNavigate();
@@ -84,9 +276,15 @@ const Post = forwardRef((props, ref) => {
   const [commentCount, setCommentCount] = useState(props.post?.commentCount || 0);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [loadingReply, setLoadingReply] = useState(false);
   const [loadingLike, setLoadingLike] = useState(false);
+  const [loadingShare, setLoadingShare] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareText, setShareText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "");
   const [editedPrivacy, setEditedPrivacy] = useState(privacy || "PUBLIC");
@@ -164,6 +362,42 @@ const Post = forwardRef((props, ref) => {
 
   const handleCloseReactions = () => setReactionAnchor(null);
 
+  const handleShareClick = () => {
+    setShareDialogOpen(true);
+    setShareText("");
+  };
+
+  const handleShareClose = () => {
+    setShareDialogOpen(false);
+    setShareText("");
+  };
+
+  const handleSharePost = async () => {
+    if (!id || loadingShare) return;
+    
+    setLoadingShare(true);
+    try {
+      const response = await sharePost(id, shareText.trim() || null);
+      const sharedPost = response.data?.result || response.data;
+      
+      if (sharedPost) {
+        handleShareClose();
+        if (props.onShare) {
+          props.onShare(sharedPost);
+        }
+      }
+    } catch (error) {
+      console.error("Error sharing post:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể chia sẻ bài viết. Vui lòng thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoadingShare(false);
+    }
+  };
+
   const handleComment = async () => {
     if (!commentText.trim() || !id || loadingComments) return;
     
@@ -193,27 +427,14 @@ const Post = forwardRef((props, ref) => {
       const newComment = response.data?.result || response.data;
       
       if (newComment) {
-        const formattedComment = {
-          id: newComment.id,
-          text: newComment.content || newComment.text,
-          author: newComment.username || "You",
-          avatar: newComment.userAvatar,
-          userId: newComment.userId,
-          time: newComment.createdAt ? new Date(newComment.createdAt).toLocaleString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "numeric",
-            month: "numeric",
-          }) : "Vừa xong",
-          createdAt: newComment.createdAt,
-          likeCount: newComment.likeCount || 0,
-          isLiked: newComment.isLiked || false,
-        };
+        const formattedComment = formatComment(newComment);
         
-        setComments((prev) => {
-          const filtered = prev.filter((c) => c.id !== tempId);
-          return [formattedComment, ...filtered];
-        });
+        if (formattedComment) {
+          setComments((prev) => {
+            const filtered = prev.filter((c) => c.id !== tempId);
+            return [formattedComment, ...filtered];
+          });
+        }
       } else {
         throw new Error("Invalid response from server");
       }
@@ -233,6 +454,116 @@ const Post = forwardRef((props, ref) => {
     }
   };
 
+  const getBatchProfiles = async (userIds) => {
+    if (!userIds || userIds.length === 0) return {};
+    
+    try {
+      // Try batch endpoint first
+      const userIdsParam = userIds.map(id => encodeURIComponent(id)).join('&userIds=');
+      const endpoint = `${API_ENDPOINTS.USER.BATCH_PROFILES}?userIds=${userIdsParam}`;
+      const response = await apiFetch(endpoint);
+      const profiles = response.data?.result || response.data || [];
+      
+      const profileMap = {};
+      profiles.forEach(profile => {
+        if (profile.userId || profile.id) {
+          const userId = profile.userId || profile.id;
+          const displayName = profile.lastName && profile.firstName
+            ? `${profile.lastName} ${profile.firstName}`.trim()
+            : profile.firstName || profile.lastName || profile.username || "Unknown";
+          
+          profileMap[userId] = {
+            username: displayName,
+            avatar: profile.avatar || null,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+          };
+        }
+      });
+      
+      return profileMap;
+    } catch (error) {
+      console.warn("Batch profiles endpoint failed, trying individual fetches:", error);
+      // Fallback: fetch profiles individually (limit to first 10 to avoid too many requests)
+      const profileMap = {};
+      const limitedUserIds = userIds.slice(0, 10);
+      
+      await Promise.all(
+        limitedUserIds.map(async (userId) => {
+          try {
+            const profile = await getUserProfileById(userId, true);
+            const profileData = profile?.data?.result || profile?.data || profile;
+            
+            if (profileData) {
+              const displayName = profileData.lastName && profileData.firstName
+                ? `${profileData.lastName} ${profileData.firstName}`.trim()
+                : profileData.firstName || profileData.lastName || profileData.username || "Unknown";
+              
+              profileMap[userId] = {
+                username: displayName,
+                avatar: profileData.avatar || null,
+                firstName: profileData.firstName,
+                lastName: profileData.lastName,
+              };
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch profile for userId ${userId}:`, err);
+          }
+        })
+      );
+      
+      return profileMap;
+    }
+  };
+
+  const formatComment = (comment, profileMap = {}) => {
+    if (!comment || !comment.id) return null;
+    
+    // Lấy thông tin từ profileMap nếu có, nếu không thì dùng từ comment response
+    const userId = comment.userId;
+    const profile = profileMap[userId];
+    
+    const displayName = profile?.username 
+      || comment.username 
+      || (comment.firstName && comment.lastName ? `${comment.lastName} ${comment.firstName}`.trim() : null)
+      || comment.firstName 
+      || comment.lastName 
+      || "Unknown";
+    
+    const avatarUrl = profile?.avatar || comment.userAvatar || null;
+    
+    // Tạo avatar initials từ displayName
+    const getInitials = (name) => {
+      if (!name || name.trim() === "" || name === "Unknown") return "U";
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return name.charAt(0).toUpperCase();
+    };
+    
+    return {
+      id: comment.id,
+      text: comment.content || comment.text || "",
+      author: displayName,
+      avatar: avatarUrl,
+      avatarInitials: getInitials(displayName),
+      userId: userId,
+      time: comment.createdAt ? new Date(comment.createdAt).toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "numeric",
+        month: "numeric",
+      }) : "Vừa xong",
+      createdAt: comment.createdAt,
+      likeCount: comment.likeCount || 0,
+      isLiked: comment.isLiked || false,
+      parentCommentId: comment.parentCommentId || null,
+      replies: (comment.replies || []).map(reply => formatComment(reply, profileMap)).filter(Boolean),
+      replyCount: comment.replyCount || 0,
+    };
+  };
+
   const loadComments = async () => {
     if (!id || loadingComments) return;
     
@@ -242,24 +573,38 @@ const Post = forwardRef((props, ref) => {
       const result = response.data?.result || response.data;
       const commentsList = result?.content || (Array.isArray(result) ? result : []);
       
+      // Collect all userIds from comments and replies
+      const collectUserIds = (comments) => {
+        const userIds = new Set();
+        const traverse = (comment) => {
+          if (comment.userId) userIds.add(comment.userId);
+          if (comment.replies && comment.replies.length > 0) {
+            comment.replies.forEach(traverse);
+          }
+        };
+        comments.forEach(traverse);
+        return Array.from(userIds);
+      };
+      
+      const userIds = collectUserIds(commentsList);
+      
+      // Fetch profiles for all users
+      const profileMap = await getBatchProfiles(userIds);
+      
+      // Debug: Log raw comment data
+      if (commentsList.length > 0) {
+        console.log("Raw comment data:", commentsList[0]);
+        console.log("Profile map:", profileMap);
+      }
+      
       const formattedComments = commentsList
-        .filter((comment) => comment && comment.id)
-        .map((comment) => ({
-          id: comment.id,
-          text: comment.content || comment.text || "",
-          author: comment.username || "Unknown",
-          avatar: comment.userAvatar,
-          userId: comment.userId,
-          time: comment.createdAt ? new Date(comment.createdAt).toLocaleString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "numeric",
-            month: "numeric",
-          }) : "Unknown",
-          createdAt: comment.createdAt,
-          likeCount: comment.likeCount || 0,
-          isLiked: comment.isLiked || false,
-        }));
+        .map(comment => formatComment(comment, profileMap))
+        .filter(Boolean);
+      
+      // Debug: Log formatted comment
+      if (formattedComments.length > 0) {
+        console.log("Formatted comment:", formattedComments[0]);
+      }
       
       setComments(formattedComments);
       if (result?.totalElements !== undefined) {
@@ -274,6 +619,114 @@ const Post = forwardRef((props, ref) => {
       console.error(errorMessage);
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const handleReply = async (parentCommentId) => {
+    if (!replyText.trim() || !id || !parentCommentId || loadingReply) return;
+    
+    const replyContent = replyText.trim();
+    setReplyText("");
+    setReplyingTo(null);
+    setLoadingReply(true);
+    
+    try {
+      const response = await commentOnPost(id, replyContent, parentCommentId);
+      const newReply = response.data?.result || response.data;
+      
+      if (newReply) {
+        const formattedReply = formatComment(newReply);
+        
+        setComments((prev) => {
+          const updateCommentWithReply = (comment) => {
+            if (comment.id === parentCommentId) {
+              return {
+                ...comment,
+                replies: [...(comment.replies || []), formattedReply],
+                replyCount: (comment.replyCount || 0) + 1,
+              };
+            }
+            if (comment.replies && comment.replies.length > 0) {
+              return {
+                ...comment,
+                replies: comment.replies.map(updateCommentWithReply),
+              };
+            }
+            return comment;
+          };
+          
+          return prev.map(updateCommentWithReply);
+        });
+        
+        setCommentCount((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error("Error posting reply:", error);
+      setReplyText(replyContent);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể đăng phản hồi. Vui lòng thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoadingReply(false);
+    }
+  };
+
+  const handleLikeComment = async (commentId, isCurrentlyLiked) => {
+    if (!commentId) return;
+    
+    try {
+      if (isCurrentlyLiked) {
+        await unlikeComment(commentId);
+        setComments((prev) => {
+          const updateCommentLike = (comment) => {
+            if (comment.id === commentId) {
+              return {
+                ...comment,
+                isLiked: false,
+                likeCount: Math.max((comment.likeCount || 0) - 1, 0),
+              };
+            }
+            if (comment.replies && comment.replies.length > 0) {
+              return {
+                ...comment,
+                replies: comment.replies.map(updateCommentLike),
+              };
+            }
+            return comment;
+          };
+          return prev.map(updateCommentLike);
+        });
+      } else {
+        await likeComment(commentId);
+        setComments((prev) => {
+          const updateCommentLike = (comment) => {
+            if (comment.id === commentId) {
+              return {
+                ...comment,
+                isLiked: true,
+                likeCount: (comment.likeCount || 0) + 1,
+              };
+            }
+            if (comment.replies && comment.replies.length > 0) {
+              return {
+                ...comment,
+                replies: comment.replies.map(updateCommentLike),
+              };
+            }
+            return comment;
+          };
+          return prev.map(updateCommentLike);
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling comment like:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể thích bình luận. Vui lòng thử lại.";
+      alert(errorMessage);
     }
   };
 
@@ -630,7 +1083,7 @@ const Post = forwardRef((props, ref) => {
                   sx={(t) => ({
                     display: "flex",
                     alignItems: "center",
-                    gap: 0.5,
+                    gap: 0.75,
                     bgcolor: reaction?.color
                       ? alpha(reaction.color, 0.12)
                       : t.palette.action.selected,
@@ -639,7 +1092,11 @@ const Post = forwardRef((props, ref) => {
                     borderRadius: 3,
                   })}
                 >
-                  <Typography sx={{ fontSize: 16 }}>{reaction?.emoji}</Typography>
+                  {reaction?.emoji ? (
+                    <Typography sx={{ fontSize: 16 }}>{reaction.emoji}</Typography>
+                  ) : (
+                    <ThumbUpOutlined sx={{ fontSize: 16, color: "text.secondary" }} />
+                  )}
                   <Typography sx={{ fontSize: 13, fontWeight: 600, color: reaction?.color || "text.secondary" }}>
                     {likeCount}
                   </Typography>
@@ -795,6 +1252,7 @@ const Post = forwardRef((props, ref) => {
         </IconButton>
 
         <IconButton
+          onClick={handleShareClick}
           sx={(t) => ({
             color: "text.secondary",
             borderRadius: 3,
@@ -833,42 +1291,18 @@ const Post = forwardRef((props, ref) => {
             </Box>
           ) : (
             comments.map((c) => (
-              <Box key={c.id} sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
-                <Avatar
-                  src={c.avatar}
-                  sx={{ width: 36, height: 36, bgcolor: "primary.main", fontWeight: 700, fontSize: 14 }}
-                >
-                  {c.author.charAt(0)}
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Box
-                    sx={(t) => ({
-                      bgcolor: "background.paper",
-                      borderRadius: 4,
-                      p: 1.5,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      boxShadow: 0,
-                    })}
-                  >
-                    <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5, color: "text.primary" }}>
-                      {c.author}
-                    </Typography>
-                    <Typography sx={{ fontSize: 14, color: "text.primary" }}>{c.text}</Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", gap: 2, mt: 0.5, px: 1 }}>
-                    <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 600 }}>
-                      {c.time}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                      Thích {c.likeCount > 0 && `(${c.likeCount})`}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: "text.secondary", cursor: "pointer", fontWeight: 600 }}>
-                      Trả lời
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
+              <CommentItem
+                key={c.id}
+                comment={c}
+                currentUserId={currentUserId}
+                replyingTo={replyingTo}
+                setReplyingTo={setReplyingTo}
+                replyText={replyText}
+                setReplyText={setReplyText}
+                onReply={handleReply}
+                loadingReply={loadingReply}
+                onLikeComment={handleLikeComment}
+              />
             ))
           )}
 
@@ -964,6 +1398,113 @@ const Post = forwardRef((props, ref) => {
           🗑️ Xóa bài viết
         </MenuItem>
       </Menu>
+
+      {/* Share Dialog */}
+      <Dialog
+        open={shareDialogOpen}
+        onClose={handleShareClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: (t) => ({
+            borderRadius: 4,
+            bgcolor: "background.paper",
+            border: "1px solid",
+            borderColor: "divider",
+          }),
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 20, pb: 1 }}>
+          Chia sẻ bài viết
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            placeholder="Thêm suy nghĩ của bạn (tùy chọn)..."
+            value={shareText}
+            onChange={(e) => setShareText(e.target.value)}
+            sx={(t) => ({
+              mt: 1,
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 3,
+                fontSize: 14,
+                bgcolor: "background.paper",
+                "& fieldset": { borderColor: "divider" },
+                "&:hover fieldset": { borderColor: "primary.main" },
+                "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 },
+              },
+            })}
+          />
+          <Box
+            sx={(t) => ({
+              mt: 2,
+              p: 2,
+              borderRadius: 3,
+              bgcolor: t.palette.mode === "dark"
+                ? alpha(t.palette.common.white, 0.05)
+                : alpha(t.palette.common.black, 0.03),
+              border: "1px solid",
+              borderColor: "divider",
+            })}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12, mb: 1 }}>
+              Bài viết gốc:
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: 14 }}>
+              {content}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button
+            onClick={handleShareClose}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: 3,
+              px: 3,
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleSharePost}
+            disabled={loadingShare}
+            variant="contained"
+            sx={(t) => ({
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: 3,
+              px: 3.5,
+              background: t.palette.mode === "dark"
+                ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              boxShadow: t.palette.mode === "dark"
+                ? "0 4px 12px rgba(139, 154, 255, 0.3)"
+                : "0 4px 12px rgba(102, 126, 234, 0.3)",
+              "&:hover": {
+                background: t.palette.mode === "dark"
+                  ? "linear-gradient(135deg, #7a89e6 0%, #8664bb 100%)"
+                  : "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                boxShadow: t.palette.mode === "dark"
+                  ? "0 6px 16px rgba(139, 154, 255, 0.4)"
+                  : "0 6px 16px rgba(102, 126, 234, 0.4)",
+                transform: "translateY(-2px)",
+              },
+              "&:disabled": {
+                background: "action.disabledBackground",
+                color: "text.disabled",
+                boxShadow: "none",
+              },
+              transition: "all 0.3s ease",
+            })}
+          >
+            {loadingShare ? <CircularProgress size={20} /> : "Chia sẻ"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 });

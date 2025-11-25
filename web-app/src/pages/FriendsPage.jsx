@@ -141,17 +141,24 @@ export default function FriendsPage() {
         const enrichedRequests = await Promise.all(
           requests.map(async (request) => {
             try {
-              const senderId = request.userId || request.friendId;
-              const idToUse = senderId || request.friendId || request.userId || request.id;
+              // For friend requests: friendId = currentUserId, userId = sender
+              // We need to get profile of the sender (userId)
+              const senderId = request.userId;
               
-              if (!idToUse) return null;
+              if (!senderId) return null;
               
-              return await enrichRequestWithProfile(request, idToUse, true);
+              const enriched = await enrichRequestWithProfile(request, senderId, true);
+              // Ensure we store the sender's userId for accept/decline
+              enriched.senderId = senderId;
+              enriched.id = senderId; // Use senderId as the ID for accept/decline
+              return enriched;
             } catch (error) {
-              const fallbackId = request.friendId || request.userId || request.id;
-              return fallbackId ? {
+              const senderId = request.userId;
+              return senderId ? {
                 ...request,
-                friendId: fallbackId,
+                friendId: senderId,
+                senderId: senderId,
+                id: senderId,
                 friendName: 'Người dùng',
                 friendAvatar: null,
               } : null;
@@ -160,10 +167,14 @@ export default function FriendsPage() {
         );
 
         const validRequests = enrichedRequests
-          .filter(req => req !== null)
+          .filter(req => req !== null && req.senderId)
           .map(req => {
-            if (!req.friendId) {
-              req.friendId = req.userId || req.id;
+            // Ensure senderId is set
+            if (!req.senderId) {
+              req.senderId = req.userId || req.friendId || req.id;
+            }
+            if (!req.id) {
+              req.id = req.senderId;
             }
             if (!req.friendName || req.friendName.startsWith('User ')) {
               if (req.firstName || req.lastName) {
@@ -176,7 +187,7 @@ export default function FriendsPage() {
             }
             return req;
           })
-          .filter(req => req.friendId || req.userId || req.id);
+          .filter(req => req.senderId);
 
         setFriendRequests(validRequests);
       } else {
@@ -250,15 +261,24 @@ export default function FriendsPage() {
         const enrichedRequests = await Promise.all(
           requests.map(async (request) => {
             try {
-              const recipientId = request.friendId || request.id || request.userId;
+              // For sent requests: userId = currentUserId, friendId = recipient
+              // We need to get profile of the recipient (friendId)
+              const recipientId = request.friendId;
+              
               if (!recipientId) return null;
               
-              return await enrichRequestWithProfile(request, recipientId, false);
+              const enriched = await enrichRequestWithProfile(request, recipientId, false);
+              // Store recipientId for display
+              enriched.recipientId = recipientId;
+              enriched.id = recipientId; // Use recipientId as the ID for display
+              return enriched;
             } catch (error) {
-              const fallbackId = request.friendId || request.userId || request.id;
-              return fallbackId ? {
+              const recipientId = request.friendId;
+              return recipientId ? {
                 ...request,
-                friendId: fallbackId,
+                friendId: recipientId,
+                recipientId: recipientId,
+                id: recipientId,
                 friendName: 'Người dùng',
                 friendAvatar: null,
               } : null;
@@ -267,8 +287,15 @@ export default function FriendsPage() {
         );
 
         const validRequests = enrichedRequests
-          .filter(req => req !== null && (req.friendId || req.userId || req.id))
+          .filter(req => req !== null && req.recipientId)
           .map(req => {
+            // Ensure recipientId is set
+            if (!req.recipientId) {
+              req.recipientId = req.friendId || req.userId || req.id;
+            }
+            if (!req.id) {
+              req.id = req.recipientId;
+            }
             if (!req.friendName || req.friendName.startsWith('User ')) {
               if (req.firstName || req.lastName) {
                 req.friendName = `${req.lastName || ''} ${req.firstName || ''}`.trim();
@@ -279,7 +306,8 @@ export default function FriendsPage() {
               }
             }
             return req;
-          });
+          })
+          .filter(req => req.recipientId);
 
         setSentRequests(validRequests);
       } else {
@@ -359,13 +387,14 @@ export default function FriendsPage() {
     setSearchResults([]);
   };
 
-  const handleAcceptRequest = async (friendId) => {
+  const handleAcceptRequest = async (senderId) => {
     try {
-      await acceptFriendRequest(friendId);
+      // senderId is the userId of the person who sent the request
+      await acceptFriendRequest(senderId);
       
       setFriendRequests((prev) => prev.filter((req) => {
-        const requestSenderId = req.friendId || req.userId || req.id;
-        return String(requestSenderId).trim() !== String(friendId).trim();
+        const requestSenderId = req.senderId || req.userId || req.id;
+        return String(requestSenderId).trim() !== String(senderId).trim();
       }));
       
       setSnackbar({ open: true, message: "Đã chấp nhận lời mời kết bạn!", severity: "success" });
@@ -381,13 +410,14 @@ export default function FriendsPage() {
     }
   };
 
-  const handleDeclineRequest = async (friendId) => {
+  const handleDeclineRequest = async (senderId) => {
     try {
-      await declineFriendRequest(friendId);
+      // senderId is the userId of the person who sent the request
+      await declineFriendRequest(senderId);
       
       setFriendRequests((prev) => prev.filter((req) => {
-        const requestSenderId = req.friendId || req.userId || req.id;
-        return String(requestSenderId).trim() !== String(friendId).trim();
+        const requestSenderId = req.senderId || req.userId || req.id;
+        return String(requestSenderId).trim() !== String(senderId).trim();
       }));
       
       setSnackbar({ open: true, message: "Đã từ chối lời mời kết bạn!", severity: "info" });
@@ -581,10 +611,18 @@ export default function FriendsPage() {
                   {friendRequests.map((request, index) => {
                     const normalized = normalizeFriendData(request);
                     const uniqueKey = normalized.id || request.id || `friend-request-${index}`;
+                    // Use senderId for friend requests (the person who sent the request)
+                    const profileId = request.senderId || normalized.id;
                     return (
                     <Grid item xs={12} sm={6} md={4} key={uniqueKey}>
                       <Card
                         elevation={0}
+                        onClick={(e) => {
+                          if (e.target.closest('button')) {
+                            return;
+                          }
+                          navigate(`/profile/${profileId}`);
+                        }}
                         sx={(t) => ({
                           borderRadius: 4,
                           p: 2.5,
@@ -593,9 +631,11 @@ export default function FriendsPage() {
                           borderColor: "divider",
                           bgcolor: "background.paper",
                           transition: "all 0.3s ease",
+                          cursor: "pointer",
                           "&:hover": {
                             boxShadow: t.shadows[4],
                             transform: "translateY(-4px)",
+                            borderColor: t.palette.primary.main,
                           },
                         })}
                       >
@@ -632,7 +672,11 @@ export default function FriendsPage() {
                               fullWidth
                               variant="contained"
                               startIcon={<CheckIcon />}
-                              onClick={() => handleAcceptRequest(normalized.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const senderId = request.senderId || normalized.id;
+                                handleAcceptRequest(senderId);
+                              }}
                               sx={{
                                 textTransform: "none",
                                 fontWeight: 600,
@@ -648,7 +692,11 @@ export default function FriendsPage() {
                             <Button
                               fullWidth
                               variant="outlined"
-                              onClick={() => handleDeclineRequest(normalized.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const senderId = request.senderId || normalized.id;
+                                handleDeclineRequest(senderId);
+                              }}
                               sx={{
                                 textTransform: "none",
                                 fontWeight: 600,
@@ -690,6 +738,12 @@ export default function FriendsPage() {
                   <Grid item xs={12} sm={6} md={4} key={normalized.id}>
                     <Card
                       elevation={0}
+                      onClick={(e) => {
+                        if (e.target.closest('button')) {
+                          return;
+                        }
+                        navigate(`/profile/${normalized.id}`);
+                      }}
                       sx={(t) => ({
                         borderRadius: 4,
                         p: 2.5,
@@ -699,20 +753,26 @@ export default function FriendsPage() {
                         bgcolor: "background.paper",
                         position: "relative",
                         transition: "all 0.3s ease",
+                        cursor: "pointer",
                         "&:hover": {
                           boxShadow: t.shadows[4],
                           transform: "translateY(-4px)",
+                          borderColor: t.palette.primary.main,
                         },
                       })}
                     >
                       <IconButton
                         size="small"
-                        onClick={() => handleRemoveSuggestion(normalized.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveSuggestion(normalized.id);
+                        }}
                         sx={{
                           position: "absolute",
                           top: 12,
                           right: 12,
                           bgcolor: "background.default",
+                          zIndex: 1,
                           "&:hover": { bgcolor: "action.hover" },
                         }}
                       >
@@ -752,7 +812,10 @@ export default function FriendsPage() {
                           fullWidth
                           variant="contained"
                           startIcon={<PersonAddIcon />}
-                          onClick={() => handleAddFriend(normalized.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddFriend(normalized.id);
+                          }}
                           sx={{
                             textTransform: "none",
                             fontWeight: 600,
@@ -828,6 +891,12 @@ export default function FriendsPage() {
                   <Grid item xs={12} sm={6} md={4} key={normalized.id}>
                     <Card
                       elevation={0}
+                      onClick={(e) => {
+                        if (e.target.closest('button')) {
+                          return;
+                        }
+                        navigate(`/profile/${normalized.id}`);
+                      }}
                       sx={(t) => ({
                         borderRadius: 4,
                         p: 2.5,
@@ -836,9 +905,11 @@ export default function FriendsPage() {
                         borderColor: "divider",
                         bgcolor: "background.paper",
                         transition: "all 0.3s ease",
+                        cursor: "pointer",
                         "&:hover": {
                           boxShadow: t.shadows[4],
                           transform: "translateY(-4px)",
+                          borderColor: t.palette.primary.main,
                         },
                       })}
                     >
@@ -874,6 +945,10 @@ export default function FriendsPage() {
                         <Button
                           fullWidth
                           variant="outlined"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/chat`);
+                          }}
                           sx={{
                             textTransform: "none",
                             fontWeight: 600,
@@ -892,7 +967,10 @@ export default function FriendsPage() {
                         <Button
                           fullWidth
                           variant="outlined"
-                          onClick={() => handleUnfriend(normalized.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnfriend(normalized.id);
+                          }}
                           sx={{
                             textTransform: "none",
                             fontWeight: 600,

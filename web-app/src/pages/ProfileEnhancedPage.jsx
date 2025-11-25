@@ -47,6 +47,7 @@ import {
 import { isAuthenticated, logOut } from "../services/identityService";
 import { useUser } from "../contexts/UserContext";
 import { getMyPosts, getUserPosts, updatePost, deletePost } from "../services/postService";
+import { sharePost } from "../services/postInteractionService";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
 import Post from "../components/Post";
@@ -1855,6 +1856,7 @@ export default function ProfileEnhancedPage() {
                         <Post
                           ref={isLast ? lastPostElementRef : null}
                           post={post}
+                          currentUserId={currentUser?.id || currentUser?.userId}
                           onEdit={async (id, content) => {
                             try {
                               await updatePost(id, { content });
@@ -1873,6 +1875,54 @@ export default function ProfileEnhancedPage() {
                             } catch (error) {
                               console.error('Error deleting post:', error);
                               setSnackbar({ open: true, message: "Không thể xóa bài viết. Vui lòng thử lại.", severity: "error" });
+                            }
+                          }}
+                          onShare={(sharedPost) => {
+                            if (sharedPost) {
+                              const formatTimeAgo = (dateString) => {
+                                if (!dateString) return 'Vừa xong';
+                                const date = new Date(dateString);
+                                const now = new Date();
+                                const diffMs = now - date;
+                                const diffMins = Math.floor(diffMs / 60000);
+                                if (diffMins < 1) return 'Vừa xong';
+                                if (diffMins < 60) return `${diffMins} phút trước`;
+                                return date.toLocaleDateString('vi-VN');
+                              };
+                              
+                              const media = (sharedPost.imageUrls || []).map((url) => ({
+                                url: url,
+                                type: 'image',
+                                alt: `Post image ${sharedPost.id}`,
+                              }));
+                              
+                              const formattedPost = {
+                                id: sharedPost.id,
+                                avatar: currentUser?.avatar && currentUser.avatar.trim() !== '' ? currentUser.avatar : null,
+                                username: currentUser?.username || 'Unknown',
+                                firstName: currentUser?.firstName || '',
+                                lastName: currentUser?.lastName || '',
+                                displayName: currentUser?.lastName && currentUser?.firstName 
+                                  ? `${currentUser.lastName} ${currentUser.firstName}`.trim()
+                                  : currentUser?.firstName || currentUser?.lastName || currentUser?.username || 'Unknown',
+                                created: formatTimeAgo(sharedPost.createdDate || sharedPost.created),
+                                content: sharedPost.content || '',
+                                media: media,
+                                userId: currentUser?.id || currentUser?.userId,
+                                privacy: sharedPost.privacy || 'PUBLIC',
+                                likeCount: sharedPost.likeCount || 0,
+                                commentCount: sharedPost.commentCount || 0,
+                                isLiked: sharedPost.isLiked || false,
+                                ...sharedPost,
+                              };
+                              
+                              setPosts((prev) => {
+                                const exists = prev.some(p => p.id === formattedPost.id);
+                                if (exists) return prev;
+                                return [formattedPost, ...prev];
+                              });
+                              
+                              setSnackbar({ open: true, message: "Đã chia sẻ bài viết thành công!", severity: "success" });
                             }
                           }}
                         />

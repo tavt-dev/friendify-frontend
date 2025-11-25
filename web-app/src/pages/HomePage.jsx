@@ -133,6 +133,57 @@ export default function HomePage() {
     setSnackbarOpen(true);
   };
 
+  const handleSharePost = (sharedPost) => {
+    if (sharedPost) {
+      const formatTimeAgo = (dateString) => {
+        if (!dateString) return 'Vừa xong';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        return date.toLocaleDateString('vi-VN');
+      };
+      
+      const media = (sharedPost.imageUrls || []).map((url) => ({
+        url: url,
+        type: 'image',
+        alt: `Post image ${sharedPost.id}`,
+      }));
+      
+      const formattedPost = {
+        id: sharedPost.id,
+        avatar: user?.avatar && user.avatar.trim() !== '' ? user.avatar : null,
+        username: user?.username || 'Unknown',
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        displayName: user?.lastName && user?.firstName 
+          ? `${user.lastName} ${user.firstName}`.trim()
+          : user?.firstName || user?.lastName || user?.username || 'Unknown',
+        created: formatTimeAgo(sharedPost.createdDate || sharedPost.created),
+        content: sharedPost.content || '',
+        media: media,
+        userId: user?.id || user?.userId,
+        privacy: sharedPost.privacy || 'PUBLIC',
+        likeCount: sharedPost.likeCount || 0,
+        commentCount: sharedPost.commentCount || 0,
+        isLiked: sharedPost.isLiked || false,
+        ...sharedPost,
+      };
+      
+      setPosts((prev) => {
+        const exists = prev.some(p => p.id === formattedPost.id);
+        if (exists) return prev;
+        return [formattedPost, ...prev];
+      });
+      
+      setSnackbarMessage("Đã chia sẻ bài viết thành công!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    }
+  };
+
   const open = Boolean(anchorEl);
   const popoverId = open ? "post-popover" : undefined;
 
@@ -527,6 +578,7 @@ export default function HomePage() {
                   currentUserId={user?.id || user?.userId}
                   onEdit={handleEditPost}
                   onDelete={handleDeletePost}
+                  onShare={handleSharePost}
                 />
               </Box>
             );

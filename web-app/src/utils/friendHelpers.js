@@ -86,7 +86,10 @@ export const normalizeFriendData = (item) => {
     };
   }
   
-  const normalizedId = item.friendId || item.userId || item.id || item.friend?.id || item.user?.id || 'unknown';
+  // For friend requests: use senderId (userId of sender)
+  // For sent requests: use recipientId (friendId of recipient)
+  // For friends: use friendId or userId
+  const normalizedId = item.senderId || item.recipientId || item.friendId || item.userId || item.id || item.friend?.id || item.user?.id || 'unknown';
   
   let normalizedName = null;
   if (item.friendName && !item.friendName.startsWith('User ')) {
