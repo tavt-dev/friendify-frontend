@@ -112,12 +112,14 @@ const normalizeMessage = (item, currentUserId) => {
   if (currentUserId && senderId && typeof item.me !== "boolean") {
     const calculatedIsMe = String(senderId) === String(currentUserId);
     if (calculatedIsMe !== isMe) {
-      console.warn("Mismatch in me calculation:", {
-        itemMe: item.me,
-        calculatedIsMe,
-        senderId,
-        currentUserId,
-      });
+      if (import.meta.env.DEV) {
+        console.warn("Mismatch in me calculation:", {
+          itemMe: item.me,
+          calculatedIsMe,
+          senderId,
+          currentUserId,
+        });
+      }
       isMe = calculatedIsMe;
     }
   }
@@ -427,7 +429,9 @@ export default function ChatPage() {
       return;
     }
 
-    console.log("Subscribing to all conversations for real-time updates");
+    if (import.meta.env.DEV) {
+      console.log("Subscribing to all conversations for real-time updates");
+    }
 
     conversations.forEach((conv) => {
       try {
@@ -435,11 +439,13 @@ export default function ChatPage() {
         websocketService.subscribeToMessages(conv.id, (messageData) => {
           if (!mountedRef.current) return;
 
-          console.log(
-            "Received message via WebSocket for conversation:",
-            conv.id,
-            messageData
-          );
+          if (import.meta.env.DEV) {
+            console.log(
+              "Received message via WebSocket for conversation:",
+              conv.id,
+              messageData
+            );
+          }
 
           const normalizedMessage = normalizeMessage(
             messageData,
@@ -532,13 +538,17 @@ export default function ChatPage() {
         websocketService.subscribeToTyping(conv.id, (typingData) => {
           if (!mountedRef.current) return;
 
-          console.log("Received typing indicator:", typingData);
+          if (import.meta.env.DEV) {
+            console.log("Received typing indicator:", typingData);
+          }
 
           const userId = typingData.userId;
           if (!userId || String(userId) === String(currentUserId)) {
-            console.log(
-              "Ignoring typing indicator from self or invalid userId"
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                "Ignoring typing indicator from self or invalid userId"
+              );
+            }
             return;
           }
 
@@ -548,10 +558,14 @@ export default function ChatPage() {
 
             if (typingData.isTyping) {
               updated.add(userId);
-              console.log("User is typing:", userId);
+              if (import.meta.env.DEV) {
+                console.log("User is typing:", userId);
+              }
             } else {
               updated.delete(userId);
-              console.log("User stopped typing:", userId);
+              if (import.meta.env.DEV) {
+                console.log("User stopped typing:", userId);
+              }
             }
 
             return {
@@ -572,10 +586,12 @@ export default function ChatPage() {
                   const current = prev[conv.id] || new Set();
                   const updated = new Set(current);
                   updated.delete(userId);
-                  console.log(
-                    "Auto cleared typing indicator for user:",
-                    userId
-                  );
+                  if (import.meta.env.DEV) {
+                    console.log(
+                      "Auto cleared typing indicator for user:",
+                      userId
+                    );
+                  }
                   return {
                     ...prev,
                     [conv.id]: updated,
@@ -642,7 +658,9 @@ export default function ChatPage() {
         if (typeof websocketService.connect === "function") {
           websocketService.connect(
             () => {
-              console.log("WebSocket connected successfully");
+              if (import.meta.env.DEV) {
+                console.log("WebSocket connected successfully");
+              }
             },
             (error) => {
               console.error("WebSocket connection error:", error);
@@ -889,10 +907,12 @@ export default function ChatPage() {
       typeof websocketService.sendMessage === "function"
     ) {
       try {
-        console.log("Sending message via WebSocket:", {
-          convId,
-          messageText,
-        });
+        if (import.meta.env.DEV) {
+          console.log("Sending message via WebSocket:", {
+            convId,
+            messageText,
+          });
+        }
         websocketService.sendMessage(convId, messageText);
 
         setTimeout(() => {
@@ -903,9 +923,11 @@ export default function ChatPage() {
                 (m) => m.id === tempId && m.pending
               );
               if (hasPending) {
-                console.warn(
-                  "No WebSocket response after timeout, clearing pending state"
-                );
+                if (import.meta.env.DEV) {
+                  console.warn(
+                    "No WebSocket response after timeout, clearing pending state"
+                  );
+                }
                 return {
                   ...prev,
                   [convId]: existing.map((m) =>

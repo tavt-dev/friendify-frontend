@@ -18,10 +18,14 @@ export default defineConfig({
         timeout: 60000,
         configure: (proxy, options) => {
           proxy.on('error', (err, req, res) => {
-            console.log('Proxy error:', err);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Proxy error:', err);
+            }
           });
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Proxying request:', req.method, req.url);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Proxying request:', req.method, req.url);
+            }
           });
         },
       },

@@ -82,16 +82,20 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
         return;
       }
 
-      console.log('Creating post with data:', {
-        hasContent,
-        content: postData.content,
-        contentLength: postData.content.length,
-        imageCount: postData.images.length,
-        privacy: postPrivacy
-      });
+      if (import.meta.env.DEV) {
+        console.log('Creating post with data:', {
+          hasContent,
+          content: postData.content,
+          contentLength: postData.content.length,
+          imageCount: postData.images.length,
+          privacy: postPrivacy
+        });
+      }
 
       const response = await createPost(postData);
-      console.log('Post creation response:', response);
+      if (import.meta.env.DEV) {
+        console.log('Post creation response:', response);
+      }
       
       const newPostData = response.data?.result || response.data;
       

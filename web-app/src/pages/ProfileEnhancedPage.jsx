@@ -132,11 +132,15 @@ export default function ProfileEnhancedPage() {
             return;
           }
           
-          console.log('Loading profile for userId:', targetUserId);
+          if (import.meta.env.DEV) {
+            console.log('Loading profile for userId:', targetUserId);
+          }
           const response = await getUserProfileById(targetUserId, false);
           
           if (!response || response.status === 404 || response.data === null) {
-            console.warn('Profile not found for userId:', targetUserId);
+            if (import.meta.env.DEV) {
+              console.warn('Profile not found for userId:', targetUserId);
+            }
             setSnackbar({ open: true, message: "Không tìm thấy người dùng này", severity: "error" });
             setUserDetails(null);
             setLoadingProfile(false);
@@ -153,19 +157,27 @@ export default function ProfileEnhancedPage() {
           }
           
           if (profileData && typeof profileData === 'object' && Object.keys(profileData).length > 0) {
-            console.log('Profile loaded successfully:', profileData.id || profileData.userId, profileData.username);
+            if (import.meta.env.DEV) {
+              console.log('Profile loaded successfully:', profileData.id || profileData.userId, profileData.username);
+            }
             setUserDetails(profileData);
           } else {
-            console.warn('Profile data not found or invalid format');
+            if (import.meta.env.DEV) {
+              console.warn('Profile data not found or invalid format');
+            }
             setSnackbar({ open: true, message: "Không thể tải thông tin người dùng", severity: "error" });
             setUserDetails(null);
           }
         } else {
           // No userId in route, load my own profile from API
-          console.log('Loading my profile from API');
+          if (import.meta.env.DEV) {
+            console.log('Loading my profile from API');
+          }
           try {
             const response = await getMyInfo();
-            console.log('getMyInfo response:', response);
+            if (import.meta.env.DEV) {
+              console.log('getMyInfo response:', response);
+            }
             
             // Parse response - handle different response formats
             let profileData = null;
@@ -177,10 +189,14 @@ export default function ProfileEnhancedPage() {
               profileData = response;
             }
             
-            console.log('Parsed profileData:', profileData);
+            if (import.meta.env.DEV) {
+              console.log('Parsed profileData:', profileData);
+            }
             
             if (profileData && typeof profileData === 'object' && Object.keys(profileData).length > 0) {
-              console.log('My profile loaded:', profileData.id || profileData.userId, profileData.username);
+              if (import.meta.env.DEV) {
+                console.log('My profile loaded:', profileData.id || profileData.userId, profileData.username);
+              }
               // Merge with currentUser context if available for complete info
               if (currentUser) {
                 setUserDetails({
@@ -200,10 +216,14 @@ export default function ProfileEnhancedPage() {
                 setUserDetails(profileData);
               }
             } else {
-              console.warn('My profile data not found or invalid format, using currentUser fallback');
+              if (import.meta.env.DEV) {
+                console.warn('My profile data not found or invalid format, using currentUser fallback');
+              }
               // Fallback to currentUser from context if available
               if (currentUser) {
-                console.log('Using currentUser as profile data');
+                if (import.meta.env.DEV) {
+                  console.log('Using currentUser as profile data');
+                }
                 setUserDetails(currentUser);
               } else {
                 console.error('No profile data and no currentUser available');
@@ -214,7 +234,9 @@ export default function ProfileEnhancedPage() {
             console.error('Error in getMyInfo:', profileError);
             // If getMyInfo fails, use currentUser as fallback
             if (currentUser) {
-              console.log('Using currentUser as fallback after error');
+              if (import.meta.env.DEV) {
+                console.log('Using currentUser as fallback after error');
+              }
               setUserDetails(currentUser);
             } else {
               setUserDetails(null);
@@ -236,7 +258,9 @@ export default function ProfileEnhancedPage() {
         }
         
         if (!profileUserId && currentUser) {
-          console.log('Using currentUser from context as fallback');
+          if (import.meta.env.DEV) {
+            console.log('Using currentUser from context as fallback');
+          }
           setUserDetails(currentUser);
         } else {
           setUserDetails(null);
@@ -406,18 +430,24 @@ export default function ProfileEnhancedPage() {
       }
       
       if (!targetUserId) {
-        console.warn('No targetUserId available for loading posts');
+        if (import.meta.env.DEV) {
+          console.warn('No targetUserId available for loading posts');
+        }
         setPostsLoading(false);
         return;
       }
       
-      console.log('Loading posts - profileUserId:', profileUserId, 'targetUserId:', targetUserId, 'isCurrentUser:', isCurrentUser);
+      if (import.meta.env.DEV) {
+        console.log('Loading posts - profileUserId:', profileUserId, 'targetUserId:', targetUserId, 'isCurrentUser:', isCurrentUser);
+      }
       
       const response = isCurrentUser
         ? await getMyPosts(page, 10)
         : await getUserPosts(targetUserId, page, 10);
       
-      console.log('Posts response:', response?.data?.result?.data?.length || 0, 'posts');
+      if (import.meta.env.DEV) {
+        console.log('Posts response:', response?.data?.result?.data?.length || 0, 'posts');
+      }
       
       // Handle different response formats
       let pageData = null;

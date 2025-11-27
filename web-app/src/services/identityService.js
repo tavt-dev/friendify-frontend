@@ -1,19 +1,24 @@
 import { getToken, removeToken, setToken } from "./localStorageService";
-import httpClient from "../configurations/httpClient";
-import { API, CONFIG } from "../configurations/configuration";
+import { API_ENDPOINTS, CONFIG } from "../config/apiConfig";
+import { apiFetch } from "./apiHelper";
 
 export const logIn = async (username, password) => {
   try {
-    const response = await httpClient.post(API.LOGIN, {
-      username: username,
-      password: password,
+    const response = await apiFetch(API_ENDPOINTS.IDENTITY.LOGIN, {
+      method: 'POST',
+      body: JSON.stringify({
+        username: username,
+        password: password,
+      }),
     });
 
     const token = response.data?.result?.token || response.data?.token || response.data?.data?.token;
     if (token) {
       setToken(token);
     } else {
-      console.warn("Không tìm thấy token thông báo nào trong phản hồi:", response.data);
+      if (import.meta.env.DEV) {
+        console.warn("Không tìm thấy token thông báo nào trong phản hồi:", response.data);
+      }
     }
 
     return response;
@@ -32,53 +37,69 @@ export const isAuthenticated = () => {
 };
 
 export const registerAccount = async ({ username, email, password, firstName, lastName}) => {
-  const response = await httpClient.post(API.REGISTER, {
-    username: username,
-    email: email,
-    password: password,
-    firstName: firstName,
-    lastName: lastName,
+  const response = await apiFetch(API_ENDPOINTS.IDENTITY.REGISTER, {
+    method: 'POST',
+    body: JSON.stringify({
+      username: username,
+      email: email,
+      password: password,
+      firstName: firstName,
+      lastName: lastName,
+    }),
   });
 
   return response;
 };
 
 export const requestPasswordReset = async (email) => {
-  const response = await httpClient.post(API.FORGOT_PASSWORD, {
-    email: email,
+  const response = await apiFetch(API_ENDPOINTS.IDENTITY.FORGOT_PASSWORD, {
+    method: 'POST',
+    body: JSON.stringify({
+      email: email,
+    }),
   });
 
   return response;
 }
 
 export const resetPassword = async ({ email, otpCode, newPassword }) => {
-  const response = await httpClient.post(API.RESET_PASSWORD, {
-    email: email,
-    otpCode: otpCode,
-    newPassword: newPassword,
+  const response = await apiFetch(API_ENDPOINTS.IDENTITY.RESET_PASSWORD, {
+    method: 'POST',
+    body: JSON.stringify({
+      email: email,
+      otpCode: otpCode,
+      newPassword: newPassword,
+    }),
   });
 
   return response;
 }
 
 export const resendVerification = async (email) => {
-  const response = await httpClient.post(API.RESEND_OTP, {
-    email: email,
+  const response = await apiFetch(API_ENDPOINTS.IDENTITY.RESEND_OTP, {
+    method: 'POST',
+    body: JSON.stringify({
+      email: email,
+    }),
   });
 
   return response;
 }
 
 export const verifyUser = async ({ email, otpCode }) => {
-  const response = await httpClient.post(API.VERIFY_USER, {
-    email: email,
-    otpCode: otpCode,
+  const response = await apiFetch(API_ENDPOINTS.IDENTITY.VERIFY_USER, {
+    method: 'POST',
+    body: JSON.stringify({
+      email: email,
+      otpCode: otpCode,
+    }),
   });
   return response;
 }
 
 export const loginWithGoogle = () => {
-  const googleLoginUrl = `${CONFIG.API_GATEWAY}${CONFIG.IDENTITY_SERVICE}${API.GOOGLE_LOGIN}`;
+  // Use relative path to go through Vite proxy -> Gateway
+  const googleLoginUrl = `/api/v1/identity/oauth2/authorization/google`;
   
   window.location.href = googleLoginUrl;
 }

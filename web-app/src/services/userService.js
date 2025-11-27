@@ -1,6 +1,3 @@
-import httpClient from "../configurations/httpClient";
-import { API } from "../configurations/configuration";
-import { getToken } from "./localStorageService";
 import { API_ENDPOINTS } from "../config/apiConfig";
 import { apiFetch } from "./apiHelper";
 
@@ -9,26 +6,7 @@ import { apiFetch } from "./apiHelper";
  * @returns {Promise<{data: any, status: number}>}
  */
 export const getMyInfo = async () => {
-  try {
-    // Use direct endpoint for my-profile
-    const endpoint = '/profile/users/my-profile';
-    const response = await apiFetch(endpoint);
-    return response;
-  } catch (error) {
-    console.warn('Failed to load profile with new endpoint, trying fallback:', error);
-    // Fallback to old method if new endpoint fails
-    try {
-      const fallbackResponse = await httpClient.get(API.MY_INFO, {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
-      });
-      return fallbackResponse;
-    } catch (fallbackError) {
-      console.error('Both endpoints failed:', fallbackError);
-      throw error; // Throw original error
-    }
-  }
+  return await apiFetch(API_ENDPOINTS.USER.MY_PROFILE);
 };
 
 /**
@@ -37,21 +15,10 @@ export const getMyInfo = async () => {
  * @returns {Promise<{data: any, status: number}>}
  */
 export const updateProfile = async (profileData) => {
-  try {
-    const endpoint = API_ENDPOINTS.USER.GET_PROFILE.replace(':id', 'my-profile');
-    return await apiFetch('/profile/users/my-profile', {
-      method: 'PUT',
-      body: JSON.stringify(profileData),
-    });
-  } catch (error) {
-    // Fallback to old method
-    return await httpClient.put(API.UPDATE_PROFILE, profileData, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-        "Content-Type": "application/json",
-      },
-    });
-  }
+  return await apiFetch(API_ENDPOINTS.USER.UPDATE_PROFILE, {
+    method: 'PUT',
+    body: JSON.stringify(profileData),
+  });
 };
 
 /**
@@ -60,21 +27,10 @@ export const updateProfile = async (profileData) => {
  * @returns {Promise<{data: any, status: number}>}
  */
 export const uploadAvatar = async (formData) => {
-  try {
-    const endpoint = '/profile/users/avatar';
-    return await apiFetch(endpoint, {
-      method: 'PUT',
-      body: formData,
-    });
-  } catch (error) {
-    // Fallback to old method
-    return await httpClient.put(API.UPDATE_AVATAR, formData, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-        "Content-Type": "multipart/form-data",
-      },
-    });
-  }
+  return await apiFetch(API_ENDPOINTS.USER.UPDATE_AVATAR, {
+    method: 'PUT',
+    body: formData,
+  });
 };
 
 /**
@@ -95,24 +51,10 @@ export const uploadBackground = async (formData) => {
  * @returns {Promise<{data: any, status: number}>}
  */
 export const search = async (keyword) => {
-  try {
-    return await apiFetch(API_ENDPOINTS.USER.SEARCH, {
-      method: 'POST',
-      body: JSON.stringify({ keyword }),
-    });
-  } catch (error) {
-    // Fallback to old method
-    return await httpClient.post(
-      API.SEARCH_USER,
-      { keyword: keyword },
-      {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  }
+  return await apiFetch(API_ENDPOINTS.USER.SEARCH, {
+    method: 'POST',
+    body: JSON.stringify({ keyword }),
+  });
 };
 
 /**

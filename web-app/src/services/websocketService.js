@@ -28,7 +28,9 @@ class WebSocketService {
    */
   connect(onConnect, onError) {
     if (this.isConnected && this.client?.connected) {
-      console.log('WebSocket already connected');
+      if (import.meta.env.DEV) {
+        console.log('WebSocket already connected');
+      }
       if (onConnect) onConnect();
       return;
     }
@@ -48,15 +50,15 @@ class WebSocketService {
     // Get WebSocket URL
     // In development, connect directly to chat service (bypass gateway)
     // In production, use API Gateway
-    const gatewayUrl = CONFIG.WS_URL || '/api/v1/chat/ws';
-    const directUrl = 'http://localhost:8086/chat/ws';
+    const gatewayUrl = CONFIG.WS_URL;
+    const directUrl = CONFIG.WS_DIRECT_URL;
     
     const wsUrl = import.meta.env.DEV ? directUrl : gatewayUrl;
     
-    console.log('🔌 Connecting to WebSocket:', wsUrl);
-    console.log('📍 Mode:', import.meta.env.DEV ? 'DEVELOPMENT (direct)' : 'PRODUCTION (gateway)');
-    console.log('📍 Current origin:', window.location.origin);
     if (import.meta.env.DEV) {
+      console.log('🔌 Connecting to WebSocket:', wsUrl);
+      console.log('📍 Mode:', import.meta.env.DEV ? 'DEVELOPMENT (direct)' : 'PRODUCTION (gateway)');
+      console.log('📍 Current origin:', window.location.origin);
       console.log('📍 Gateway URL (not used):', gatewayUrl);
     }
     
@@ -65,26 +67,32 @@ class WebSocketService {
     
     // Handle SockJS connection events
     socket.onopen = () => {
-      console.log('✅ SockJS connection opened');
+      if (import.meta.env.DEV) {
+        console.log('✅ SockJS connection opened');
+      }
     };
     
     socket.onerror = (error) => {
       console.error('❌ SockJS connection error:', error);
-      console.error('Error details:', {
-        type: error.type,
-        target: error.target,
-        currentTarget: error.currentTarget,
-      });
+      if (import.meta.env.DEV) {
+        console.error('Error details:', {
+          type: error.type,
+          target: error.target,
+          currentTarget: error.currentTarget,
+        });
+      }
       this.isConnected = false;
       if (onError) onError(new Error('SockJS connection failed'));
     };
     
     socket.onclose = (event) => {
-      console.log('SockJS closed:', {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-      });
+      if (import.meta.env.DEV) {
+        console.log('SockJS closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+      }
       if (event.code !== 1000) {
         console.warn('⚠️ SockJS closed unexpectedly');
       }
@@ -102,7 +110,9 @@ class WebSocketService {
         }
       },
       onConnect: (frame) => {
-        console.log('✅ WebSocket connected successfully:', frame);
+        if (import.meta.env.DEV) {
+          console.log('✅ WebSocket connected successfully:', frame);
+        }
         this.isConnected = true;
         this.reconnectAttempts = 0;
         
@@ -122,7 +132,9 @@ class WebSocketService {
               }
             }
           });
-          console.log('✅ Subscribed to error queue');
+          if (import.meta.env.DEV) {
+            console.log('✅ Subscribed to error queue');
+          }
         } catch (error) {
           console.warn('⚠️ Could not subscribe to error queue:', error);
         }
@@ -168,7 +180,9 @@ class WebSocketService {
         if (onError) onError(new Error('WebSocket connection error'));
       },
       onWebSocketClose: (event) => {
-        console.log('WebSocket closed:', event.code, event.reason || 'No reason');
+        if (import.meta.env.DEV) {
+          console.log('WebSocket closed:', event.code, event.reason || 'No reason');
+        }
         this.isConnected = false;
         
         this.connectionHandlers.forEach(handler => {
@@ -181,7 +195,9 @@ class WebSocketService {
 
         if (this.reconnectAttempts < this.maxReconnectAttempts && event.code !== 1000) {
           this.reconnectAttempts++;
-          console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+          if (import.meta.env.DEV) {
+            console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+          }
           setTimeout(() => {
             if (!this.isConnected) {
               this.connect(onConnect, onError);
@@ -203,7 +219,9 @@ class WebSocketService {
     // Activate the client
     try {
       this.client.activate();
-      console.log('🚀 WebSocket client activated');
+      if (import.meta.env.DEV) {
+        console.log('🚀 WebSocket client activated');
+      }
     } catch (error) {
       console.error('❌ Error activating WebSocket client:', error);
       this.isConnected = false;
@@ -267,7 +285,9 @@ class WebSocketService {
     const subscription = this.client.subscribe(topic, (message) => {
       try {
         const data = JSON.parse(message.body);
-        console.log('Received message:', data);
+        if (import.meta.env.DEV) {
+          console.log('Received message:', data);
+        }
         
         // Call all handlers for this conversation
         const handlers = this.messageHandlers.get(conversationId);
@@ -340,7 +360,9 @@ class WebSocketService {
     const subscription = this.client.subscribe(topic, (message) => {
       try {
         const data = JSON.parse(message.body);
-        console.log('Received typing indicator:', data);
+        if (import.meta.env.DEV) {
+          console.log('Received typing indicator:', data);
+        }
         
         // Call all handlers for this conversation
         const handlers = this.typingHandlers.get(conversationId);
@@ -414,7 +436,9 @@ class WebSocketService {
         destination,
         body: JSON.stringify(payload),
       });
-      console.log('✅ Sent message via WebSocket:', payload);
+      if (import.meta.env.DEV) {
+        console.log('✅ Sent message via WebSocket:', payload);
+      }
     } catch (error) {
       console.error('❌ Error sending message via WebSocket:', error);
       throw error;

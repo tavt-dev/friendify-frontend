@@ -261,10 +261,14 @@ const Post = forwardRef((props, ref) => {
   const handleUserClick = (e) => {
     e.stopPropagation(); // Prevent event bubbling
     if (userId) {
-      console.log('Navigating to profile:', userId);
+      if (import.meta.env.DEV) {
+        console.log('Navigating to profile:', userId);
+      }
       navigate(`/profile/${userId}`);
     } else {
-      console.warn('No userId found in post:', props.post);
+      if (import.meta.env.DEV) {
+        console.warn('No userId found in post:', props.post);
+      }
     }
   };
 
@@ -483,7 +487,9 @@ const Post = forwardRef((props, ref) => {
       
       return profileMap;
     } catch (error) {
-      console.warn("Batch profiles endpoint failed, trying individual fetches:", error);
+      if (import.meta.env.DEV) {
+        console.warn("Batch profiles endpoint failed, trying individual fetches:", error);
+      }
       // Fallback: fetch profiles individually (limit to first 10 to avoid too many requests)
       const profileMap = {};
       const limitedUserIds = userIds.slice(0, 10);
@@ -507,7 +513,9 @@ const Post = forwardRef((props, ref) => {
               };
             }
           } catch (err) {
-            console.warn(`Failed to fetch profile for userId ${userId}:`, err);
+            if (import.meta.env.DEV) {
+              console.warn(`Failed to fetch profile for userId ${userId}:`, err);
+            }
           }
         })
       );
@@ -592,7 +600,7 @@ const Post = forwardRef((props, ref) => {
       const profileMap = await getBatchProfiles(userIds);
       
       // Debug: Log raw comment data
-      if (commentsList.length > 0) {
+      if (import.meta.env.DEV && commentsList.length > 0) {
         console.log("Raw comment data:", commentsList[0]);
         console.log("Profile map:", profileMap);
       }
@@ -602,7 +610,7 @@ const Post = forwardRef((props, ref) => {
         .filter(Boolean);
       
       // Debug: Log formatted comment
-      if (formattedComments.length > 0) {
+      if (import.meta.env.DEV && formattedComments.length > 0) {
         console.log("Formatted comment:", formattedComments[0]);
       }
       

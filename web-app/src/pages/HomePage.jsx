@@ -263,7 +263,7 @@ export default function HomePage() {
                 // Silently fail and use default avatar - don't log 404/400 errors
                 if (error?.response?.status !== 404 && error?.response?.status !== 400) {
                   // Only log non-404/400 errors in development
-                  if (process.env.NODE_ENV === 'development') {
+                  if (import.meta.env.DEV) {
                     console.warn(`Failed to load profile for user ${userId}:`, error);
                   }
                 }
