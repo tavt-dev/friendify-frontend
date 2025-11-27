@@ -1,6 +1,6 @@
-// src/pages/GroupDetail.jsx
-import { useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+// src/pages/GroupDetailPage.jsx
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -9,238 +9,199 @@ import {
   Button,
   Tabs,
   Tab,
-  TextField,
   IconButton,
   Divider,
   Stack,
   Snackbar,
   Alert,
-  AvatarGroup,
   Chip,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Grid,
+  CircularProgress,
+  Badge,
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import ImageIcon from "@mui/icons-material/Image";
-import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
-import CloseIcon from "@mui/icons-material/Close";
-import ThumbUpIcon from "@mui/icons-material/ThumbUp";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
-import ShareIcon from "@mui/icons-material/Share";
 import PublicIcon from "@mui/icons-material/Public";
 import LockIcon from "@mui/icons-material/Lock";
 import PeopleIcon from "@mui/icons-material/People";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import SettingsIcon from "@mui/icons-material/Settings";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ReportIcon from "@mui/icons-material/Report";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PageLayout from "./PageLayout";
-
-// Dữ liệu giả
-const mockGroupData = {
-  id: 1,
-  name: "Lập trình viên Việt Nam",
-  avatar: "https://i.pravatar.cc/300?img=20",
-  cover: "https://picsum.photos/1200/400?random=1",
-  description: "Cộng đồng lập trình viên Việt Nam - Nơi chia sẻ kiến thức, kinh nghiệm và kết nối các developer",
-  privacy: "public",
-  members: 12500,
-  createdAt: "Tạo ngày 15/01/2023",
-  category: "Công nghệ",
-  isAdmin: true,
-  isMember: true,
-};
-
-const mockMembers = [
-  { id: 1, name: "Nguyễn Văn A", avatar: "https://i.pravatar.cc/150?img=1", role: "admin" },
-  { id: 2, name: "Trần Thị B", avatar: "https://i.pravatar.cc/150?img=2", role: "moderator" },
-  { id: 3, name: "Lê Minh C", avatar: "https://i.pravatar.cc/150?img=3", role: "member" },
-  { id: 4, name: "Phạm Thu D", avatar: "https://i.pravatar.cc/150?img=4", role: "member" },
-  { id: 5, name: "Hoàng Văn E", avatar: "https://i.pravatar.cc/150?img=5", role: "member" },
-  { id: 6, name: "Đỗ Thị F", avatar: "https://i.pravatar.cc/150?img=6", role: "member" },
-];
-
-const mockPosts = [
-  {
-    id: 1,
-    author: {
-      id: 1,
-      name: "Nguyễn Văn A",
-      avatar: "https://i.pravatar.cc/150?img=1",
-      role: "admin",
-    },
-    content: "Chào mừng các bạn đến với nhóm! Hãy chia sẻ những kiến thức và kinh nghiệm của mình nhé 🚀",
-    media: [],
-    likes: 125,
-    comments: 23,
-    shares: 5,
-    timestamp: "2 giờ trước",
-    isLiked: false,
-  },
-  {
-    id: 2,
-    author: {
-      id: 2,
-      name: "Trần Thị B",
-      avatar: "https://i.pravatar.cc/150?img=2",
-      role: "moderator",
-    },
-    content: "Mình vừa hoàn thành project React Native đầu tiên. Có ai muốn xem demo không? 📱",
-    media: [
-      { type: "image", url: "https://picsum.photos/600/400?random=2" },
-    ],
-    likes: 89,
-    comments: 15,
-    shares: 3,
-    timestamp: "5 giờ trước",
-    isLiked: true,
-  },
-  {
-    id: 3,
-    author: {
-      id: 3,
-      name: "Lê Minh C",
-      avatar: "https://i.pravatar.cc/150?img=3",
-      role: "member",
-    },
-    content: "Hỏi về best practices khi làm việc với React Hooks. Các bạn có thể chia sẻ kinh nghiệm không? 🤔",
-    media: [],
-    likes: 56,
-    comments: 32,
-    shares: 2,
-    timestamp: "1 ngày trước",
-    isLiked: false,
-  },
-];
+import { useUser } from "../contexts/UserContext";
+import {
+  getGroupDetail,
+  getGroupMembers,
+  getJoinRequests,
+  processJoinRequest,
+  leaveGroup,
+} from "../services/groupService";
+import { extractArrayFromResponse } from "../utils/apiHelper";
+import { getPostsByGroup } from "../services/postService";
 
 export default function GroupDetailPage() {
   const { groupId } = useParams();
+  const navigate = useNavigate();
+  const { user: currentUser } = useUser();
   const [tabValue, setTabValue] = useState(0);
-  const [group] = useState(mockGroupData);
-  const [posts, setPosts] = useState(mockPosts);
-  const [members] = useState(mockMembers);
-  const [newPostContent, setNewPostContent] = useState("");
-  const [mediaFiles, setMediaFiles] = useState([]);
-  const [mediaPreview, setMediaPreview] = useState([]);
+  const [group, setGroup] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingRequests, setLoadingRequests] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const fileInputRef = useRef(null);
+
+  const loadGroupDetail = useCallback(async () => {
+    if (!groupId) return;
+    setLoading(true);
+    try {
+      const res = await getGroupDetail(groupId);
+      const groupData = res.data?.result || res.data;
+      setGroup(groupData);
+    } catch (error) {
+      console.error('Error loading group:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Không thể tải thông tin nhóm",
+        severity: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId]);
+
+  const loadMembers = useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await getGroupMembers(groupId, 1, 50);
+      const data = extractArrayFromResponse(res.data);
+      setMembers(data.items || []);
+    } catch (error) {
+      console.error('Error loading members:', error);
+    }
+  }, [groupId]);
+
+  const loadJoinRequests = useCallback(async () => {
+    if (!groupId) return;
+    setLoadingRequests(true);
+    try {
+      const res = await getJoinRequests(groupId, 1, 100);
+      const data = extractArrayFromResponse(res.data);
+      setJoinRequests(data.items || []);
+    } catch (error) {
+      console.error('Error loading join requests:', error);
+      // Nếu không có quyền, không hiển thị lỗi
+      if (error.response?.status !== 403) {
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || "Không thể tải yêu cầu tham gia",
+          severity: "error"
+        });
+      }
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, [groupId]);
+
+  const loadPosts = useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await getPostsByGroup(groupId, 1, 20);
+      const data = extractArrayFromResponse(res.data);
+      setPosts(data.items || []);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    loadGroupDetail();
+  }, [loadGroupDetail]);
+
+  useEffect(() => {
+    if (tabValue === 1) {
+      loadMembers();
+    } else if (tabValue === 2) {
+      loadJoinRequests();
+    } else if (tabValue === 0) {
+      loadPosts();
+    }
+  }, [tabValue, loadMembers, loadJoinRequests, loadPosts]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const handleMediaSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    const validFiles = files.filter((file) => {
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      return isImage || isVideo;
-    });
-
-    const newPreviews = validFiles.map((file) => ({
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith("image/") ? "image" : "video",
-      name: file.name,
-    }));
-
-    setMediaFiles((prev) => [...prev, ...validFiles]);
-    setMediaPreview((prev) => [...prev, ...newPreviews]);
-  };
-
-  const handleRemoveMedia = (index) => {
-    URL.revokeObjectURL(mediaPreview[index].url);
-    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
-    setMediaPreview((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleCreatePost = () => {
-    if (!newPostContent.trim() && mediaFiles.length === 0) {
-      setSnackbar({ open: true, message: "Vui lòng nhập nội dung hoặc thêm media!", severity: "error" });
-      return;
+  const handleProcessRequest = async (requestId, approve) => {
+    try {
+      await processJoinRequest(groupId, requestId, approve);
+      setSnackbar({
+        open: true,
+        message: approve ? "Đã chấp nhận yêu cầu!" : "Đã từ chối yêu cầu!",
+        severity: "success"
+      });
+      await loadJoinRequests();
+      await loadMembers();
+      await loadGroupDetail();
+    } catch (error) {
+      console.error('Error processing request:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Không thể xử lý yêu cầu",
+        severity: "error"
+      });
     }
-
-    const newPost = {
-      id: Date.now(),
-      author: {
-        id: 100,
-        name: "Bạn",
-        avatar: "https://i.pravatar.cc/150?img=50",
-        role: "member",
-      },
-      content: newPostContent,
-      media: mediaPreview.map((m) => ({ type: m.type, url: m.url })),
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      timestamp: "Vừa xong",
-      isLiked: false,
-    };
-
-    setPosts((prev) => [newPost, ...prev]);
-    setNewPostContent("");
-    setMediaFiles([]);
-    setMediaPreview([]);
-    setSnackbar({ open: true, message: "Đã đăng bài viết!", severity: "success" });
   };
 
-  const handleLikePost = (postId) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-            }
-          : post
-      )
-    );
-  };
-
-  const handleMenuOpen = (event, post) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedPost(post);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedPost(null);
-  };
-
-  const handleDeletePost = () => {
-    setPosts((prev) => prev.filter((post) => post.id !== selectedPost.id));
-    setSnackbar({ open: true, message: "Đã xóa bài viết!", severity: "success" });
-    handleMenuClose();
-  };
-
-  const handleLeaveGroup = () => {
-    setSnackbar({ open: true, message: "Đã rời khỏi nhóm!", severity: "info" });
+  const handleLeaveGroup = async () => {
+    try {
+      await leaveGroup(groupId);
+      setSnackbar({ open: true, message: "Đã rời khỏi nhóm!", severity: "info" });
+      navigate("/groups");
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Không thể rời khỏi nhóm",
+        severity: "error"
+      });
+    }
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const getRoleBadge = (role) => {
-    if (role === "admin") return <Chip label="Admin" size="small" color="error" sx={{ height: 20, fontSize: 11 }} />;
-    if (role === "moderator") return <Chip label="Mod" size="small" color="warning" sx={{ height: 20, fontSize: 11 }} />;
-    return null;
-  };
+  const isAdmin = group?.memberRole?.role === 'ADMIN' || group?.ownerId === currentUser?.id || group?.ownerId === currentUser?.userId;
+  const isModerator = group?.memberRole?.role === 'MODERATOR';
+  const canManageRequests = isAdmin || isModerator;
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+          <CircularProgress />
+        </Box>
+      </PageLayout>
+    );
+  }
+
+  if (!group) {
+    return (
+      <PageLayout>
+        <Box sx={{ p: 3, textAlign: "center" }}>
+          <Typography variant="h6">Không tìm thấy nhóm</Typography>
+          <Button onClick={() => navigate("/groups")} sx={{ mt: 2 }}>
+            Quay lại danh sách nhóm
+          </Button>
+        </Box>
+      </PageLayout>
+    );
+  }
+
+  const groupAvatar = group.avatarUrl || group.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(group.name || 'Group')}&background=667eea&color=fff&size=128`;
+  const groupCover = group.coverImageUrl || group.cover || `https://picsum.photos/1200/400?random=${groupId}`;
 
   return (
     <PageLayout>
@@ -272,7 +233,7 @@ export default function GroupDetailPage() {
               sx={{
                 width: "100%",
                 height: { xs: 200, sm: 250, md: 300 },
-                backgroundImage: `url(${group.cover})`,
+                backgroundImage: `url(${groupCover})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 position: "relative",
@@ -290,7 +251,7 @@ export default function GroupDetailPage() {
               >
                 <Box sx={{ display: "flex", alignItems: "flex-end", flexWrap: "wrap", gap: { xs: 1, sm: 0 } }}>
                   <Avatar
-                    src={group.avatar}
+                    src={groupAvatar}
                     sx={{
                       width: { xs: 80, sm: 100, md: 120 },
                       height: { xs: 80, sm: 100, md: 120 },
@@ -304,14 +265,14 @@ export default function GroupDetailPage() {
                     </Typography>
                     <Stack direction="row" spacing={{ xs: 1, sm: 2 }} alignItems="center" flexWrap="wrap">
                       <Chip
-                        icon={group.privacy === "public" ? <PublicIcon /> : <LockIcon />}
-                        label={group.privacy === "public" ? "Nhóm công khai" : "Nhóm riêng tư"}
+                        icon={group.privacy === "PUBLIC" ? <PublicIcon /> : <LockIcon />}
+                        label={group.privacy === "PUBLIC" ? "Nhóm công khai" : "Nhóm riêng tư"}
                         size="small"
                         sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "white" }}
                       />
                       <Typography variant="body2">
                         <PeopleIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: "middle" }} />
-                        {group.members.toLocaleString()} thành viên
+                        {group.memberCount?.toLocaleString() || 0} thành viên
                       </Typography>
                     </Stack>
                   </Box>
@@ -324,82 +285,27 @@ export default function GroupDetailPage() {
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" }, mb: 2, flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body1" color="text.secondary" mb={0.5} sx={{ fontSize: { xs: 13, sm: 15 } }}>
-                    {group.description}
+                    {group.description || "Không có mô tả"}
                   </Typography>
-                  <Stack direction="row" spacing={{ xs: 1, sm: 2 }} alignItems="center" flexWrap="wrap">
+                  {group.category && (
                     <Chip label={group.category} size="small" sx={{ fontSize: { xs: 10, sm: 12 } }} />
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: { xs: 10, sm: 12 } }}>
-                      {group.createdAt}
-                    </Typography>
-                  </Stack>
+                  )}
                 </Box>
 
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {group.isMember ? (
+                  {group.isMember && (
                     <>
-                      <Button
-                        variant="outlined"
-                        startIcon={<PersonAddIcon sx={{ display: { xs: "none", sm: "block" } }} />}
-                        onClick={() => setInviteDialogOpen(true)}
-                        size="small"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 600,
-                          borderRadius: 3,
-                          fontSize: { xs: 12, sm: 14 },
-                        }}
-                      >
-                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>Mời</Box>
-                        <PersonAddIcon sx={{ display: { xs: "block", sm: "none" }, fontSize: 18 }} />
-                      </Button>
-                      <IconButton size="small">
-                        <NotificationsIcon fontSize="small" />
-                      </IconButton>
                       <IconButton size="small" onClick={handleLeaveGroup}>
                         <ExitToAppIcon fontSize="small" />
                       </IconButton>
-                      {group.isAdmin && (
-                        <IconButton size="small">
+                      {isAdmin && (
+                        <IconButton size="small" onClick={() => navigate(`/groups/${groupId}/settings`)}>
                           <SettingsIcon fontSize="small" />
                         </IconButton>
                       )}
                     </>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      sx={{
-                        textTransform: "none",
-                        fontWeight: 600,
-                        borderRadius: 3,
-                        px: { xs: 2, sm: 4 },
-                        fontSize: { xs: 12, sm: 14 },
-                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        "&:hover": {
-                          background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                        },
-                      }}
-                    >
-                      Tham gia nhóm
-                    </Button>
                   )}
                 </Stack>
-              </Box>
-
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Members Preview */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-                <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
-                  <AvatarGroup max={{ xs: 4, sm: 6 }} sx={{ mr: { xs: 1, sm: 2 } }}>
-                    {members.map((member) => (
-                      <Avatar key={member.id} src={member.avatar} sx={{ width: { xs: 28, sm: 32 }, height: { xs: 28, sm: 32 } }} />
-                    ))}
-                  </AvatarGroup>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: 11, sm: 14 } }}>
-                    Các thành viên bạn biết: Nguyễn Văn A, Trần Thị B và {group.members - 2} người khác
-                  </Typography>
-                </Box>
               </Box>
             </Box>
           </Card>
@@ -436,311 +342,47 @@ export default function GroupDetailPage() {
                 },
               }}
             >
-              <Tab label="Thảo luận" />
-              <Tab label={`Thành viên (${members.length})`} />
+              <Tab label="Bài viết" />
+              <Tab label={`Thành viên (${members.length || group.memberCount || 0})`} />
+              {canManageRequests && (
+                <Tab
+                  label={
+                    <Badge badgeContent={joinRequests.length} color="error">
+                      Yêu cầu tham gia
+                    </Badge>
+                  }
+                />
+              )}
               <Tab label="Giới thiệu" />
             </Tabs>
           </Card>
 
+          {/* Tab Content */}
           <Grid container spacing={{ xs: 2, sm: 3 }}>
-            {/* Main Content */}
-            <Grid item xs={12} md={8} sx={{ order: { xs: 2, md: 1 } }}>
-              {/* Tab 0: Discussion */}
+            <Grid item xs={12} md={8}>
+              {/* Tab 0: Posts */}
               {tabValue === 0 && (
-                <Box>
-                  {/* Create Post */}
-                  {group.isMember && (
-                    <Card
-                      elevation={0}
-                      sx={(t) => ({
-                        borderRadius: { xs: 2, sm: 4 },
-                        p: { xs: 2, sm: 3 },
-                        mb: { xs: 2, sm: 3 },
-                        boxShadow: t.shadows[1],
-                        border: "1px solid",
-                        borderColor: "divider",
-                        bgcolor: "background.paper",
-                      })}
-                    >
-                      <Typography variant="h6" fontWeight={700} mb={2} sx={{ fontSize: { xs: 16, sm: 18 } }}>
-                        Tạo bài viết
-                      </Typography>
-
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={{ xs: 2, sm: 3 }}
-                        placeholder="Bạn đang nghĩ gì?"
-                        value={newPostContent}
-                        onChange={(e) => setNewPostContent(e.target.value)}
-                        sx={{
-                          mb: 2,
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: 3,
-                            fontSize: { xs: 13, sm: 15 },
-                            bgcolor: (t) =>
-                              t.palette.mode === "dark" ? "rgba(255,255,255,0.04)" : "background.default",
-                          },
-                        }}
-                      />
-
-                      {/* Media Preview */}
-                      {mediaPreview.length > 0 && (
-                        <Box
-                          sx={{
-                            mb: 2,
-                            display: "grid",
-                            gridTemplateColumns:
-                              mediaPreview.length === 1 ? "1fr" : "repeat(auto-fill, minmax(180px, 1fr))",
-                            gap: 1.5,
-                            p: 2,
-                            bgcolor: (t) =>
-                              t.palette.mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                            borderRadius: 3,
-                            border: "1px solid",
-                            borderColor: "divider",
-                          }}
-                        >
-                          {mediaPreview.map((preview, index) => (
-                            <Box
-                              key={index}
-                              sx={{
-                                position: "relative",
-                                paddingTop: mediaPreview.length === 1 ? "56.25%" : "100%",
-                                borderRadius: 2,
-                                overflow: "hidden",
-                                bgcolor: "background.default",
-                                border: "1px solid",
-                                borderColor: "divider",
-                              }}
-                            >
-                              {preview.type === "image" ? (
-                                <img
-                                  src={preview.url}
-                                  alt={preview.name}
-                                  style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                <video
-                                  src={preview.url}
-                                  style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                  controls
-                                />
-                              )}
-
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemoveMedia(index)}
-                                sx={{
-                                  position: "absolute",
-                                  top: 6,
-                                  right: 6,
-                                  bgcolor: "rgba(0,0,0,0.6)",
-                                  color: "white",
-                                  "&:hover": {
-                                    bgcolor: "rgba(0,0,0,0.8)",
-                                  },
-                                }}
-                              >
-                                <CloseIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
-
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleMediaSelect}
-                          accept="image/*,video/*"
-                          multiple
-                          style={{ display: "none" }}
-                        />
-                        <Button
-                          startIcon={<ImageIcon />}
-                          onClick={() => fileInputRef.current?.click()}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            borderRadius: 2,
-                          }}
-                        >
-                          Ảnh/Video
-                        </Button>
-
-                        <Button
-                          variant="contained"
-                          onClick={handleCreatePost}
-                          disabled={!newPostContent.trim() && mediaFiles.length === 0}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            borderRadius: 3,
-                            px: 4,
-                            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                            "&:hover": {
-                              background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                            },
-                            "&:disabled": {
-                              background: "action.disabledBackground",
-                              color: "text.disabled",
-                            },
-                          }}
-                        >
-                          Đăng
-                        </Button>
-                      </Box>
-                    </Card>
+                <Card
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 4,
+                    p: 3,
+                    boxShadow: t.shadows[1],
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  })}
+                >
+                  {posts.length === 0 ? (
+                    <Typography variant="body1" color="text.secondary" textAlign="center" py={4}>
+                      Chưa có bài viết nào
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" color="text.secondary">
+                      {posts.length} bài viết
+                    </Typography>
                   )}
-
-                  {/* Posts List */}
-                  {posts.map((post) => (
-                    <Card
-                      key={post.id}
-                      elevation={0}
-                      sx={(t) => ({
-                        borderRadius: 4,
-                        p: 3,
-                        mb: 3,
-                        boxShadow: t.shadows[1],
-                        border: "1px solid",
-                        borderColor: "divider",
-                        bgcolor: "background.paper",
-                      })}
-                    >
-                      {/* Post Header */}
-                      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Avatar src={post.author.avatar} sx={{ width: 48, height: 48, mr: 2 }} />
-                          <Box>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Typography variant="body1" fontWeight={700}>
-                                {post.author.name}
-                              </Typography>
-                              {getRoleBadge(post.author.role)}
-                            </Box>
-                            <Typography variant="caption" color="text.secondary">
-                              {post.timestamp}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, post)}>
-                          <MoreVertIcon />
-                        </IconButton>
-                      </Box>
-
-                      {/* Post Content */}
-                      <Typography variant="body1" mb={2}>
-                        {post.content}
-                      </Typography>
-
-                      {/* Post Media */}
-                      {post.media.length > 0 && (
-                        <Box
-                          sx={{
-                            mb: 2,
-                            borderRadius: 3,
-                            overflow: "hidden",
-                            border: "1px solid",
-                            borderColor: "divider",
-                          }}
-                        >
-                          {post.media.map((media, index) => (
-                            <Box key={index}>
-                              {media.type === "image" ? (
-                                <img
-                                  src={media.url}
-                                  alt="post media"
-                                  style={{ width: "100%", display: "block" }}
-                                />
-                              ) : (
-                                <video src={media.url} controls style={{ width: "100%", display: "block" }} />
-                              )}
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
-
-                      {/* Post Stats */}
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          py: 1,
-                          borderTop: "1px solid",
-                          borderBottom: "1px solid",
-                          borderColor: "divider",
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          {post.likes} lượt thích
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {post.comments} bình luận • {post.shares} chia sẻ
-                        </Typography>
-                      </Box>
-
-                      {/* Post Actions */}
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          fullWidth
-                          startIcon={<ThumbUpIcon />}
-                          onClick={() => handleLikePost(post.id)}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            color: post.isLiked ? "primary.main" : "text.secondary",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        >
-                          Thích
-                        </Button>
-                        <Button
-                          fullWidth
-                          startIcon={<ChatBubbleOutlineIcon />}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            color: "text.secondary",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        >
-                          Bình luận
-                        </Button>
-                        <Button
-                          fullWidth
-                          startIcon={<ShareIcon />}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            color: "text.secondary",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        >
-                          Chia sẻ
-                        </Button>
-                      </Stack>
-                    </Card>
-                  ))}
-                </Box>
+                </Card>
               )}
 
               {/* Tab 1: Members */}
@@ -759,56 +401,155 @@ export default function GroupDetailPage() {
                   <Typography variant="h6" fontWeight={700} mb={3}>
                     Thành viên
                   </Typography>
-                  <Grid container spacing={2}>
-                    {members.map((member) => (
-                      <Grid item xs={12} sm={6} key={member.id}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            p: 2,
-                            borderRadius: 3,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            transition: "all 0.2s ease",
-                            "&:hover": {
-                              bgcolor: "action.hover",
-                              transform: "translateY(-2px)",
-                            },
-                          }}
-                        >
-                          <Avatar src={member.avatar} sx={{ width: 56, height: 56, mr: 2 }} />
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                              <Typography variant="body1" fontWeight={700}>
-                                {member.name}
-                              </Typography>
-                              {getRoleBadge(member.role)}
-                            </Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Thành viên
-                            </Typography>
-                          </Box>
-                          <Button
-                            variant="outlined"
-                            size="small"
+                  {members.length === 0 ? (
+                    <Typography variant="body1" color="text.secondary" textAlign="center" py={4}>
+                      Chưa có thành viên nào
+                    </Typography>
+                  ) : (
+                    <Grid container spacing={2}>
+                      {members.map((member) => (
+                        <Grid item xs={12} sm={6} key={member.id || member.userId}>
+                          <Box
                             sx={{
-                              textTransform: "none",
-                              fontWeight: 600,
-                              borderRadius: 2,
+                              display: "flex",
+                              alignItems: "center",
+                              p: 2,
+                              borderRadius: 3,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                bgcolor: "action.hover",
+                                transform: "translateY(-2px)",
+                              },
                             }}
                           >
-                            Xem trang
-                          </Button>
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
+                            <Avatar
+                              src={member.avatar || member.avatarUrl}
+                              sx={{ width: 56, height: 56, mr: 2 }}
+                            />
+                            <Box sx={{ flex: 1 }}>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                <Typography variant="body1" fontWeight={700}>
+                                  {member.username || member.name || "Người dùng"}
+                                </Typography>
+                                {member.role === "ADMIN" && (
+                                  <Chip label="Admin" size="small" color="error" sx={{ height: 20, fontSize: 11 }} />
+                                )}
+                                {member.role === "MODERATOR" && (
+                                  <Chip label="Mod" size="small" color="warning" sx={{ height: 20, fontSize: 11 }} />
+                                )}
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Tham gia {member.joinedDate || "N/A"}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => navigate(`/profile/${member.userId || member.id}`)}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2,
+                              }}
+                            >
+                              Xem trang
+                            </Button>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  )}
                 </Card>
               )}
 
-              {/* Tab 2: About */}
-              {tabValue === 2 && (
+              {/* Tab 2: Join Requests (Admin/Moderator only) */}
+              {tabValue === 2 && canManageRequests && (
+                <Card
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 4,
+                    p: 3,
+                    boxShadow: t.shadows[1],
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  })}
+                >
+                  <Typography variant="h6" fontWeight={700} mb={3}>
+                    Yêu cầu tham gia nhóm
+                  </Typography>
+                  {loadingRequests ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : joinRequests.length === 0 ? (
+                    <Typography variant="body1" color="text.secondary" textAlign="center" py={4}>
+                      Không có yêu cầu tham gia nào
+                    </Typography>
+                  ) : (
+                    <Stack spacing={2}>
+                      {joinRequests.map((request) => (
+                        <Card
+                          key={request.id}
+                          sx={{
+                            p: 2,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            borderRadius: 3,
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                            <Avatar
+                              src={request.avatar || request.avatarUrl}
+                              sx={{ width: 56, height: 56, mr: 2 }}
+                            />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body1" fontWeight={700}>
+                                {request.username || request.name || "Người dùng"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {request.requestedDate || "N/A"}
+                              </Typography>
+                              {request.message && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                  {request.message}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<CancelIcon />}
+                              onClick={() => handleProcessRequest(request.id, false)}
+                              sx={{ textTransform: "none", fontWeight: 600 }}
+                            >
+                              Từ chối
+                            </Button>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              startIcon={<CheckCircleIcon />}
+                              onClick={() => handleProcessRequest(request.id, true)}
+                              sx={{ textTransform: "none", fontWeight: 600 }}
+                            >
+                              Chấp nhận
+                            </Button>
+                          </Stack>
+                        </Card>
+                      ))}
+                    </Stack>
+                  )}
+                </Card>
+              )}
+
+              {/* Tab 3: About */}
+              {tabValue === (canManageRequests ? 3 : 2) && (
                 <Card
                   elevation={0}
                   sx={(t) => ({
@@ -829,7 +570,7 @@ export default function GroupDetailPage() {
                         Mô tả
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {group.description}
+                        {group.description || "Không có mô tả"}
                       </Typography>
                     </Box>
                     <Divider />
@@ -838,39 +579,44 @@ export default function GroupDetailPage() {
                         Quyền riêng tư
                       </Typography>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        {group.privacy === "public" ? <PublicIcon /> : <LockIcon />}
+                        {group.privacy === "PUBLIC" ? <PublicIcon /> : <LockIcon />}
                         <Typography variant="body2" color="text.secondary">
-                          {group.privacy === "public" ? "Nhóm công khai" : "Nhóm riêng tư"} •{" "}
-                          {group.privacy === "public"
+                          {group.privacy === "PUBLIC" ? "Nhóm công khai" : "Nhóm riêng tư"} •{" "}
+                          {group.privacy === "PUBLIC"
                             ? "Bất kỳ ai cũng có thể xem nội dung của nhóm"
                             : "Chỉ thành viên mới có thể xem nội dung"}
                         </Typography>
                       </Box>
                     </Box>
                     <Divider />
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={700} mb={1}>
-                        Lịch sử
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {group.createdAt}
-                      </Typography>
-                    </Box>
-                    <Divider />
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={700} mb={1}>
-                        Danh mục
-                      </Typography>
-                      <Chip label={group.category} />
-                    </Box>
+                    {group.createdDate && (
+                      <>
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                            Lịch sử
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Tạo ngày {new Date(group.createdDate).toLocaleDateString('vi-VN')}
+                          </Typography>
+                        </Box>
+                        <Divider />
+                      </>
+                    )}
+                    {group.category && (
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                          Danh mục
+                        </Typography>
+                        <Chip label={group.category} />
+                      </Box>
+                    )}
                   </Stack>
                 </Card>
               )}
             </Grid>
 
             {/* Sidebar */}
-            <Grid item xs={12} md={4} sx={{ order: { xs: 1, md: 2 } }}>
-              {/* Group Info Card */}
+            <Grid item xs={12} md={4}>
               <Card
                 elevation={0}
                 sx={(t) => ({
@@ -892,7 +638,7 @@ export default function GroupDetailPage() {
                       Thành viên
                     </Typography>
                     <Typography variant="h6" fontWeight={700}>
-                      {group.members.toLocaleString()}
+                      {group.memberCount?.toLocaleString() || 0}
                     </Typography>
                   </Box>
                   <Divider />
@@ -901,176 +647,31 @@ export default function GroupDetailPage() {
                       Quyền riêng tư
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {group.privacy === "public" ? <PublicIcon fontSize="small" /> : <LockIcon fontSize="small" />}
+                      {group.privacy === "PUBLIC" ? <PublicIcon fontSize="small" /> : <LockIcon fontSize="small" />}
                       <Typography variant="body2" fontWeight={600}>
-                        {group.privacy === "public" ? "Công khai" : "Riêng tư"}
+                        {group.privacy === "PUBLIC" ? "Công khai" : "Riêng tư"}
                       </Typography>
                     </Box>
                   </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" mb={0.5}>
-                      Hoạt động
-                    </Typography>
-                    <Typography variant="body2" fontWeight={600}>
-                      {posts.length} bài viết hôm nay
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Card>
-
-              {/* Recent Members */}
-              <Card
-                elevation={0}
-                sx={(t) => ({
-                  borderRadius: 4,
-                  p: 3,
-                  boxShadow: t.shadows[1],
-                  border: "1px solid",
-                  borderColor: "divider",
-                  bgcolor: "background.paper",
-                })}
-              >
-                <Typography variant="h6" fontWeight={700} mb={2}>
-                  Thành viên gần đây
-                </Typography>
-                <Stack spacing={2}>
-                  {members.slice(0, 5).map((member) => (
-                    <Box key={member.id} sx={{ display: "flex", alignItems: "center" }}>
-                      <Avatar src={member.avatar} sx={{ width: 40, height: 40, mr: 2 }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" fontWeight={600}>
-                          {member.name}
+                  {group.requiresApproval && (
+                    <>
+                      <Divider />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" mb={0.5}>
+                          Yêu cầu phê duyệt
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {member.role === "admin" ? "Quản trị viên" : member.role === "moderator" ? "Điều hành viên" : "Thành viên"}
+                        <Typography variant="body2" fontWeight={600}>
+                          Có
                         </Typography>
                       </Box>
-                    </Box>
-                  ))}
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 600,
-                      borderRadius: 2,
-                      mt: 1,
-                    }}
-                  >
-                    Xem tất cả
-                  </Button>
+                    </>
+                  )}
                 </Stack>
               </Card>
             </Grid>
           </Grid>
         </Box>
       </Box>
-
-      {/* Post Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        PaperProps={{
-          sx: { borderRadius: 3, minWidth: 200 },
-        }}
-      >
-        <MenuItem onClick={handleMenuClose}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Chỉnh sửa</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleDeletePost}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Xóa bài viết</ListItemText>
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleMenuClose}>
-          <ListItemIcon>
-            <ReportIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Báo cáo</ListItemText>
-        </MenuItem>
-      </Menu>
-
-      {/* Invite Dialog */}
-      <Dialog
-        open={inviteDialogOpen}
-        onClose={() => setInviteDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: 4 },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>Mời bạn bè vào nhóm</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            placeholder="Tìm kiếm bạn bè..."
-            sx={{
-              mb: 3,
-              "& .MuiOutlinedInput-root": { borderRadius: 3 },
-            }}
-          />
-          <Stack spacing={2}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Box
-                key={i}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  p: 2,
-                  borderRadius: 3,
-                  border: "1px solid",
-                  borderColor: "divider",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Avatar src={`https://i.pravatar.cc/150?img=${i + 10}`} sx={{ width: 48, height: 48, mr: 2 }} />
-                  <Box>
-                    <Typography variant="body1" fontWeight={600}>
-                      Người dùng {i}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      5 bạn chung
-                    </Typography>
-                  </Box>
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 2,
-                  }}
-                >
-                  Mời
-                </Button>
-              </Box>
-            ))}
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button
-            onClick={() => setInviteDialogOpen(false)}
-            sx={{
-              textTransform: "none",
-              fontWeight: 600,
-              borderRadius: 3,
-              px: 3,
-            }}
-          >
-            Đóng
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

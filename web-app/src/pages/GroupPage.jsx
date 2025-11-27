@@ -1,5 +1,6 @@
 // src/pages/Groups.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -39,23 +40,30 @@ import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import SettingsIcon from "@mui/icons-material/Settings";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import PageLayout from "./PageLayout";
+import { useUser } from "../contexts/UserContext";
 import { 
   getMyGroups, 
   getJoinedGroups, 
+  getAllGroups,
   searchGroups, 
   createGroup, 
   joinGroup, 
-  leaveGroup 
+  leaveGroup,
+  getMyJoinRequests,
+  cancelJoinRequest
 } from "../services/groupService";
 import { extractArrayFromResponse } from "../utils/apiHelper";
 
 export default function GroupPage() {
+  const navigate = useNavigate();
+  const { user: currentUser } = useUser();
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [myGroups, setMyGroups] = useState([]);
   const [joinedGroups, setJoinedGroups] = useState([]);
   const [suggestedGroups, setSuggestedGroups] = useState([]);
   const [discoverGroups, setDiscoverGroups] = useState([]);
+  const [myJoinRequests, setMyJoinRequests] = useState([]); // Track join requests đã gửi
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -67,11 +75,18 @@ export default function GroupPage() {
     category: "",
   });
 
-  useEffect(() => {
-    loadGroups();
-  }, [tabValue]);
+  // Load join requests để track trạng thái
+  const loadJoinRequests = useCallback(async () => {
+    try {
+      const res = await getMyJoinRequests(1, 100);
+      const data = extractArrayFromResponse(res.data);
+      setMyJoinRequests(data.items || []);
+    } catch (error) {
+      console.error('Error loading join requests:', error);
+    }
+  }, []);
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     setLoading(true);
     try {
       if (tabValue === 0) {
@@ -84,11 +99,17 @@ export default function GroupPage() {
         setMyGroups(myGroupsData.items || []);
         setJoinedGroups(joinedGroupsData.items || []);
       } else if (tabValue === 1) {
-        const res = await searchGroups("", 1, 20);
+        // Suggested groups - search with empty keyword to get popular groups
+        const res = searchQuery.trim() 
+          ? await searchGroups(searchQuery.trim(), 1, 20)
+          : await getAllGroups(null, 1, 20);
         const data = extractArrayFromResponse(res.data);
         setSuggestedGroups(data.items || []);
       } else if (tabValue === 2) {
-        const res = await searchGroups("", 1, 20);
+        // Discover groups - get all public/closed groups or search
+        const res = searchQuery.trim()
+          ? await searchGroups(searchQuery.trim(), 1, 20)
+          : await getAllGroups(null, 1, 20);
         const data = extractArrayFromResponse(res.data);
         setDiscoverGroups(data.items || []);
       }
@@ -102,23 +123,88 @@ export default function GroupPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tabValue, searchQuery]);
+
+  // Load join requests khi component mount
+  useEffect(() => {
+    loadJoinRequests();
+  }, [loadJoinRequests]);
+
+  useEffect(() => {
+    if (tabValue === 0) {
+      // Load my groups and joined groups for tab 0
+      loadGroups();
+    } else if (tabValue === 1 || tabValue === 2) {
+      // Debounce search for suggested and discover tabs
+      const timer = setTimeout(() => {
+        loadGroups();
+      }, searchQuery.trim() ? 500 : 0); // No delay if search is empty
+      return () => clearTimeout(timer);
+    }
+  }, [tabValue, searchQuery, loadGroups]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setSearchQuery("");
   };
 
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  // Xác định trạng thái của group với user hiện tại
+  const getGroupStatus = (group) => {
+    if (!group) return { isOwner: false, isMember: false, hasPendingRequest: false, requestId: null };
+    
+    const currentUserId = currentUser?.id || currentUser?.userId;
+    
+    // Check if owner (so sánh ownerId với currentUserId hoặc từ myGroups)
+    const isOwner = group.ownerId === currentUserId || myGroups.some(g => g.id === group.id);
+    
+    // Check if member (từ joinedGroups hoặc group.isMember)
+    const isMember = joinedGroups.some(g => g.id === group.id) || group.isMember || false;
+    
+    // Check if has pending join request
+    const pendingRequest = myJoinRequests.find(
+      req => req.groupId === group.id && req.status === 'PENDING'
+    );
+    
+    return {
+      isOwner,
+      isMember,
+      hasPendingRequest: !!pendingRequest,
+      requestId: pendingRequest?.id || null
+    };
+  };
+
   const handleJoinGroup = async (groupId) => {
     try {
       await joinGroup(groupId);
-      setSnackbar({ open: true, message: "Đã tham gia nhóm thành công!", severity: "success" });
-      loadGroups();
+      setSnackbar({ open: true, message: "Đã gửi yêu cầu tham gia nhóm!", severity: "success" });
+      await loadJoinRequests(); // Reload join requests
+      loadGroups(); // Reload groups
     } catch (error) {
       console.error('Error joining group:', error);
+      const errorMessage = error.response?.data?.message || "Không thể tham gia nhóm";
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || "Không thể tham gia nhóm",
+        message: errorMessage,
+        severity: "error"
+      });
+    }
+  };
+
+  const handleCancelJoinRequest = async (groupId, requestId) => {
+    try {
+      await cancelJoinRequest(groupId, requestId);
+      setSnackbar({ open: true, message: "Đã hủy yêu cầu tham gia nhóm!", severity: "info" });
+      await loadJoinRequests(); // Reload join requests
+      loadGroups(); // Reload groups
+    } catch (error) {
+      console.error('Error canceling join request:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Không thể hủy yêu cầu",
         severity: "error"
       });
     }
@@ -128,7 +214,8 @@ export default function GroupPage() {
     try {
       await leaveGroup(groupId);
       setSnackbar({ open: true, message: "Đã rời khỏi nhóm!", severity: "info" });
-      loadGroups();
+      await loadJoinRequests(); // Reload join requests
+      loadGroups(); // Reload groups
     } catch (error) {
       console.error('Error leaving group:', error);
       setSnackbar({
@@ -179,7 +266,15 @@ export default function GroupPage() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const allMyGroups = [...myGroups, ...joinedGroups];
+  // Merge và loại bỏ duplicates dựa trên id (dùng Map để đảm bảo unique)
+  const allMyGroupsMap = new Map();
+  [...myGroups, ...joinedGroups].forEach((group) => {
+    if (group?.id && !allMyGroupsMap.has(group.id)) {
+      allMyGroupsMap.set(group.id, group);
+    }
+  });
+  const allMyGroups = Array.from(allMyGroupsMap.values());
+  
   const filteredMyGroups = allMyGroups.filter((group) =>
     group?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -196,7 +291,79 @@ export default function GroupPage() {
       category: group.category || "",
       createdDate: group.createdDate,
       modifiedDate: group.modifiedDate,
+      isMember: group.isMember || false,
+      ownerId: group.ownerId,
     };
+  };
+
+  // Render button dựa trên trạng thái group
+  const renderGroupActionButton = (group, formatted) => {
+    const status = getGroupStatus(group);
+    
+    // Tab 0: Nhóm của bạn - chỉ hiển thị "Rời nhóm" nếu không phải owner
+    if (tabValue === 0) {
+      if (status.isOwner) {
+        return (
+          <Button
+            variant="outlined"
+            size="small"
+            disabled
+            sx={{ mt: "auto" }}
+          >
+            Bạn là chủ nhóm
+          </Button>
+        );
+      }
+      return (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => handleLeaveGroup(formatted.id)}
+          sx={{ mt: "auto" }}
+        >
+          Rời nhóm
+        </Button>
+      );
+    }
+    
+    // Tab 1 và 2: Gợi ý và Khám phá
+    if (status.isMember) {
+      return (
+        <Button
+          variant="outlined"
+          size="small"
+          disabled
+          sx={{ mt: "auto" }}
+        >
+          Đã tham gia
+        </Button>
+      );
+    }
+    
+    if (status.hasPendingRequest) {
+      return (
+        <Button
+          variant="outlined"
+          color="warning"
+          size="small"
+          onClick={() => handleCancelJoinRequest(formatted.id, status.requestId)}
+          sx={{ mt: "auto" }}
+        >
+          Đã xin tham gia
+        </Button>
+      );
+    }
+    
+    return (
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => handleJoinGroup(formatted.id)}
+        sx={{ mt: "auto" }}
+      >
+        Tham gia
+      </Button>
+    );
   };
 
   return (
@@ -274,6 +441,28 @@ export default function GroupPage() {
               <Tab label="Gợi ý" />
               <Tab label="Khám phá" />
             </Tabs>
+
+            {/* Search Bar */}
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                placeholder={tabValue === 0 ? "Tìm kiếm trong nhóm của bạn..." : "Tìm kiếm nhóm..."}
+                value={searchQuery}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+            </Box>
           </Card>
 
           {loading ? (
@@ -294,7 +483,7 @@ export default function GroupPage() {
                     <Grid container spacing={2}>
                       {filteredMyGroups.map((group) => {
                         const formatted = formatGroup(group);
-                        if (!formatted) return null;
+                        if (!formatted || !formatted.id) return null;
                         return (
                           <Grid item xs={12} sm={6} md={4} key={formatted.id}>
                             <Card
@@ -303,8 +492,10 @@ export default function GroupPage() {
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
+                                cursor: "pointer",
                                 "&:hover": { boxShadow: 3 },
                               }}
+                              onClick={() => navigate(`/groups/${formatted.id}`)}
                             >
                               <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                                 <Avatar src={formatted.avatar} sx={{ width: 56, height: 56, mr: 2 }} />
@@ -329,14 +520,9 @@ export default function GroupPage() {
                                   {formatted.description}
                                 </Typography>
                               )}
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => handleLeaveGroup(formatted.id)}
-                                sx={{ mt: "auto" }}
-                              >
-                                Rời nhóm
-                              </Button>
+                              <Box onClick={(e) => e.stopPropagation()}>
+                                {renderGroupActionButton(group, formatted)}
+                              </Box>
                             </Card>
                           </Grid>
                         );
@@ -348,27 +534,33 @@ export default function GroupPage() {
 
               {tabValue === 1 && (
                 <Box>
-                  {suggestedGroups.length === 0 ? (
+                  {loading ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : suggestedGroups.length === 0 ? (
                     <Card sx={{ p: 3, textAlign: "center" }}>
                       <Typography variant="body1" color="text.secondary">
-                        Không có nhóm gợi ý
+                        {searchQuery.trim() ? "Không tìm thấy nhóm nào" : "Không có nhóm gợi ý"}
                       </Typography>
                     </Card>
                   ) : (
                     <Grid container spacing={2}>
                       {suggestedGroups.map((group) => {
                         const formatted = formatGroup(group);
-                        if (!formatted) return null;
+                        if (!formatted || !formatted.id) return null;
                         return (
-                          <Grid item xs={12} sm={6} md={4} key={formatted.id}>
+                          <Grid item xs={12} sm={6} md={4} key={`suggested-${formatted.id}`}>
                             <Card
                               sx={{
                                 p: 2,
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
+                                cursor: "pointer",
                                 "&:hover": { boxShadow: 3 },
                               }}
+                              onClick={() => navigate(`/groups/${formatted.id}`)}
                             >
                               <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                                 <Avatar src={formatted.avatar} sx={{ width: 56, height: 56, mr: 2 }} />
@@ -393,14 +585,7 @@ export default function GroupPage() {
                                   {formatted.description}
                                 </Typography>
                               )}
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => handleJoinGroup(formatted.id)}
-                                sx={{ mt: "auto" }}
-                              >
-                                Tham gia
-                              </Button>
+                              {renderGroupActionButton(group, formatted)}
                             </Card>
                           </Grid>
                         );
@@ -412,27 +597,33 @@ export default function GroupPage() {
 
               {tabValue === 2 && (
                 <Box>
-                  {discoverGroups.length === 0 ? (
+                  {loading ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : discoverGroups.length === 0 ? (
                     <Card sx={{ p: 3, textAlign: "center" }}>
                       <Typography variant="body1" color="text.secondary">
-                        Không có nhóm để khám phá
+                        {searchQuery.trim() ? "Không tìm thấy nhóm nào" : "Không có nhóm để khám phá"}
                       </Typography>
                     </Card>
                   ) : (
                     <Grid container spacing={2}>
                       {discoverGroups.map((group) => {
                         const formatted = formatGroup(group);
-                        if (!formatted) return null;
+                        if (!formatted || !formatted.id) return null;
                         return (
-                          <Grid item xs={12} sm={6} md={4} key={formatted.id}>
+                          <Grid item xs={12} sm={6} md={4} key={`discover-${formatted.id}`}>
                             <Card
                               sx={{
                                 p: 2,
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
+                                cursor: "pointer",
                                 "&:hover": { boxShadow: 3 },
                               }}
+                              onClick={() => navigate(`/groups/${formatted.id}`)}
                             >
                               <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                                 <Avatar src={formatted.avatar} sx={{ width: 56, height: 56, mr: 2 }} />
@@ -457,14 +648,9 @@ export default function GroupPage() {
                                   {formatted.description}
                                 </Typography>
                               )}
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => handleJoinGroup(formatted.id)}
-                                sx={{ mt: "auto" }}
-                              >
-                                Tham gia
-                              </Button>
+                              <Box onClick={(e) => e.stopPropagation()}>
+                                {renderGroupActionButton(group, formatted)}
+                              </Box>
                             </Card>
                           </Grid>
                         );

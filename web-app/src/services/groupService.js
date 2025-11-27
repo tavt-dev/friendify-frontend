@@ -2,6 +2,14 @@ import { API_ENDPOINTS } from '../config/apiConfig';
 import { apiFetch } from './apiHelper';
 import { extractArrayFromResponse } from '../utils/apiHelper';
 
+export const getAllGroups = async (privacy = null, page = 1, size = 10) => {
+  let endpoint = `${API_ENDPOINTS.GROUP.GET_ALL}?page=${page}&size=${size}`;
+  if (privacy) {
+    endpoint += `&privacy=${encodeURIComponent(privacy)}`;
+  }
+  return apiFetch(endpoint);
+};
+
 export const getMyGroups = async (page = 1, size = 10) => {
   const endpoint = `${API_ENDPOINTS.GROUP.MY_GROUPS}?page=${page}&size=${size}`;
   return apiFetch(endpoint);
@@ -82,9 +90,20 @@ export const getJoinRequests = async (groupId, page = 1, size = 10) => {
   return apiFetch(endpoint);
 };
 
-export const processJoinRequest = async (groupId, requestId, action) => {
+export const getMyJoinRequests = async (page = 1, size = 100) => {
+  const endpoint = `${API_ENDPOINTS.GROUP.MY_JOIN_REQUESTS}?page=${page}&size=${size}`;
+  return apiFetch(endpoint);
+};
+
+export const processJoinRequest = async (groupId, requestId, approve) => {
   return apiFetch(API_ENDPOINTS.GROUP.PROCESS_JOIN_REQUEST.replace(':id', groupId).replace(':requestId', requestId), {
     method: 'POST',
-    body: JSON.stringify({ action }), // 'APPROVE' or 'REJECT'
+    body: JSON.stringify({ approve }), // true = approve, false = reject
+  });
+};
+
+export const cancelJoinRequest = async (groupId, requestId) => {
+  return apiFetch(API_ENDPOINTS.GROUP.CANCEL_JOIN_REQUEST.replace(':id', groupId).replace(':requestId', requestId), {
+    method: 'DELETE',
   });
 };
