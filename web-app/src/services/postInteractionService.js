@@ -53,6 +53,28 @@ export const deleteComment = async (commentId) => {
   });
 };
 
+export const getCommentById = async (commentId) => {
+  return apiFetch(API_ENDPOINTS.INTERACTION.GET_COMMENT_BY_ID.replace(':id', commentId));
+};
+
+export const getCommentReplies = async (commentId, page = 1, size = 10) => {
+  const endpoint = `${API_ENDPOINTS.INTERACTION.GET_COMMENT_REPLIES.replace(':id', commentId)}?page=${page}&size=${size}`;
+  return apiFetch(endpoint);
+};
+
+// Internal APIs
+export const getPostLikeCount = async (postId) => {
+  return apiFetch(API_ENDPOINTS.INTERACTION.INTERNAL_LIKE_COUNT.replace(':id', postId));
+};
+
+export const isPostLiked = async (postId) => {
+  return apiFetch(API_ENDPOINTS.INTERACTION.INTERNAL_IS_LIKED.replace(':id', postId));
+};
+
+export const getPostCommentCount = async (postId) => {
+  return apiFetch(API_ENDPOINTS.INTERACTION.INTERNAL_COMMENT_COUNT.replace(':id', postId));
+};
+
 export const likeComment = async (commentId) => {
   return apiFetch(API_ENDPOINTS.INTERACTION.LIKE, {
     method: 'POST',

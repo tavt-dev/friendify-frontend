@@ -54,9 +54,11 @@ export const deleteGroup = async (groupId) => {
   });
 };
 
-export const joinGroup = async (groupId) => {
+export const joinGroup = async (groupId, message = null) => {
+  const body = message ? JSON.stringify({ message }) : null;
   return apiFetch(API_ENDPOINTS.GROUP.JOIN.replace(':id', groupId), {
     method: 'POST',
+    body: body,
   });
 };
 
@@ -105,5 +107,25 @@ export const processJoinRequest = async (groupId, requestId, approve) => {
 export const cancelJoinRequest = async (groupId, requestId) => {
   return apiFetch(API_ENDPOINTS.GROUP.CANCEL_JOIN_REQUEST.replace(':id', groupId).replace(':requestId', requestId), {
     method: 'DELETE',
+  });
+};
+
+export const uploadGroupAvatar = async (groupId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  return apiFetch(API_ENDPOINTS.GROUP.UPLOAD_AVATAR.replace(':id', groupId), {
+    method: 'PUT',
+    body: formData,
+  });
+};
+
+export const uploadGroupCover = async (groupId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  return apiFetch(API_ENDPOINTS.GROUP.UPLOAD_COVER.replace(':id', groupId), {
+    method: 'PUT',
+    body: formData,
   });
 };

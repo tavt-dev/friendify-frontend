@@ -192,3 +192,30 @@ export const leaveConversation = async (conversationId) => {
     method: 'POST',
   });
 };
+
+/**
+ * Promote a participant to admin in a group conversation
+ * @param {string} conversationId - The conversation ID
+ * @param {string} participantId - The participant ID to promote
+ */
+export const promoteToAdmin = async (conversationId, participantId) => {
+  const endpoint = API_ENDPOINTS.CHAT.PROMOTE_TO_ADMIN.replace(':id', conversationId);
+  return apiFetch(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({ participantId }),
+  });
+};
+
+/**
+ * Demote an admin from admin role in a group conversation
+ * @param {string} conversationId - The conversation ID
+ * @param {string} participantId - The participant ID to demote
+ */
+export const demoteFromAdmin = async (conversationId, participantId) => {
+  const endpoint = API_ENDPOINTS.CHAT.DEMOTE_FROM_ADMIN
+    .replace(':id', conversationId)
+    .replace(':participantId', participantId);
+  return apiFetch(endpoint, {
+    method: 'DELETE',
+  });
+};

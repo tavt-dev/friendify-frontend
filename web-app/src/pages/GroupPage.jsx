@@ -28,6 +28,8 @@ import {
   MenuItem,
   Badge,
   CircularProgress,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
@@ -72,7 +74,10 @@ export default function GroupPage() {
     name: "",
     description: "",
     privacy: "PUBLIC",
-    category: "",
+    requiresApproval: false,
+    allowPosting: true,
+    onlyAdminCanPost: false,
+    moderationRequired: false,
   });
 
   // Load join requests để track trạng thái
@@ -242,13 +247,24 @@ export default function GroupPage() {
         name: newGroup.name.trim(),
         description: newGroup.description.trim() || null,
         privacy: newGroup.privacy,
-        category: newGroup.category || null,
+        requiresApproval: newGroup.requiresApproval || false,
+        allowPosting: newGroup.allowPosting !== undefined ? newGroup.allowPosting : true,
+        onlyAdminCanPost: newGroup.onlyAdminCanPost || false,
+        moderationRequired: newGroup.moderationRequired || false,
       };
       const response = await createGroup(groupData);
       const createdGroup = response.data?.result || response.data;
       setMyGroups((prev) => [createdGroup, ...prev]);
       setCreateDialogOpen(false);
-      setNewGroup({ name: "", description: "", privacy: "PUBLIC", category: "" });
+      setNewGroup({ 
+        name: "", 
+        description: "", 
+        privacy: "PUBLIC", 
+        requiresApproval: false,
+        allowPosting: true,
+        onlyAdminCanPost: false,
+        moderationRequired: false,
+      });
       setSnackbar({ open: true, message: "Đã tạo nhóm mới thành công!", severity: "success" });
     } catch (error) {
       console.error('Error creating group:', error);
@@ -288,7 +304,6 @@ export default function GroupPage() {
       members: group.memberCount || group.members || 0,
       privacy: group.privacy || "PUBLIC",
       description: group.description || "",
-      category: group.category || "",
       createdDate: group.createdDate,
       modifiedDate: group.modifiedDate,
       isMember: group.isMember || false,
@@ -694,8 +709,55 @@ export default function GroupPage() {
             >
               <MenuItem value="PUBLIC">Công khai</MenuItem>
               <MenuItem value="PRIVATE">Riêng tư</MenuItem>
+              <MenuItem value="CLOSED">Đóng</MenuItem>
             </Select>
           </FormControl>
+          
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600} mb={1}>
+              Cài đặt
+            </Typography>
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newGroup.requiresApproval}
+                    onChange={(e) => setNewGroup({ ...newGroup, requiresApproval: e.target.checked })}
+                  />
+                }
+                label="Yêu cầu phê duyệt tham gia"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newGroup.allowPosting}
+                    onChange={(e) => setNewGroup({ ...newGroup, allowPosting: e.target.checked })}
+                  />
+                }
+                label="Cho phép đăng bài"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newGroup.onlyAdminCanPost}
+                    onChange={(e) => setNewGroup({ ...newGroup, onlyAdminCanPost: e.target.checked })}
+                    disabled={!newGroup.allowPosting}
+                  />
+                }
+                label="Chỉ admin/moderator được đăng bài"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newGroup.moderationRequired}
+                    onChange={(e) => setNewGroup({ ...newGroup, moderationRequired: e.target.checked })}
+                    disabled={!newGroup.allowPosting}
+                  />
+                }
+                label="Cần kiểm duyệt bài đăng"
+              />
+            </Stack>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Hủy</Button>
