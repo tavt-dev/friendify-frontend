@@ -38,6 +38,14 @@ import {
   removeFriend,
   searchFriends,
   getSentFriendRequests,
+  followUser,
+  unfollowUser,
+  getFollowingList,
+  getFollowerList,
+  getSocialInfo,
+  blockUser,
+  unblockUser,
+  getBlockedList,
 } from "../services/friendService";
 import { extractArrayFromResponse } from "../utils/apiHelper";
 import { 
@@ -45,6 +53,7 @@ import {
   extractFriendIds, 
   normalizeFriendData 
 } from "../utils/friendHelpers";
+import { useUser } from "../contexts/UserContext";
 
 export default function FriendsPage() {
   const navigate = useNavigate();
@@ -60,6 +69,10 @@ export default function FriendsPage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [friendsList, setFriendsList] = useState([]);
   const [sentRequestsList, setSentRequestsList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [followersList, setFollowersList] = useState([]);
+  const [blockedList, setBlockedList] = useState([]);
+  const { user: currentUser } = useUser();
 
   useEffect(() => {
     loadFriendshipData();
@@ -114,6 +127,9 @@ export default function FriendsPage() {
         if (friendsList.length === 0 && sentRequestsList.length === 0) {
           await loadFriendshipData();
         }
+      } else if (tabValue === 5) {
+        await loadFollowing();
+        await loadFollowers();
       }
     } catch (error) {
       if (error.response?.status !== 404 && error.response?.status !== 401) {
@@ -561,6 +577,8 @@ export default function FriendsPage() {
             <Tabs
               value={tabValue}
               onChange={handleTabChange}
+              variant="scrollable"
+              scrollButtons="auto"
               sx={{
                 "& .MuiTab-root": {
                   textTransform: "none",
@@ -576,8 +594,9 @@ export default function FriendsPage() {
               <Tab label={`Lời mời (${friendRequests.length})`} />
               <Tab label="Gợi ý kết bạn" />
               <Tab label="Tất cả bạn bè" />
-              <Tab label={`Đã gửi lời mời (${sentRequests.length})`} />
+              <Tab label={`Đã gửi (${sentRequests.length})`} />
               <Tab label="Tìm kiếm" />
+              <Tab label={`Theo dõi (${followingList.length})`} />
             </Tabs>
           </Card>
 
@@ -1332,6 +1351,196 @@ export default function FriendsPage() {
               )}
             </Box>
           )}
+
+          {/* Tab 5: Following */}
+          {tabValue === 5 && (
+            <Box>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : followingList.length === 0 ? (
+                <Card
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 4,
+                    p: 6,
+                    textAlign: "center",
+                    boxShadow: t.shadows[1],
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  })}
+                >
+                  <PersonIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Chưa theo dõi ai
+                  </Typography>
+                </Card>
+              ) : (
+                <Grid container spacing={2.5}>
+                  {followingList.map((user) => {
+                    const normalized = normalizeFriendData(user);
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                        <Card
+                          elevation={0}
+                          onClick={(e) => {
+                            if (e.target.closest('button')) return;
+                            navigate(`/profile/${normalized.id}`);
+                          }}
+                          sx={(t) => ({
+                            borderRadius: 4,
+                            p: 2.5,
+                            boxShadow: t.shadows[1],
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            transition: "all 0.3s ease",
+                            cursor: "pointer",
+                            "&:hover": {
+                              boxShadow: t.shadows[4],
+                              transform: "translateY(-4px)",
+                              borderColor: t.palette.primary.main,
+                            },
+                          })}
+                        >
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <Avatar
+                              src={normalized.avatar}
+                              sx={{ width: 96, height: 96, mb: 2, border: "3px solid", borderColor: "divider" }}
+                            >
+                              {normalized.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
+                              {normalized.name}
+                            </Typography>
+                            <Button
+                              fullWidth
+                              variant="outlined"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnfollow(normalized.id);
+                              }}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                mt: 2,
+                                borderColor: "divider",
+                                "&:hover": {
+                                  borderColor: "error.main",
+                                  color: "error.main",
+                                  bgcolor: "rgba(211, 47, 47, 0.04)",
+                                },
+                              }}
+                            >
+                              Hủy theo dõi
+                            </Button>
+                          </Box>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </Box>
+          )}
+
+          {/* Tab 6: Followers */}
+          {tabValue === 6 && (
+            <Box>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : followersList.length === 0 ? (
+                <Card
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 4,
+                    p: 6,
+                    textAlign: "center",
+                    boxShadow: t.shadows[1],
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  })}
+                >
+                  <PersonIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Chưa có người theo dõi
+                  </Typography>
+                </Card>
+              ) : (
+                <Grid container spacing={2.5}>
+                  {followersList.map((user) => {
+                    const normalized = normalizeFriendData(user);
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                        <Card
+                          elevation={0}
+                          onClick={(e) => {
+                            if (e.target.closest('button')) return;
+                            navigate(`/profile/${normalized.id}`);
+                          }}
+                          sx={(t) => ({
+                            borderRadius: 4,
+                            p: 2.5,
+                            boxShadow: t.shadows[1],
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            transition: "all 0.3s ease",
+                            cursor: "pointer",
+                            "&:hover": {
+                              boxShadow: t.shadows[4],
+                              transform: "translateY(-4px)",
+                              borderColor: t.palette.primary.main,
+                            },
+                          })}
+                        >
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <Avatar
+                              src={normalized.avatar}
+                              sx={{ width: 96, height: 96, mb: 2, border: "3px solid", borderColor: "divider" }}
+                            >
+                              {normalized.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
+                              {normalized.name}
+                            </Typography>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              startIcon={<PersonAddIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFollow(normalized.id);
+                              }}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                mt: 2,
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "&:hover": {
+                                  background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                                },
+                              }}
+                            >
+                              Theo dõi lại
+                            </Button>
+                          </Box>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </Box>
+          )}
+
         </Box>
       </Box>
 

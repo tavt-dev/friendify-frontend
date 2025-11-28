@@ -69,6 +69,8 @@ import { extractArrayFromResponse } from "../utils/apiHelper";
 import { getPostsByGroup } from "../services/postService";
 import { apiFetch } from "../services/apiHelper";
 import { API_ENDPOINTS } from "../config/apiConfig";
+import CreatePostButton from "../components/CreatePostButton";
+import Post from "../components/Post";
 
 export default function GroupDetailPage() {
   const { groupId } = useParams();
@@ -172,6 +174,16 @@ export default function GroupDetailPage() {
       console.error('Error loading posts:', error);
     }
   }, [groupId]);
+
+  const handlePostCreated = useCallback((newPost) => {
+    // Reload posts after creating a new one
+    loadPosts();
+    setSnackbar({
+      open: true,
+      message: "Đăng bài thành công!",
+      severity: "success"
+    });
+  }, [loadPosts]);
 
   useEffect(() => {
     loadGroupDetail();
@@ -319,6 +331,8 @@ export default function GroupDetailPage() {
       loadJoinRequests();
     } else if (tabValue === 0) {
       loadPosts();
+      // Also load members to check if user is a member (for showing create post button)
+      loadMembers();
     }
   }, [tabValue, loadMembers, loadJoinRequests, loadPosts]);
 
@@ -582,6 +596,24 @@ export default function GroupDetailPage() {
   const isModerator = group?.memberRole?.role === 'MODERATOR';
   const canManageRequests = isAdmin || isModerator;
   const canManageMembers = isAdmin;
+  
+  // Check if user is a member (owner, in members list, or group.isMember is true)
+  const currentUserId = currentUser?.id || currentUser?.userId;
+  const isMember = isOwner || 
+                   group?.isMember || 
+                   members.some(m => (m.userId || m.id) === currentUserId);
+  
+  // Check if user can post to group
+  // - User must be a member
+  // - Group must allow posting (allowPosting = true, default to true if not set)
+  // - If onlyAdminCanPost = true, user must be admin/moderator/owner
+  // - If onlyAdminCanPost = false or undefined/null, ALL members can post
+  const allowPosting = group?.allowPosting !== false; // Default to true if not set
+  const onlyAdminCanPost = group?.onlyAdminCanPost === true; // Explicitly check for true
+  
+  const canPost = isMember && 
+                  allowPosting && 
+                  (!onlyAdminCanPost || isAdmin || isModerator);
 
   if (loading) {
     return (
@@ -855,27 +887,68 @@ export default function GroupDetailPage() {
             <Grid item xs={12} md={8}>
               {/* Tab 0: Posts */}
               {tabValue === 0 && (
-                <Card
-                  elevation={0}
-                  sx={(t) => ({
-                    borderRadius: 4,
-                    p: 3,
-                    boxShadow: t.shadows[1],
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  })}
-                >
+                <Box>
+                  {/* Posts List */}
                   {posts.length === 0 ? (
-                    <Typography variant="body1" color="text.secondary" textAlign="center" py={4}>
-                      Chưa có bài viết nào
-                    </Typography>
+                    <Card
+                      elevation={0}
+                      sx={(t) => ({
+                        borderRadius: 4,
+                        p: 3,
+                        boxShadow: t.shadows[1],
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: "background.paper",
+                      })}
+                    >
+                      <Typography variant="body1" color="text.secondary" textAlign="center" py={4}>
+                        Chưa có bài viết nào trong nhóm này
+                      </Typography>
+                    </Card>
                   ) : (
-                    <Typography variant="body1" color="text.secondary">
-                      {posts.length} bài viết
-                    </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {posts.map((post) => {
+                        // Format post data for Post component
+                        const formattedPost = {
+                          id: post.id,
+                          avatar: post.avatar || post.userAvatar || null,
+                          username: post.username || post.userName || "Unknown",
+                          firstName: post.firstName || "",
+                          lastName: post.lastName || "",
+                          displayName: post.displayName || 
+                            (post.lastName && post.firstName 
+                              ? `${post.lastName} ${post.firstName}`.trim()
+                              : post.firstName || post.lastName || post.username || "Unknown"),
+                          created: post.createdDate || post.created || new Date().toISOString(),
+                          content: post.content || "",
+                          media: (post.imageUrls || []).map((url) => ({
+                            url: url,
+                            type: "image",
+                            alt: `Post image ${post.id}`,
+                          })),
+                          userId: post.userId || post.ownerId,
+                          privacy: post.privacy || "PUBLIC",
+                          likeCount: post.likeCount || 0,
+                          commentCount: post.commentCount || 0,
+                          isLiked: post.isLiked || false,
+                          ...post,
+                        };
+                        return (
+                          <Post
+                            key={post.id}
+                            post={formattedPost}
+                            onDelete={() => {
+                              loadPosts();
+                            }}
+                            onEdit={() => {
+                              loadPosts();
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
                   )}
-                </Card>
+                </Box>
               )}
 
               {/* Tab 1: Members */}
@@ -1411,50 +1484,77 @@ export default function GroupDetailPage() {
 
             <Divider />
             
-            <Typography variant="h6" fontWeight={700} sx={{ mt: 1 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mt: 2, mb: 1.5 }}>
               Cài đặt đăng bài
             </Typography>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={groupSettings.allowPosting}
-                  onChange={(e) => setGroupSettings({ ...groupSettings, allowPosting: e.target.checked })}
-                  color="primary"
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="body1" fontWeight={600}>
-                    Cho phép đăng bài
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Cho phép thành viên đăng bài trong nhóm
-                  </Typography>
-                </Box>
-              }
-            />
+            <Box sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              bgcolor: "action.hover",
+              mb: 2,
+              border: "1px solid",
+              borderColor: "divider"
+            }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Điều chỉnh quyền đăng bài cho thành viên trong nhóm
+              </Typography>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={groupSettings.onlyAdminCanPost}
-                  onChange={(e) => setGroupSettings({ ...groupSettings, onlyAdminCanPost: e.target.checked })}
-                  color="primary"
-                  disabled={!groupSettings.allowPosting}
+              <Stack spacing={2}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={groupSettings.allowPosting}
+                      onChange={(e) => {
+                        const newValue = e.target.checked;
+                        setGroupSettings({ 
+                          ...groupSettings, 
+                          allowPosting: newValue,
+                          // Tự động tắt các tùy chọn liên quan nếu tắt đăng bài
+                          onlyAdminCanPost: newValue ? groupSettings.onlyAdminCanPost : false,
+                          moderationRequired: newValue ? groupSettings.moderationRequired : false
+                        });
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight={600}>
+                        Cho phép đăng bài
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Bật/tắt tính năng đăng bài trong nhóm. Khi tắt, không ai có thể đăng bài.
+                      </Typography>
+                    </Box>
+                  }
                 />
-              }
-              label={
-                <Box>
-                  <Typography variant="body1" fontWeight={600}>
-                    Chỉ admin/moderator được đăng bài
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Chỉ admin và moderator mới có thể đăng bài (yêu cầu bật "Cho phép đăng bài")
-                  </Typography>
-                </Box>
-              }
-            />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={groupSettings.onlyAdminCanPost}
+                      onChange={(e) => setGroupSettings({ ...groupSettings, onlyAdminCanPost: e.target.checked })}
+                      color="primary"
+                      disabled={!groupSettings.allowPosting}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight={600}>
+                        Chỉ admin/moderator được đăng bài
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {groupSettings.onlyAdminCanPost 
+                          ? "Chỉ admin và moderator mới có thể đăng bài. Thành viên thông thường không thể đăng."
+                          : "Tất cả thành viên đều có thể đăng bài (yêu cầu bật 'Cho phép đăng bài')"
+                        }
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Stack>
+            </Box>
 
             <FormControlLabel
               control={
@@ -1637,6 +1737,17 @@ export default function GroupDetailPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Floating Create Post Button - Only show if user can post and on Posts tab */}
+      {canPost && currentUser && tabValue === 0 && (
+        <CreatePostButton
+          user={currentUser}
+          onPostCreated={handlePostCreated}
+          defaultGroupId={groupId}
+          hideGroupSelector={true}
+          show={true}
+        />
+      )}
     </PageLayout>
   );
 }

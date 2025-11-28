@@ -48,6 +48,21 @@ import { isAuthenticated, logOut } from "../services/identityService";
 import { useUser } from "../contexts/UserContext";
 import { getMyPosts, getUserPosts, updatePost, deletePost } from "../services/postService";
 import { sharePost } from "../services/postInteractionService";
+import {
+  getSocialInfo,
+  addFriend,
+  removeFriend,
+  followUser,
+  unfollowUser,
+  getAllFriends,
+  blockUser,
+} from "../services/friendService";
+import { extractArrayFromResponse } from "../utils/apiHelper";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
+import CheckIcon from "@mui/icons-material/Check";
+import PeopleIcon from "@mui/icons-material/People";
+import PersonIcon from "@mui/icons-material/Person";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
 import Post from "../components/Post";
@@ -74,6 +89,11 @@ export default function ProfileEnhancedPage() {
   const [postsInitialized, setPostsInitialized] = useState(false);
   // Local state for editing profile
   const [editProfileData, setEditProfileData] = useState(null);
+  // Social relationship state
+  const [socialInfo, setSocialInfo] = useState(null);
+  const [friendsList, setFriendsList] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
   const lastPostElementRef = useRef(null);
@@ -248,6 +268,59 @@ export default function ProfileEnhancedPage() {
 
     loadProfile();
   }, [profileUserId, navigate, currentUser, loadUser]);
+
+  // Load social info and friends when profile is loaded
+  useEffect(() => {
+    const isOwnProfile = !profileUserId || (currentUser && (String(profileUserId) === String(currentUser.id) || String(profileUserId) === String(currentUser.userId)));
+    if (userDetails && profileUserId && !isOwnProfile) {
+      loadSocialInfo();
+      loadFriends();
+    }
+  }, [userDetails, profileUserId, currentUser]);
+
+  const loadSocialInfo = async () => {
+    if (!profileUserId) return;
+    try {
+      const response = await getSocialInfo(profileUserId);
+      console.log('Social info response:', response);
+      const info = response?.data?.result || response?.data;
+      console.log('Parsed social info:', info);
+      setSocialInfo(info);
+    } catch (error) {
+      console.error('Error loading social info:', error);
+      console.error('Error details:', error.response);
+      // Set default values if error
+      setSocialInfo({
+        isFriend: false,
+        isFollowing: false,
+        hasSentFriendRequest: false,
+        hasReceivedFriendRequest: false,
+      });
+    }
+  };
+
+  const loadFriends = async () => {
+    if (!profileUserId) return;
+    setLoadingFriends(true);
+    try {
+      // Try to get friends of the profile user
+      const response = await getAllFriends(profileUserId, 1, 9); // Load 9 friends for grid
+      const { items } = extractArrayFromResponse(response.data);
+      setFriendsList(items || []);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+      // If error, try without userId (current user's friends)
+      try {
+        const response = await getAllFriends(null, 1, 9);
+        const { items } = extractArrayFromResponse(response.data);
+        setFriendsList(items || []);
+      } catch (err) {
+        setFriendsList([]);
+      }
+    } finally {
+      setLoadingFriends(false);
+    }
+  };
 
   const handleAvatarClick = () => avatarInputRef.current?.click();
   const handleCoverClick = () => coverInputRef.current?.click();
@@ -693,6 +766,128 @@ export default function ProfileEnhancedPage() {
     setMenuAnchor(null);
   };
 
+  // Social action handlers
+  const handleAddFriend = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      console.log('Adding friend:', profileUserId);
+      const response = await addFriend(profileUserId);
+      console.log('Add friend response:', response);
+      setSnackbar({ open: true, message: "Đã gửi lời mời kết bạn!", severity: "success" });
+      // Reload social info after a short delay to ensure backend has processed
+      setTimeout(async () => {
+        await loadSocialInfo();
+      }, 500);
+    } catch (error) {
+      console.error('Error adding friend:', error);
+      console.error('Error response:', error.response);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Không thể gửi lời mời";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnfriend = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      await removeFriend(profileUserId);
+      setSnackbar({ open: true, message: "Đã hủy kết bạn!", severity: "warning" });
+      await loadSocialInfo();
+      await loadFriends();
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể hủy kết bạn", severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      console.log('Following user:', profileUserId);
+      const response = await followUser(profileUserId);
+      console.log('Follow response:', response);
+      setSnackbar({ open: true, message: "Đã theo dõi!", severity: "success" });
+      // Reload social info after a short delay to ensure backend has processed
+      setTimeout(async () => {
+        await loadSocialInfo();
+      }, 500);
+    } catch (error) {
+      console.error('Error following user:', error);
+      console.error('Error response:', error.response);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Không thể theo dõi";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      await unfollowUser(profileUserId);
+      setSnackbar({ open: true, message: "Đã hủy theo dõi!", severity: "info" });
+      await loadSocialInfo();
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể hủy theo dõi", severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAcceptFriend = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      const { acceptFriendRequest } = await import("../services/friendService");
+      await acceptFriendRequest(profileUserId);
+      setSnackbar({ open: true, message: "Đã chấp nhận lời mời kết bạn!", severity: "success" });
+      await loadSocialInfo();
+      await loadFriends();
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể chấp nhận", severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeclineFriend = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      const { declineFriendRequest } = await import("../services/friendService");
+      await declineFriendRequest(profileUserId);
+      setSnackbar({ open: true, message: "Đã từ chối lời mời!", severity: "info" });
+      await loadSocialInfo();
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể từ chối", severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelFriendRequest = async () => {
+    if (!profileUserId) return;
+    setActionLoading(true);
+    try {
+      const { cancelFriendRequest } = await import("../services/friendService");
+      await cancelFriendRequest(profileUserId);
+      setSnackbar({ open: true, message: "Đã hủy lời mời kết bạn!", severity: "info" });
+      await loadSocialInfo();
+    } catch (error) {
+      console.error('Error canceling friend request:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Không thể hủy lời mời";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getBioPreview = (bio) => {
     const lines = bio.split('\n');
     if (lines.length <= 2 && bio.length <= 120) return bio;
@@ -985,6 +1180,266 @@ export default function ProfileEnhancedPage() {
               >
                 @{userDetails?.username || userDetails?.email || "user"}
               </Typography>
+
+              {/* Action Buttons - Only show if not own profile */}
+              {!isOwnProfile && (
+                <Stack 
+                  direction="row" 
+                  spacing={1.5} 
+                  sx={{ 
+                    mb: 2.5,
+                    justifyContent: { xs: "center", md: "flex-start" },
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {(() => {
+                    // Debug log
+                    console.log('Social info:', socialInfo);
+                    const isFriend = socialInfo?.isFriend || socialInfo?.friend || false;
+                    const isFollowing = socialInfo?.isFollowing || socialInfo?.following || false;
+                    const hasSentRequest = socialInfo?.hasSentFriendRequest || socialInfo?.sentRequest || false;
+                    const hasReceivedRequest = socialInfo?.hasReceivedFriendRequest || socialInfo?.receivedRequest || false;
+                    console.log('Relationship status:', { isFriend, isFollowing, hasSentRequest, hasReceivedRequest });
+
+                    if (isFriend) {
+                      return (
+                        <>
+                          <Chip
+                            icon={<PeopleIcon />}
+                            label="Bạn bè"
+                            color="success"
+                            sx={{
+                              height: 40,
+                              px: 2,
+                              fontWeight: 600,
+                              fontSize: 14,
+                              "& .MuiChip-icon": {
+                                color: "success.main",
+                              },
+                            }}
+                          />
+                          <Button
+                            variant="outlined"
+                            startIcon={<PersonRemoveIcon />}
+                            onClick={handleUnfriend}
+                            disabled={actionLoading}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              borderRadius: 2.5,
+                              px: 3,
+                              py: 1.2,
+                              borderColor: "divider",
+                              "&:hover": {
+                                borderColor: "error.main",
+                                color: "error.main",
+                                bgcolor: "rgba(211, 47, 47, 0.04)",
+                              },
+                            }}
+                          >
+                            Hủy kết bạn
+                          </Button>
+                          {!isFollowing && (
+                            <Button
+                              variant="outlined"
+                              startIcon={<PersonAddIcon />}
+                              onClick={handleFollow}
+                              disabled={actionLoading}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                px: 3,
+                                py: 1.2,
+                                borderColor: "divider",
+                                "&:hover": {
+                                  borderColor: "primary.main",
+                                  bgcolor: "rgba(102, 126, 234, 0.04)",
+                                },
+                              }}
+                            >
+                              Theo dõi
+                            </Button>
+                          )}
+                          {isFollowing && (
+                            <Button
+                              variant="outlined"
+                              onClick={handleUnfollow}
+                              disabled={actionLoading}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                px: 3,
+                                py: 1.2,
+                                borderColor: "divider",
+                                "&:hover": {
+                                  borderColor: "error.main",
+                                  color: "error.main",
+                                  bgcolor: "rgba(211, 47, 47, 0.04)",
+                                },
+                              }}
+                            >
+                              Đang theo dõi
+                            </Button>
+                          )}
+                        </>
+                      );
+                    } else if (hasReceivedRequest) {
+                      return (
+                        <>
+                          <Button
+                            variant="contained"
+                            startIcon={<CheckIcon />}
+                            onClick={handleAcceptFriend}
+                            disabled={actionLoading}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              borderRadius: 2.5,
+                              px: 3,
+                              py: 1.2,
+                              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                              "&:hover": {
+                                background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                              },
+                            }}
+                          >
+                            Xác nhận
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={handleDeclineFriend}
+                            disabled={actionLoading}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              borderRadius: 2.5,
+                              px: 3,
+                              py: 1.2,
+                              borderColor: "divider",
+                              "&:hover": {
+                                borderColor: "error.main",
+                                color: "error.main",
+                                bgcolor: "rgba(211, 47, 47, 0.04)",
+                              },
+                            }}
+                          >
+                            Xóa
+                          </Button>
+                        </>
+                      );
+                    } else if (hasSentRequest) {
+                      return (
+                        <>
+                          <Chip
+                            icon={<PersonAddIcon />}
+                            label="Đã gửi lời mời kết bạn"
+                            color="warning"
+                            sx={{
+                              height: 40,
+                              px: 2,
+                              fontWeight: 600,
+                              fontSize: 14,
+                              "& .MuiChip-icon": {
+                                color: "warning.main",
+                              },
+                            }}
+                          />
+                          <Button
+                            variant="outlined"
+                            onClick={handleCancelFriendRequest}
+                            disabled={actionLoading}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              borderRadius: 2.5,
+                              px: 3,
+                              py: 1.2,
+                              borderColor: "divider",
+                              "&:hover": {
+                                borderColor: "error.main",
+                                color: "error.main",
+                                bgcolor: "rgba(211, 47, 47, 0.04)",
+                              },
+                            }}
+                          >
+                            Hủy lời mời
+                          </Button>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <Button
+                            variant="contained"
+                            startIcon={<PersonAddIcon />}
+                            onClick={handleAddFriend}
+                            disabled={actionLoading}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              borderRadius: 2.5,
+                              px: 3,
+                              py: 1.2,
+                              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                              "&:hover": {
+                                background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                              },
+                            }}
+                          >
+                            Kết bạn
+                          </Button>
+                          {!isFollowing && (
+                            <Button
+                              variant="outlined"
+                              startIcon={<PersonAddIcon />}
+                              onClick={handleFollow}
+                              disabled={actionLoading}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                px: 3,
+                                py: 1.2,
+                                borderColor: "divider",
+                                "&:hover": {
+                                  borderColor: "primary.main",
+                                  bgcolor: "rgba(102, 126, 234, 0.04)",
+                                },
+                              }}
+                            >
+                              Theo dõi
+                            </Button>
+                          )}
+                          {isFollowing && (
+                            <Button
+                              variant="outlined"
+                              onClick={handleUnfollow}
+                              disabled={actionLoading}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                px: 3,
+                                py: 1.2,
+                                borderColor: "divider",
+                                "&:hover": {
+                                  borderColor: "error.main",
+                                  color: "error.main",
+                                  bgcolor: "rgba(211, 47, 47, 0.04)",
+                                },
+                              }}
+                            >
+                              Đang theo dõi
+                            </Button>
+                          )}
+                        </>
+                      );
+                    }
+                  })()}
+                </Stack>
+              )}
               
               {/* Email if different from username */}
               {userDetails?.email && userDetails?.email !== userDetails?.username && (
@@ -1712,6 +2167,123 @@ export default function ProfileEnhancedPage() {
                           </Box>
                         </Box>
                       )}
+
+                      {/* Friends Section */}
+                      <Box sx={{ mt: 3 }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                          <Typography 
+                            variant="h6" 
+                            sx={{ 
+                              fontWeight: 800, 
+                              fontSize: { xs: 18, sm: 20 },
+                              background: (t) => t.palette.mode === "dark"
+                                ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                              backgroundClip: "text",
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                            }}
+                          >
+                            Bạn bè
+                          </Typography>
+                          {friendsList.length > 0 && (
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/friends`)}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                fontSize: 13,
+                                color: "primary.main",
+                                "&:hover": { bgcolor: "transparent", textDecoration: "underline" },
+                              }}
+                            >
+                              Xem tất cả
+                            </Button>
+                          )}
+                        </Box>
+
+                        {loadingFriends ? (
+                          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                            <CircularProgress size={32} />
+                          </Box>
+                        ) : friendsList.length === 0 ? (
+                          <Box
+                            sx={{
+                              p: 4,
+                              textAlign: "center",
+                              borderRadius: 3,
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                              border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                            }}
+                          >
+                            <PersonIcon sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
+                            <Typography variant="body2" color="text.secondary">
+                              Chưa có bạn bè
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Grid container spacing={1.5}>
+                            {friendsList.slice(0, 9).map((friend) => {
+                              const friendId = friend.friendId || friend.id || friend.userId;
+                              const friendName = friend.firstName && friend.lastName
+                                ? `${friend.lastName} ${friend.firstName}`.trim()
+                                : friend.username || friend.name || "Người dùng";
+                              const friendAvatar = friend.avatar || friend.avatarUrl || null;
+                              
+                              return (
+                                <Grid item xs={4} key={friendId}>
+                                  <Box
+                                    onClick={() => navigate(`/profile/${friendId}`)}
+                                    sx={{
+                                      cursor: "pointer",
+                                      p: 1.5,
+                                      borderRadius: 2,
+                                      bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+                                      border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.1)}`,
+                                      transition: "all 0.2s ease",
+                                      "&:hover": {
+                                        bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                                        transform: "translateY(-2px)",
+                                        boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.2)}`,
+                                      },
+                                    }}
+                                  >
+                                    <Avatar
+                                      src={friendAvatar}
+                                      sx={{
+                                        width: "100%",
+                                        height: "auto",
+                                        aspectRatio: "1",
+                                        mb: 1,
+                                        bgcolor: (t) => t.palette.mode === "dark"
+                                          ? "linear-gradient(135deg, #8b9aff 0%, #9775d4 100%)"
+                                          : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                      }}
+                                    >
+                                      {friendName.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        display: "block",
+                                        textAlign: "center",
+                                        fontWeight: 600,
+                                        fontSize: 11,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {friendName}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                              );
+                            })}
+                          </Grid>
+                        )}
+                      </Box>
                     </Stack>
                   )}
                 </Paper>

@@ -44,6 +44,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PersonIcon from "@mui/icons-material/Person";
 import PageLayout from "./PageLayout";
 import CreateChatPopover from "../components/CreateChatPopover";
+import AddMembersDialog from "../components/AddMembersDialog";
 import { 
   getConversations, 
   getMessagesPaginated, 
@@ -184,6 +185,7 @@ export default function ChatPage() {
   const [editingMessage, setEditingMessage] = useState(null);
   const [editMessageText, setEditMessageText] = useState("");
   const [conversationInfoOpen, setConversationInfoOpen] = useState(false);
+  const [addMembersDialogOpen, setAddMembersDialogOpen] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const messageContainerRef = useRef(null);
   const typingTimeoutRef = useRef({});
@@ -2057,9 +2059,8 @@ export default function ChatPage() {
                     fullWidth
                     variant="outlined"
                     startIcon={<GroupAddIcon />}
-                    onClick={async () => {
-                      // TODO: Open dialog to select users to add
-                      setError("Chức năng thêm thành viên đang được phát triển.");
+                    onClick={() => {
+                      setAddMembersDialogOpen(true);
                     }}
                     sx={{ mb: 1 }}
                   >
@@ -2122,6 +2123,41 @@ export default function ChatPage() {
           <Button onClick={handleConversationInfoClose}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Members Dialog */}
+      <AddMembersDialog
+        open={addMembersDialogOpen}
+        onClose={() => setAddMembersDialogOpen(false)}
+        onAddMembers={async (participantIds) => {
+          if (!selectedConversation?.id) return;
+          
+          try {
+            await addParticipants(selectedConversation.id, participantIds);
+            // Refresh conversation detail
+            const response = await getConversationDetail(selectedConversation.id);
+            setConversationDetail(response.data?.result || response.data);
+            // Refresh conversations list
+            fetchConversations();
+            // Update selected conversation
+            if (response.data?.result || response.data) {
+              const updated = normalizeConversation(response.data?.result || response.data, currentUserId);
+              if (updated) {
+                setSelectedConversation(updated);
+              }
+            }
+          } catch (err) {
+            console.error('Error adding participants:', err);
+            const errorData = err.response?.data || {};
+            const errorMessage = errorData.message || errorData.error || errorData.msg;
+            setError(errorMessage || "Không thể thêm thành viên. Vui lòng thử lại.");
+          }
+        }}
+        existingParticipantIds={
+          conversationDetail?.participants?.map(p => p.userId) || 
+          selectedConversation?.participants?.map(p => p.userId) || 
+          []
+        }
+      />
     </PageLayout>
   );
 }

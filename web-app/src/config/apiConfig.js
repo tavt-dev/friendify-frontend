@@ -132,6 +132,7 @@ export const API_ENDPOINTS = {
     SENT_REQUESTS: '/social/friendships/sent-requests',
     RECEIVED_REQUESTS: '/social/friendships/received-requests',
     SEARCH: '/social/friendships/search',
+    SUGGESTIONS: '/social/friendships/suggestions',
     
     // Follows
     FOLLOW: '/social/follows/:id', // POST

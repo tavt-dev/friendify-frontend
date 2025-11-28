@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Box,
   Fab,
@@ -15,18 +15,26 @@ import {
   Stack,
   Zoom,
   Alert,
+  CircularProgress,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import GroupIcon from "@mui/icons-material/Group";
+import PersonIcon from "@mui/icons-material/Person";
 import MediaUpload from "./MediaUpload";
 import { createPost } from "../services/postService";
+import { getJoinedGroups, getMyGroups } from "../services/groupService";
+import { extractArrayFromResponse } from "../utils/apiHelper";
 
-export default function CreatePostButton({ user, onPostCreated, show = true }) {
+export default function CreatePostButton({ user, onPostCreated, show = true, defaultGroupId = null, hideGroupSelector = false }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [newPostContent, setNewPostContent] = useState("");
   const [mediaFiles, setMediaFiles] = useState([]);
   const [postPrivacy, setPostPrivacy] = useState("PUBLIC");
+  const [selectedGroupId, setSelectedGroupId] = useState(defaultGroupId); // null = personal, groupId = post to group
+  const [availableGroups, setAvailableGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const mediaUploadRef = useRef();
@@ -35,8 +43,45 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
     return null;
   }
 
-  const handleCreatePostClick = (e) => {
+  const handleCreatePostClick = async (e) => {
     setAnchorEl(e.currentTarget);
+    // Load groups when opening popover (only if not hiding group selector)
+    if (!hideGroupSelector) {
+      await loadAvailableGroups();
+    }
+  };
+
+  const loadAvailableGroups = async () => {
+    setLoadingGroups(true);
+    try {
+      // Get both my groups (owned) and joined groups
+      const [myGroupsResponse, joinedGroupsResponse] = await Promise.all([
+        getMyGroups(1, 100),
+        getJoinedGroups(1, 100),
+      ]);
+
+      const myGroups = extractArrayFromResponse(myGroupsResponse.data).items || [];
+      const joinedGroups = extractArrayFromResponse(joinedGroupsResponse.data).items || [];
+
+      // Combine and deduplicate groups
+      const allGroups = [...myGroups];
+      const joinedGroupIds = new Set(myGroups.map(g => g.id));
+      
+      joinedGroups.forEach(group => {
+        if (!joinedGroupIds.has(group.id)) {
+          allGroups.push(group);
+          joinedGroupIds.add(group.id);
+        }
+      });
+
+      setAvailableGroups(allGroups);
+    } catch (err) {
+      console.error('Error loading groups:', err);
+      // Don't show error, just use empty array
+      setAvailableGroups([]);
+    } finally {
+      setLoadingGroups(false);
+    }
   };
 
   const handleClosePopover = () => {
@@ -44,6 +89,7 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
     setNewPostContent("");
     setMediaFiles([]);
     setPostPrivacy("PUBLIC");
+    setSelectedGroupId(defaultGroupId); // Reset to defaultGroupId instead of null
     setError(null);
     if (mediaUploadRef.current) {
       mediaUploadRef.current.clear();
@@ -86,6 +132,7 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
         content: hasContent ? newPostContent.trim() : '',
         images: imageFiles, // Chỉ truyền ảnh, không truyền video
         privacy: postPrivacy,
+        groupId: selectedGroupId || null, // Add groupId if selected
       };
 
       // Double check: backend requires at least content OR images
@@ -101,7 +148,8 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
         contentLength: postData.content.length,
         imageCount: postData.images.length,
         imageFiles: postData.images.map(f => ({ name: f.name, size: f.size, type: f.type })),
-        privacy: postPrivacy
+        privacy: postPrivacy,
+        groupId: selectedGroupId
       });
 
       const response = await createPost(postData);
@@ -154,6 +202,7 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
         
         setNewPostContent("");
         setMediaFiles([]);
+        setSelectedGroupId(defaultGroupId); // Reset to defaultGroupId instead of null
         if (mediaUploadRef.current) {
           mediaUploadRef.current.clear();
         }
@@ -385,87 +434,172 @@ export default function CreatePostButton({ user, onPostCreated, show = true }) {
           );
         })()}
 
-        {/* Privacy Selector */}
-        <Box sx={{ mt: 2.5, mb: 2 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="privacy-select-label" sx={{ fontSize: 14 }}>
-              Quyền riêng tư
-            </InputLabel>
-            <Select
-              labelId="privacy-select-label"
-              value={postPrivacy}
-              label="Quyền riêng tư"
-              onChange={(e) => setPostPrivacy(e.target.value)}
-              sx={{
-                borderRadius: 2,
-                fontSize: 14,
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "divider",
-                },
-                "&:hover .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "primary.main",
-                },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "primary.main",
-                  borderWidth: 2,
-                },
-              }}
-            >
-              <MenuItem value="PUBLIC" sx={{ fontSize: 14 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip 
-                    label="Công khai" 
-                    size="small" 
-                    color="primary"
-                    sx={{ 
-                      height: 24,
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-                    Mọi người có thể xem
-                  </Typography>
-                </Stack>
-              </MenuItem>
-              <MenuItem value="FRIENDS" sx={{ fontSize: 14 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip 
-                    label="Bạn bè" 
-                    size="small" 
-                    sx={(t) => ({ 
-                      height: 24,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      bgcolor: alpha(t.palette.info.main, 0.1),
-                      color: "info.main",
-                    })}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-                    Chỉ bạn bè mới xem được
-                  </Typography>
-                </Stack>
-              </MenuItem>
-              <MenuItem value="PRIVATE" sx={{ fontSize: 14 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip 
-                    label="Riêng tư" 
-                    size="small" 
-                    color="default"
-                    sx={{ 
-                      height: 24,
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-                    Chỉ bạn mới xem được
-                  </Typography>
-                </Stack>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
+        {/* Group Selector - Only show if not hiding selector */}
+        {!hideGroupSelector && (
+          <Box sx={{ mt: 2.5, mb: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="group-select-label" sx={{ fontSize: 14 }}>
+                Đăng lên
+              </InputLabel>
+              <Select
+                labelId="group-select-label"
+                value={selectedGroupId || ""}
+                label="Đăng lên"
+                onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                disabled={loadingGroups}
+                sx={{
+                  borderRadius: 2,
+                  fontSize: 14,
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "divider",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                    borderWidth: 2,
+                  },
+                }}
+              >
+                <MenuItem value="" sx={{ fontSize: 14 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PersonIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                    <Typography variant="body2" sx={{ fontSize: 14 }}>
+                      Trang cá nhân
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+                {loadingGroups ? (
+                  <MenuItem disabled>
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                    <Typography variant="body2" sx={{ fontSize: 14 }}>
+                      Đang tải nhóm...
+                    </Typography>
+                  </MenuItem>
+                ) : availableGroups.length > 0 ? (
+                  availableGroups.map((group) => (
+                    <MenuItem key={group.id} value={group.id} sx={{ fontSize: 14 }}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                        <Avatar
+                          src={group.avatar}
+                          sx={{ width: 24, height: 24 }}
+                        >
+                          <GroupIcon sx={{ fontSize: 16 }} />
+                        </Avatar>
+                        <Typography variant="body2" sx={{ fontSize: 14, flex: 1 }}>
+                          {group.name || group.groupName || `Group ${group.id}`}
+                        </Typography>
+                      </Stack>
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
+                      Bạn chưa tham gia nhóm nào
+                    </Typography>
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>
+          </Box>
+        )}
+        
+        {/* Show group info if posting to a specific group */}
+        {hideGroupSelector && selectedGroupId && (
+          <Box sx={{ mt: 2, mb: 2, p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <GroupIcon sx={{ fontSize: 20, color: "primary.main" }} />
+              <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 500 }}>
+                Đăng bài vào nhóm này
+              </Typography>
+            </Stack>
+          </Box>
+        )}
+
+        {/* Privacy Selector - Only show if posting to personal page */}
+        {!selectedGroupId && (
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="privacy-select-label" sx={{ fontSize: 14 }}>
+                Quyền riêng tư
+              </InputLabel>
+              <Select
+                labelId="privacy-select-label"
+                value={postPrivacy}
+                label="Quyền riêng tư"
+                onChange={(e) => setPostPrivacy(e.target.value)}
+                sx={{
+                  borderRadius: 2,
+                  fontSize: 14,
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "divider",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "primary.main",
+                    borderWidth: 2,
+                  },
+                }}
+              >
+                <MenuItem value="PUBLIC" sx={{ fontSize: 14 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label="Công khai" 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        height: 24,
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+                      Mọi người có thể xem
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+                <MenuItem value="FRIENDS" sx={{ fontSize: 14 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label="Bạn bè" 
+                      size="small" 
+                      sx={(t) => ({ 
+                        height: 24,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        bgcolor: alpha(t.palette.info.main, 0.1),
+                        color: "info.main",
+                      })}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+                      Chỉ bạn bè mới xem được
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+                <MenuItem value="PRIVATE" sx={{ fontSize: 14 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label="Riêng tư" 
+                      size="small" 
+                      color="default"
+                      sx={{ 
+                        height: 24,
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+                      Chỉ bạn mới xem được
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        )}
 
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
           <Button
