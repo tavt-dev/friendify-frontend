@@ -1,13 +1,7 @@
 import { getToken } from './localStorageService';
 import { getApiUrl } from '../config/apiConfig';
 
-/**
- * Generic fetch helper with error handling
- * @param {string} endpoint - API endpoint
- * @param {Object} options - Fetch options
- * @param {boolean} options.suppress404 - If true, don't throw error for 404, return null data instead
- * @returns {Promise<{data: any, status: number}>}
- */
+
 export const apiFetch = async (endpoint, options = {}) => {
   const { suppress404 = false, ...fetchOptions } = options;
   const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
@@ -29,7 +23,6 @@ export const apiFetch = async (endpoint, options = {}) => {
     },
   };
 
-  // Don't set Content-Type for FormData - browser will set it with boundary
   if (fetchOptions.body instanceof FormData) {
     delete config.headers['Content-Type'];
   }
@@ -37,7 +30,6 @@ export const apiFetch = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, config);
 
-    // Handle 404 specially if suppress404 is true
     if (!response.ok && response.status === 404 && suppress404) {
       return { data: null, status: 404 };
     }
@@ -62,11 +54,9 @@ export const apiFetch = async (endpoint, options = {}) => {
     const data = await response.json().catch(() => ({}));
     return { data, status: response.status };
   } catch (error) {
-    // If it's already formatted error, re-throw
     if (error.response) {
       throw error;
     }
-    // Otherwise, wrap it
     throw { 
       response: { 
         status: error.status || 500, 

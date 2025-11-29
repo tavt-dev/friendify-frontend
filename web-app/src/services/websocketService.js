@@ -49,7 +49,7 @@ class WebSocketService {
     // In development, connect directly to chat service (bypass gateway)
     // In production, use API Gateway
     const gatewayUrl = CONFIG.WS_URL || '/api/v1/chat/ws';
-    const directUrl = 'http://localhost:8086/chat/ws';
+    const directUrl = import.meta.env.VITE_CHAT_SERVICE_URL || 'http://localhost:8086/chat/ws';
     
     const wsUrl = import.meta.env.DEV ? directUrl : gatewayUrl;
     
