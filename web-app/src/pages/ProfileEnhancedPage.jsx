@@ -934,6 +934,7 @@ export default function ProfileEnhancedPage() {
             borderRadius: { xs: 0, sm: "24px 24px 0 0" },
             overflow: "hidden",
             border: "1px solid",
+            ml: 2.5,
             borderColor: "divider",
             borderBottom: "none",
             boxShadow: t.palette.mode === "dark"
@@ -1021,6 +1022,7 @@ export default function ProfileEnhancedPage() {
             borderTop: "none",
             p: { xs: 2.5, sm: 3.5, md: 4.5 },
             mb: 3,
+            ml: 2.5,
             bgcolor: "background.paper",
             boxShadow: t.palette.mode === "dark"
               ? "0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)"
@@ -1590,6 +1592,7 @@ export default function ProfileEnhancedPage() {
                 sx={(t) => ({
                   borderRadius: 4,
                   p: { xs: 3, sm: 3.5, md: 4 },
+                  ml: 2.5,
                   border: "1px solid",
                   borderColor: "divider",
                   boxShadow: t.palette.mode === "dark"

@@ -552,7 +552,7 @@ export default function FriendsPage() {
       const { items: results } = extractArrayFromResponse(response.data);
       
       const resultsWithStatus = results.map(user => {
-        const userId = user.id || user.userId;
+        const userId = user.userId || user.id;
         return {
           ...user,
           friendshipStatus: getFriendshipStatus(userId),
@@ -841,6 +841,7 @@ export default function FriendsPage() {
               borderRadius: 4,
               p: 3,
               mb: 3,
+              ml: 2.5,
               boxShadow: t.shadows[1],
               border: "1px solid",
               borderColor: "divider",
@@ -909,6 +910,7 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",
@@ -1053,6 +1055,7 @@ export default function FriendsPage() {
                   borderRadius: 4,
                   p: 2.5,
                   mb: 3,
+                  ml: 2.5,
                   boxShadow: t.shadows[1],
                   border: "1px solid",
                   borderColor: "divider",
@@ -1202,6 +1205,8 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
+                    mt: 1,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",
@@ -1260,6 +1265,7 @@ export default function FriendsPage() {
                         sx={(t) => ({
                           borderRadius: 4,
                           p: 2.5,
+                          ml: 2.5,
                           boxShadow: t.shadows[1],
                           border: "1px solid",
                           borderColor: "divider",
@@ -1324,6 +1330,7 @@ export default function FriendsPage() {
                   borderRadius: 4,
                   p: 2.5,
                   mb: 3,
+                  ml: 2.5,
                   boxShadow: t.shadows[1],
                   border: "1px solid",
                   borderColor: "divider",
@@ -1365,6 +1372,7 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",
@@ -1386,6 +1394,7 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",
@@ -1404,7 +1413,7 @@ export default function FriendsPage() {
               ) : (
                 <Grid container spacing={2.5}>
                   {searchResults.map((user) => {
-                    const userId = user.id || user.userId;
+                    const userId = user.userId || user.id;
                     const userName = user.firstName && user.lastName 
                       ? `${user.lastName} ${user.firstName}`.trim() 
                       : user.username || user.name || 'Unknown';
@@ -1552,6 +1561,7 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",
@@ -1579,6 +1589,7 @@ export default function FriendsPage() {
                           sx={(t) => ({
                             borderRadius: 4,
                             p: 2.5,
+                            ml: 2.5,
                             boxShadow: t.shadows[1],
                             border: "1px solid",
                             borderColor: "divider",
@@ -1642,7 +1653,7 @@ export default function FriendsPage() {
           )}
 
           {/* Tab 6: Followers */}
-          {tabValue === 6 && (
+          {tabValue === 5 && (
             <Box>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -1654,6 +1665,7 @@ export default function FriendsPage() {
                   sx={(t) => ({
                     borderRadius: 4,
                     p: 6,
+                    ml: 2.5,
                     textAlign: "center",
                     boxShadow: t.shadows[1],
                     border: "1px solid",

@@ -403,6 +403,7 @@ export default function GroupPage() {
               boxShadow: t.shadows[1],
               border: "1px solid",
               borderColor: "divider",
+              ml: 2.5,
               bgcolor: "background.paper",
             })}
           >
@@ -504,6 +505,7 @@ export default function GroupPage() {
                             <Card
                               sx={{
                                 p: 2,
+                                ml: 2.5,
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",

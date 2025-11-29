@@ -1471,6 +1471,7 @@ export default function ChatPage() {
             borderColor: "divider",
             bgcolor: "background.paper",
             boxSizing: "border-box",
+            ml: 2.5,
           })}
         >
         {/* Conversations List */}
