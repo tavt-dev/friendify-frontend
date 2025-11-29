@@ -212,10 +212,16 @@ export default function ChatWidget() {
   };
 
   const handleCreateDirectChat = async (selectedUser) => {
+    console.log("Selected User:", selectedUser);
+    const targetId = selectedUser?.userId || selectedUser?.id;
+    if (!targetId) {
+        console.error("Không tìm thấy ID người dùng");
+        return;
+    }
     try {
       const response = await createConversation({
         typeConversation: 'DIRECT',
-        participantIds: [selectedUser.userId]
+        participantIds: [targetId]
       });
       
       if (response?.data?.result) {
@@ -542,8 +548,11 @@ export default function ChatWidget() {
             </DialogTitle>
             <DialogContent sx={{ flex: 1, overflow: 'auto', p: 2 }}>
               {messages.map((message) => {
-                const isMe = message.me || 
-                  (message.sender?.userId || message.sender?.id) === (currentUser?.id || currentUser?.userId);
+                //  const isMe= message.me || 
+                //   (message.sender?.userId || message.sender?.id) === (currentUser?.id || currentUser?.userId);
+                const senderId = message.sender?.userId || message.sender?.id;
+                const myId = currentUser?.id || currentUser?.userId;
+                const isMe = senderId === myId;
                 
                 return (
                   <Box

@@ -151,7 +151,7 @@ export const API_ENDPOINTS = {
   CHAT: {
     CONVERSATIONS: '/chat/conversations/my-conversations',
     CONVERSATION_DETAIL: '/chat/conversations/:id',
-    CREATE_CONVERSATION: '/chat/conversations/create',
+    CREATE_CONVERSATION: '/chat/conversations',
     UPDATE_CONVERSATION: '/chat/conversations/:id',
     DELETE_CONVERSATION: '/chat/conversations/:id',
     ADD_PARTICIPANTS: '/chat/conversations/:id/participants',

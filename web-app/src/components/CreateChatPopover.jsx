@@ -65,7 +65,7 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
         
         // Normalize user data
         const normalizedUsers = usersList.map(user => ({
-          id: user.id || user.userId || user._id,
+          id: user.userId || user.id || user._id,
           username: user.username || user.userName || '',
           firstName: user.firstName || '',
           lastName: user.lastName || '',
