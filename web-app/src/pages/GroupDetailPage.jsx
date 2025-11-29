@@ -66,7 +66,7 @@ import {
   uploadGroupCover,
 } from "../services/groupService";
 import { extractArrayFromResponse } from "../utils/apiHelper";
-import { getPostsByGroup } from "../services/postService";
+import { getPostsByGroup, deletePost, updatePost } from "../services/postService";
 import { apiFetch } from "../services/apiHelper";
 import { API_ENDPOINTS } from "../config/apiConfig";
 import CreatePostButton from "../components/CreatePostButton";
@@ -192,14 +192,15 @@ export default function GroupDetailPage() {
   // Load settings khi mở dialog
   useEffect(() => {
     if (settingsDialogOpen && group) {
+      // Load group settings from backend response, ensuring proper defaults
       setGroupSettings({
         name: group.name || "",
         description: group.description || "",
-        privacy: group.privacy || "PUBLIC",
-        requiresApproval: group.requiresApproval || false,
-        allowPosting: group.allowPosting !== undefined ? group.allowPosting : true,
-        onlyAdminCanPost: group.onlyAdminCanPost || false,
-        moderationRequired: group.moderationRequired || false,
+        privacy: group.privacy || "PUBLIC", // PUBLIC, PRIVATE, CLOSED
+        requiresApproval: Boolean(group.requiresApproval), // Explicit boolean
+        allowPosting: group.allowPosting !== undefined ? Boolean(group.allowPosting) : true, // Default true
+        onlyAdminCanPost: Boolean(group.onlyAdminCanPost || false), // Explicit boolean, default false
+        moderationRequired: Boolean(group.moderationRequired || false), // Explicit boolean, default false
       });
       setAvatarPreview(group.avatarUrl || group.avatar || null);
       setCoverPreview(group.coverImageUrl || group.cover || null);
@@ -463,25 +464,30 @@ export default function GroupDetailPage() {
         setCoverFile(null); // Clear file sau khi upload thành công
       }
 
-      // Chỉ update group settings nếu có thay đổi về text fields
+      // Check if there are any changes to group settings
+      // Compare with proper boolean conversion to match backend
+      const currentDescription = group?.description || "";
+      const newDescription = groupSettings.description?.trim() || "";
+      
       const hasTextChanges = 
         groupSettings.name.trim() !== (group?.name || "") ||
-        groupSettings.description.trim() !== (group?.description || "") ||
+        newDescription !== currentDescription ||
         groupSettings.privacy !== (group?.privacy || "PUBLIC") ||
-        groupSettings.requiresApproval !== (group?.requiresApproval || false) ||
-        groupSettings.allowPosting !== (group?.allowPosting !== undefined ? group.allowPosting : true) ||
-        groupSettings.onlyAdminCanPost !== (group?.onlyAdminCanPost || false) ||
-        groupSettings.moderationRequired !== (group?.moderationRequired || false);
+        Boolean(groupSettings.requiresApproval) !== Boolean(group?.requiresApproval || false) ||
+        Boolean(groupSettings.allowPosting) !== (group?.allowPosting !== undefined ? Boolean(group.allowPosting) : true) ||
+        Boolean(groupSettings.onlyAdminCanPost) !== Boolean(group?.onlyAdminCanPost || false) ||
+        Boolean(groupSettings.moderationRequired) !== Boolean(group?.moderationRequired || false);
 
       if (hasTextChanges) {
+        // Prepare update data matching backend UpdateGroupRequest
         const updateData = {
           name: groupSettings.name.trim(),
-          description: groupSettings.description.trim() || null,
-          privacy: groupSettings.privacy,
-          requiresApproval: groupSettings.requiresApproval,
-          allowPosting: groupSettings.allowPosting,
-          onlyAdminCanPost: groupSettings.onlyAdminCanPost,
-          moderationRequired: groupSettings.moderationRequired,
+          description: groupSettings.description?.trim() || null, // Can be null
+          privacy: groupSettings.privacy, // PUBLIC, PRIVATE, CLOSED
+          requiresApproval: Boolean(groupSettings.requiresApproval),
+          allowPosting: Boolean(groupSettings.allowPosting),
+          onlyAdminCanPost: Boolean(groupSettings.onlyAdminCanPost),
+          moderationRequired: Boolean(groupSettings.moderationRequired),
         };
 
         await updateGroup(groupId, updateData);
@@ -937,11 +943,49 @@ export default function GroupDetailPage() {
                           <Post
                             key={post.id}
                             post={formattedPost}
-                            onDelete={() => {
-                              loadPosts();
+                            currentUserId={currentUserId}
+                            onDelete={async (id) => {
+                              if (!window.confirm("Bạn có chắc chắn muốn xóa bài viết này?")) {
+                                return;
+                              }
+                              try {
+                                await deletePost(id);
+                                setSnackbar({
+                                  open: true,
+                                  message: "Đã xóa bài viết thành công!",
+                                  severity: "success"
+                                });
+                                await loadPosts();
+                              } catch (error) {
+                                console.error('Error deleting post:', error);
+                                setSnackbar({
+                                  open: true,
+                                  message: error?.response?.data?.message || "Không thể xóa bài viết. Vui lòng thử lại.",
+                                  severity: "error"
+                                });
+                              }
                             }}
-                            onEdit={() => {
-                              loadPosts();
+                            onEdit={async (postId, newContent, newPrivacy) => {
+                              try {
+                                const postData = {
+                                  content: newContent,
+                                  privacy: newPrivacy,
+                                };
+                                await updatePost(postId, postData);
+                                setSnackbar({
+                                  open: true,
+                                  message: "Đã cập nhật bài viết thành công!",
+                                  severity: "success"
+                                });
+                                await loadPosts();
+                              } catch (error) {
+                                console.error('Error updating post:', error);
+                                setSnackbar({
+                                  open: true,
+                                  message: error?.response?.data?.message || "Không thể cập nhật bài viết. Vui lòng thử lại.",
+                                  severity: "error"
+                                });
+                              }
                             }}
                           />
                         );

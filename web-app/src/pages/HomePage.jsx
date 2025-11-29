@@ -6,7 +6,7 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { logOut } from "../services/identityService";
-import { getPublicPosts, updatePost } from "../services/postService";
+import { getPublicPosts, updatePost, deletePost } from "../services/postService";
 import { useUser } from "../contexts/UserContext";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
@@ -114,11 +114,23 @@ export default function HomePage() {
     }
   };
 
-  const handleDeletePost = (id) => {
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-    setSnackbarMessage("Đã xóa bài viết thành công!");
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
+  const handleDeletePost = async (id) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa bài viết này?")) {
+      return;
+    }
+    
+    try {
+      await deletePost(id);
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      setSnackbarMessage("Đã xóa bài viết thành công!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      setSnackbarMessage(error?.response?.data?.message || "Không thể xóa bài viết. Vui lòng thử lại.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
 
   const handleSharePost = (sharedPost) => {

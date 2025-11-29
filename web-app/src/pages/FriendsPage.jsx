@@ -31,7 +31,6 @@ import PageLayout from "./PageLayout";
 import {
   getFriendRequests,
   getAllFriends,
-  getFriendSuggestions,
   acceptFriendRequest,
   declineFriendRequest,
   addFriend,
@@ -54,6 +53,7 @@ import {
   normalizeFriendData 
 } from "../utils/friendHelpers";
 import { useUser } from "../contexts/UserContext";
+import { getUserProfileById } from "../services/userService";
 
 export default function FriendsPage() {
   const navigate = useNavigate();
@@ -61,7 +61,6 @@ export default function FriendsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [friendRequests, setFriendRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
   const [allFriends, setAllFriends] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -74,24 +73,50 @@ export default function FriendsPage() {
   const [blockedList, setBlockedList] = useState([]);
   const { user: currentUser } = useUser();
 
-  useEffect(() => {
-    loadFriendshipData();
-  }, []);
+  // Get current user ID - prioritize userId field as per backend structure
+  const getCurrentUserId = () => {
+    if (!currentUser) {
+      console.log('getCurrentUserId - No currentUser object');
+      return null;
+    }
+    // Backend uses userId field, not id
+    const userId = currentUser.userId || currentUser.id || null;
+    console.log('getCurrentUserId - currentUser:', currentUser);
+    console.log('getCurrentUserId - extracted userId:', userId);
+    return userId;
+  };
 
   useEffect(() => {
-    loadData();
-  }, [tabValue]);
+    if (getCurrentUserId()) {
+      loadFriendshipData();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (getCurrentUserId()) {
+      loadData();
+    }
+  }, [tabValue, currentUser]);
 
   // Load friends and sent requests for status checking
   const loadFriendshipData = async () => {
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      console.warn('LoadFriendshipData - No current user ID, skipping');
+      return;
+    }
+    
+    console.log('LoadFriendshipData - Current user ID:', currentUserId);
+    
     try {
       // Load all friends
       try {
         const friendsResponse = await getAllFriends(1, 100);
         const { items: friends } = extractArrayFromResponse(friendsResponse.data);
-        setAllFriends(friends);
-        setFriendsList(extractFriendIds(friends));
+        setAllFriends(friends || []);
+        setFriendsList(extractFriendIds(friends || []));
       } catch (error) {
+        console.warn('LoadFriendshipData - Error loading friends:', error);
         // Silently handle 404
       }
 
@@ -99,15 +124,17 @@ export default function FriendsPage() {
       try {
         const sentResponse = await getSentFriendRequests(1, 100);
         const { items: sentRequestsData } = extractArrayFromResponse(sentResponse.data);
-        const sentIds = sentRequestsData
+        const sentIds = (sentRequestsData || [])
           .map(r => r.friendId || r.id || r.userId)
           .filter(Boolean)
           .map(id => String(id).trim());
         setSentRequestsList(sentIds);
       } catch (error) {
+        console.warn('LoadFriendshipData - Error loading sent requests:', error);
         setSentRequestsList([]);
       }
     } catch (error) {
+      console.error('LoadFriendshipData - Unexpected error:', error);
       // Error handled silently
     }
   };
@@ -118,17 +145,16 @@ export default function FriendsPage() {
       if (tabValue === 0) {
         await loadFriendRequests();
       } else if (tabValue === 1) {
-        await loadSuggestions();
-      } else if (tabValue === 2) {
         await loadAllFriends();
-      } else if (tabValue === 3) {
+      } else if (tabValue === 2) {
         await loadSentRequests();
-      } else if (tabValue === 4) {
+      } else if (tabValue === 3) {
         if (friendsList.length === 0 && sentRequestsList.length === 0) {
           await loadFriendshipData();
         }
-      } else if (tabValue === 5) {
+      } else if (tabValue === 4) {
         await loadFollowing();
+      } else if (tabValue === 5) {
         await loadFollowers();
       }
     } catch (error) {
@@ -154,20 +180,39 @@ export default function FriendsPage() {
       }
 
       if (requests.length > 0) {
+        // For received friend requests: 
+        // - userId = sender (the one who sent the request)
+        // - friendId = currentUserId (the receiver)
         const enrichedRequests = await Promise.all(
           requests.map(async (request) => {
             try {
-              // For friend requests: friendId = currentUserId, userId = sender
-              // We need to get profile of the sender (userId)
-              const senderId = request.userId;
+              const senderId = request.userId; // This is the sender
               
               if (!senderId) return null;
               
-              const enriched = await enrichRequestWithProfile(request, senderId, true);
-              // Ensure we store the sender's userId for accept/decline
-              enriched.senderId = senderId;
-              enriched.id = senderId; // Use senderId as the ID for accept/decline
-              return enriched;
+              // Get sender's profile
+              const profileResponse = await getUserProfileById(senderId);
+              const profile = profileResponse?.data?.result || profileResponse?.data || profileResponse;
+              
+              const firstName = profile?.firstName || '';
+              const lastName = profile?.lastName || '';
+              const fullName = firstName || lastName 
+                ? `${lastName} ${firstName}`.trim() 
+                : profile?.username || 'Người dùng';
+              
+              return {
+                ...request,
+                id: senderId,
+                senderId: senderId,
+                friendId: senderId, // For display purposes
+                friendName: fullName,
+                friendAvatar: profile?.avatar || null,
+                firstName: profile?.firstName || null,
+                lastName: profile?.lastName || null,
+                username: profile?.username || null,
+                avatar: profile?.avatar || null,
+                createdAt: request.createdAt || request.createdDate,
+              };
             } catch (error) {
               const senderId = request.userId;
               return senderId ? {
@@ -182,29 +227,7 @@ export default function FriendsPage() {
           })
         );
 
-        const validRequests = enrichedRequests
-          .filter(req => req !== null && req.senderId)
-          .map(req => {
-            // Ensure senderId is set
-            if (!req.senderId) {
-              req.senderId = req.userId || req.friendId || req.id;
-            }
-            if (!req.id) {
-              req.id = req.senderId;
-            }
-            if (!req.friendName || req.friendName.startsWith('User ')) {
-              if (req.firstName || req.lastName) {
-                req.friendName = `${req.lastName || ''} ${req.firstName || ''}`.trim();
-              } else if (req.username) {
-                req.friendName = req.username;
-              } else {
-                req.friendName = 'Người dùng';
-              }
-            }
-            return req;
-          })
-          .filter(req => req.senderId);
-
+        const validRequests = enrichedRequests.filter(req => req !== null && req.senderId);
         setFriendRequests(validRequests);
       } else {
         setFriendRequests([]);
@@ -224,46 +247,207 @@ export default function FriendsPage() {
     }
   };
 
-  const loadSuggestions = async () => {
-    try {
-      const response = await getFriendSuggestions(1, 20);
-      const { items: allUsers } = extractArrayFromResponse(response.data);
-      
-      const filteredSuggestions = allUsers.filter(user => {
-        const userId = user.id || user.userId;
-        const isFriend = friendsList.some(id => String(id).trim() === String(userId).trim());
-        const hasSentRequest = sentRequestsList.some(id => String(id).trim() === String(userId).trim());
-        return !isFriend && !hasSentRequest;
-      });
-      
-      setSuggestions(filteredSuggestions);
-    } catch (error) {
-      if (error.response?.status === 404) {
-        setSuggestions([]);
-      } else {
-        throw error;
-      }
-    }
-  };
 
   const loadAllFriends = async () => {
     try {
-      const response = await getAllFriends(1, 20);
-      const { items: friends } = extractArrayFromResponse(response.data);
+      const response = await getAllFriends(1, 100);
+      console.log('LoadAllFriends - Full API response:', response);
       
-      if (friends.length > 0) {
-        setAllFriends(friends);
-        setFriendsList(extractFriendIds(friends));
+      // Extract data from response - backend returns ApiResponse<PageResponse<FriendshipResponse>>
+      // Structure: response.data.result.data or response.data.result
+      let friends = [];
+      
+      if (response?.data?.result?.data && Array.isArray(response.data.result.data)) {
+        friends = response.data.result.data;
+      } else if (response?.data?.result && Array.isArray(response.data.result)) {
+        friends = response.data.result;
       } else {
+        const extracted = extractArrayFromResponse(response.data);
+        friends = extracted.items || [];
+      }
+      
+      console.log('LoadAllFriends - Extracted friendships:', friends);
+      console.log('LoadAllFriends - Friends count:', friends.length);
+      
+      if (friends && friends.length > 0) {
+        // Get current user ID - ensure we get the correct ID
+        const currentUserId = getCurrentUserId();
+        console.log('LoadAllFriends - Current user object:', currentUser);
+        console.log('LoadAllFriends - Current user ID:', currentUserId);
+        
+        if (!currentUserId) {
+          console.error('LoadAllFriends - No current user ID found!');
+          setSnackbar({
+            open: true,
+            message: "Không thể xác định người dùng. Vui lòng đăng nhập lại.",
+            severity: "error"
+          });
+          setAllFriends([]);
+          setFriendsList([]);
+          return;
+        }
+        
+        // Process each friendship to determine the friend (the one who is NOT current user)
+        const enrichedFriends = await Promise.all(
+          friends.map(async (friendship) => {
+            try {
+              console.log('LoadAllFriends - Processing friendship:', friendship);
+              
+              // Determine which user is the friend
+              // In FriendshipResponse: userId and friendId are both USER IDs (not profile IDs)
+              // One of them is current user, the other is the friend
+              let friendUserId = null;
+              
+              if (currentUserId) {
+                // Compare as strings to ensure correct matching
+                const friendshipUserId = String(friendship.userId || '').trim();
+                const friendshipFriendId = String(friendship.friendId || '').trim();
+                const currentUserIdStr = String(currentUserId).trim();
+                
+                console.log('LoadAllFriends - Comparing:', {
+                  friendshipUserId,
+                  friendshipFriendId,
+                  currentUserIdStr
+                });
+                
+                if (friendshipUserId === currentUserIdStr) {
+                  // Current user is userId, so friend is friendId (userId)
+                  friendUserId = friendshipFriendId;
+                } else if (friendshipFriendId === currentUserIdStr) {
+                  // Current user is friendId, so friend is userId
+                  friendUserId = friendshipUserId;
+                } else {
+                  // Should not happen if backend is correct, but use friendId as fallback
+                  console.warn('LoadAllFriends - Current user ID not found in friendship, using friendId');
+                  friendUserId = friendshipFriendId || friendshipUserId;
+                }
+              } else {
+                // If we don't have current user ID, use friendId as fallback
+                friendUserId = friendship.friendId || friendship.userId;
+                console.warn('LoadAllFriends - No current user ID, using friendId as fallback');
+              }
+              
+              if (!friendUserId || friendUserId === '') {
+                console.warn('LoadAllFriends - No valid friendUserId found in friendship:', friendship);
+                return null;
+              }
+              
+              console.log('LoadAllFriends - Determined friendUserId (to get profile):', friendUserId);
+              
+              // Get friend's profile information using userId (not profileId)
+              // API endpoint accepts userId and returns profile
+              const profileResponse = await getUserProfileById(friendUserId);
+              const profile = profileResponse?.data?.result || profileResponse?.data || profileResponse;
+              
+              if (!profile) {
+                console.warn('LoadAllFriends - Profile not found for friendUserId:', friendUserId);
+                // Still return basic info so user can see the friend exists
+                return {
+                  ...friendship,
+                  id: friendUserId, // Use userId
+                  userId: friendUserId, // This is the userId (not profileId)
+                  friendId: friendUserId,
+                  friendName: 'Người dùng',
+                  firstName: null,
+                  lastName: null,
+                  username: null,
+                  friendAvatar: null,
+                  avatar: null,
+                  createdAt: friendship.createdAt || friendship.createdDate,
+                };
+              }
+              
+              console.log('LoadAllFriends - Profile found:', profile);
+              
+              // ProfileResponse has both id (profileId) and userId (userId)
+              // We need userId for navigation and display
+              const profileUserId = profile.userId || friendUserId; // Use userId from profile, fallback to friendUserId
+              
+              // Format name: LastName FirstName (Vietnamese format)
+              const firstName = profile.firstName || '';
+              const lastName = profile.lastName || '';
+              const fullName = firstName || lastName 
+                ? `${lastName} ${firstName}`.trim() 
+                : profile.username || 'Người dùng';
+              
+              return {
+                ...friendship,
+                id: profileUserId, // Use userId for navigation/identification
+                userId: profileUserId, // Store userId (this is what we use for user operations)
+                friendId: profileUserId, // Also store as friendId for compatibility
+                friendName: fullName,
+                friendAvatar: profile.avatar || null,
+                firstName: profile.firstName || null,
+                lastName: profile.lastName || null,
+                username: profile.username || null,
+                avatar: profile.avatar || null,
+                createdAt: friendship.createdAt || friendship.createdDate,
+              };
+            } catch (error) {
+              console.error('LoadAllFriends - Error processing friendship:', error);
+              console.error('LoadAllFriends - Friendship data:', friendship);
+              
+              // Even if profile fetch fails, return basic info
+              // These are userIds (not profileIds) from FriendshipResponse
+              let friendUserId = null;
+              const currentUserIdForError = getCurrentUserId();
+              if (currentUserIdForError) {
+                const friendshipUserId = String(friendship.userId || '').trim();
+                const friendshipFriendId = String(friendship.friendId || '').trim();
+                const currentUserIdStr = String(currentUserIdForError).trim();
+                
+                if (friendshipUserId === currentUserIdStr) {
+                  friendUserId = friendshipFriendId; // friend is friendId (userId)
+                } else if (friendshipFriendId === currentUserIdStr) {
+                  friendUserId = friendshipUserId; // friend is userId
+                } else {
+                  friendUserId = friendshipFriendId || friendshipUserId;
+                }
+              } else {
+                friendUserId = friendship.friendId || friendship.userId;
+              }
+              
+              return friendUserId ? {
+                ...friendship,
+                id: friendUserId, // userId
+                userId: friendUserId, // This is userId (not profileId)
+                friendId: friendUserId,
+                friendName: 'Người dùng',
+                friendAvatar: null,
+                avatar: null,
+              } : null;
+            }
+          })
+        );
+        
+        const validFriends = enrichedFriends.filter(f => f !== null);
+        console.log('LoadAllFriends - Valid enriched friends:', validFriends);
+        console.log('LoadAllFriends - Valid friends count:', validFriends.length);
+        
+        setAllFriends(validFriends);
+        // Use userId for friend list
+        setFriendsList(validFriends.map(f => String(f.userId || f.friendId || f.id).trim()));
+      } else {
+        console.log('LoadAllFriends - No friends found in response');
         setAllFriends([]);
         setFriendsList([]);
       }
     } catch (error) {
+      console.error('LoadAllFriends - Error:', error);
+      console.error('LoadAllFriends - Error response:', error.response);
+      
       if (error.response?.status === 404) {
         setAllFriends([]);
         setFriendsList([]);
       } else {
-        throw error;
+        const errorMsg = error.response?.data?.message || error.message || "Không thể tải danh sách bạn bè";
+        setSnackbar({ 
+          open: true, 
+          message: errorMsg, 
+          severity: "error" 
+        });
+        setAllFriends([]);
+        setFriendsList([]);
       }
     }
   };
@@ -274,20 +458,39 @@ export default function FriendsPage() {
       const { items: requests } = extractArrayFromResponse(response.data);
       
       if (requests.length > 0) {
+        // For sent friend requests:
+        // - userId = currentUserId (the sender)
+        // - friendId = recipient (the one who receives the request)
         const enrichedRequests = await Promise.all(
           requests.map(async (request) => {
             try {
-              // For sent requests: userId = currentUserId, friendId = recipient
-              // We need to get profile of the recipient (friendId)
-              const recipientId = request.friendId;
+              const recipientId = request.friendId; // This is the recipient
               
               if (!recipientId) return null;
               
-              const enriched = await enrichRequestWithProfile(request, recipientId, false);
-              // Store recipientId for display
-              enriched.recipientId = recipientId;
-              enriched.id = recipientId; // Use recipientId as the ID for display
-              return enriched;
+              // Get recipient's profile
+              const profileResponse = await getUserProfileById(recipientId);
+              const profile = profileResponse?.data?.result || profileResponse?.data || profileResponse;
+              
+              const firstName = profile?.firstName || '';
+              const lastName = profile?.lastName || '';
+              const fullName = firstName || lastName 
+                ? `${lastName} ${firstName}`.trim() 
+                : profile?.username || 'Người dùng';
+              
+              return {
+                ...request,
+                id: recipientId,
+                recipientId: recipientId,
+                friendId: recipientId,
+                friendName: fullName,
+                friendAvatar: profile?.avatar || null,
+                firstName: profile?.firstName || null,
+                lastName: profile?.lastName || null,
+                username: profile?.username || null,
+                avatar: profile?.avatar || null,
+                createdAt: request.createdAt || request.createdDate,
+              };
             } catch (error) {
               const recipientId = request.friendId;
               return recipientId ? {
@@ -302,29 +505,7 @@ export default function FriendsPage() {
           })
         );
 
-        const validRequests = enrichedRequests
-          .filter(req => req !== null && req.recipientId)
-          .map(req => {
-            // Ensure recipientId is set
-            if (!req.recipientId) {
-              req.recipientId = req.friendId || req.userId || req.id;
-            }
-            if (!req.id) {
-              req.id = req.recipientId;
-            }
-            if (!req.friendName || req.friendName.startsWith('User ')) {
-              if (req.firstName || req.lastName) {
-                req.friendName = `${req.lastName || ''} ${req.firstName || ''}`.trim();
-              } else if (req.username) {
-                req.friendName = req.username;
-              } else {
-                req.friendName = 'Người dùng';
-              }
-            }
-            return req;
-          })
-          .filter(req => req.recipientId);
-
+        const validRequests = enrichedRequests.filter(req => req !== null && req.recipientId);
         setSentRequests(validRequests);
       } else {
         setSentRequests([]);
@@ -388,7 +569,7 @@ export default function FriendsPage() {
 
   // Debounced search
   useEffect(() => {
-    if (tabValue === 4) {
+    if (tabValue === 3) {
       const timeoutId = setTimeout(() => {
         handleSearch(searchQuery);
       }, 500);
@@ -474,11 +655,6 @@ export default function FriendsPage() {
         });
       }
       
-      setSuggestions((prev) => prev.filter((sug) => {
-        const id = String(sug.id || sug.userId).trim();
-        return id !== normalizedUserId;
-      }));
-      
       setSearchResults((prev) => prev.map((user) => {
         const id = String(user.id || user.userId).trim();
         if (id === normalizedUserId) {
@@ -492,7 +668,7 @@ export default function FriendsPage() {
         return user;
       }));
       
-      if (tabValue === 0 || tabValue === 3) {
+      if (tabValue === 0 || tabValue === 2) {
         loadData();
       }
       
@@ -502,13 +678,6 @@ export default function FriendsPage() {
     }
   };
 
-  const handleRemoveSuggestion = (id) => {
-    setSuggestions((prev) => prev.filter((sug) => {
-      const sugId = sug.id || sug.userId;
-      return sugId !== id;
-    }));
-    setSnackbar({ open: true, message: "Đã xóa gợi ý này!", severity: "info" });
-  };
 
   const handleUnfriend = async (friendId) => {
     try {
@@ -517,9 +686,136 @@ export default function FriendsPage() {
         const id = friend.friendId || friend.id || friend.userId;
         return id !== friendId;
       }));
+      setFriendsList((prev) => prev.filter(id => String(id).trim() !== String(friendId).trim()));
       setSnackbar({ open: true, message: "Đã hủy kết bạn!", severity: "warning" });
+      await loadFriendshipData();
     } catch (error) {
       setSnackbar({ open: true, message: "Không thể hủy kết bạn. Vui lòng thử lại.", severity: "error" });
+    }
+  };
+
+  const loadFollowing = async () => {
+    try {
+      const currentUserId = getCurrentUserId();
+      if (!currentUserId) {
+        console.warn('LoadFollowing - No current user ID');
+        setFollowingList([]);
+        return;
+      }
+      const response = await getFollowingList(currentUserId, 1, 100);
+      const { items: followingData } = extractArrayFromResponse(response.data);
+      
+      // FollowResponse has followingId which is the user being followed
+      // We need to enrich with profile data
+      const enrichedFollowing = await Promise.all(
+        followingData.map(async (follow) => {
+          const followingId = follow.followingId;
+          if (!followingId) return null;
+          
+          try {
+            const profileResponse = await getUserProfileById(followingId);
+            const profile = profileResponse?.data?.result || profileResponse?.data || profileResponse;
+            return {
+              ...follow,
+              id: followingId,
+              userId: followingId,
+              ...profile,
+            };
+          } catch (error) {
+            return {
+              ...follow,
+              id: followingId,
+              userId: followingId,
+              firstName: '',
+              lastName: '',
+              username: 'Người dùng',
+            };
+          }
+        })
+      );
+      
+      setFollowingList(enrichedFollowing.filter(u => u !== null));
+    } catch (error) {
+      if (error.response?.status !== 404 && error.response?.status !== 401) {
+        console.error('Error loading following:', error);
+      }
+      setFollowingList([]);
+    }
+  };
+
+  const loadFollowers = async () => {
+    try {
+      const currentUserId = getCurrentUserId();
+      if (!currentUserId) {
+        console.warn('LoadFollowers - No current user ID');
+        setFollowersList([]);
+        return;
+      }
+      const response = await getFollowerList(currentUserId, 1, 100);
+      const { items: followersData } = extractArrayFromResponse(response.data);
+      
+      // FollowResponse has followerId which is the user who is following
+      // We need to enrich with profile data
+      const enrichedFollowers = await Promise.all(
+        followersData.map(async (follow) => {
+          const followerId = follow.followerId;
+          if (!followerId) return null;
+          
+          try {
+            const profileResponse = await getUserProfileById(followerId);
+            const profile = profileResponse?.data?.result || profileResponse?.data || profileResponse;
+            return {
+              ...follow,
+              id: followerId,
+              userId: followerId,
+              ...profile,
+            };
+          } catch (error) {
+            return {
+              ...follow,
+              id: followerId,
+              userId: followerId,
+              firstName: '',
+              lastName: '',
+              username: 'Người dùng',
+            };
+          }
+        })
+      );
+      
+      setFollowersList(enrichedFollowers.filter(u => u !== null));
+    } catch (error) {
+      if (error.response?.status !== 404 && error.response?.status !== 401) {
+        console.error('Error loading followers:', error);
+      }
+      setFollowersList([]);
+    }
+  };
+
+  const handleFollow = async (userId) => {
+    try {
+      await followUser(userId);
+      setSnackbar({ open: true, message: "Đã theo dõi!", severity: "success" });
+      await loadFollowers();
+      if (tabValue === 4) {
+        await loadFollowing();
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể theo dõi", severity: "error" });
+    }
+  };
+
+  const handleUnfollow = async (userId) => {
+    try {
+      await unfollowUser(userId);
+      setFollowingList((prev) => prev.filter((user) => {
+        const id = user.id || user.userId || user.followingId;
+        return String(id).trim() !== String(userId).trim();
+      }));
+      setSnackbar({ open: true, message: "Đã hủy theo dõi!", severity: "info" });
+      await loadFollowing();
+    } catch (error) {
+      setSnackbar({ open: true, message: error.response?.data?.message || "Không thể hủy theo dõi", severity: "error" });
     }
   };
 
@@ -592,11 +888,11 @@ export default function FriendsPage() {
               }}
             >
               <Tab label={`Lời mời (${friendRequests.length})`} />
-              <Tab label="Gợi ý kết bạn" />
               <Tab label="Tất cả bạn bè" />
               <Tab label={`Đã gửi (${sentRequests.length})`} />
               <Tab label="Tìm kiếm" />
-              <Tab label={`Theo dõi (${followingList.length})`} />
+              <Tab label={`Đang theo dõi (${followingList.length})`} />
+              <Tab label={`Người theo dõi (${followersList.length})`} />
             </Tabs>
           </Card>
 
@@ -742,123 +1038,8 @@ export default function FriendsPage() {
             </Box>
           )}
 
-          {/* Tab 1: Friend Suggestions */}
+          {/* Tab 1: All Friends */}
           {tabValue === 1 && (
-            <Box>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-              <Grid container spacing={2.5}>
-                {suggestions.map((suggestion) => {
-                  const normalized = normalizeFriendData(suggestion);
-                  return (
-                  <Grid item xs={12} sm={6} md={4} key={normalized.id}>
-                    <Card
-                      elevation={0}
-                      onClick={(e) => {
-                        if (e.target.closest('button')) {
-                          return;
-                        }
-                        navigate(`/profile/${normalized.id}`);
-                      }}
-                      sx={(t) => ({
-                        borderRadius: 4,
-                        p: 2.5,
-                        boxShadow: t.shadows[1],
-                        border: "1px solid",
-                        borderColor: "divider",
-                        bgcolor: "background.paper",
-                        position: "relative",
-                        transition: "all 0.3s ease",
-                        cursor: "pointer",
-                        "&:hover": {
-                          boxShadow: t.shadows[4],
-                          transform: "translateY(-4px)",
-                          borderColor: t.palette.primary.main,
-                        },
-                      })}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveSuggestion(normalized.id);
-                        }}
-                        sx={{
-                          position: "absolute",
-                          top: 12,
-                          right: 12,
-                          bgcolor: "background.default",
-                          zIndex: 1,
-                          "&:hover": { bgcolor: "action.hover" },
-                        }}
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <Avatar
-                          src={normalized.avatar}
-                          sx={{
-                            width: 96,
-                            height: 96,
-                            mb: 2,
-                            border: "3px solid",
-                            borderColor: "divider",
-                          }}
-                        >
-                          {normalized.name.charAt(0).toUpperCase()}
-                        </Avatar>
-                        <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
-                          {normalized.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" mb={1}>
-                          {normalized.mutualFriends} bạn chung
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.disabled"
-                          mb={2}
-                          textAlign="center"
-                          sx={{ minHeight: 32 }}
-                        >
-                          {suggestion.reason || ''}
-                        </Typography>
-
-                        <Button
-                          fullWidth
-                          variant="contained"
-                          startIcon={<PersonAddIcon />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddFriend(normalized.id);
-                          }}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 600,
-                            borderRadius: 2.5,
-                            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                            "&:hover": {
-                              background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                            },
-                          }}
-                        >
-                          Thêm bạn bè
-                        </Button>
-                      </Box>
-                    </Card>
-                  </Grid>
-                  );
-                })}
-              </Grid>
-              )}
-            </Box>
-          )}
-
-          {/* Tab 2: All Friends */}
-          {tabValue === 2 && (
             <Box>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -934,16 +1115,17 @@ export default function FriendsPage() {
                     >
                       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                         <Avatar
-                          src={normalized.avatar}
+                          src={normalized.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalized.name || 'User')}&background=667eea&color=fff&size=128`}
                           sx={{
                             width: 64,
                             height: 64,
                             mr: 2,
                             border: "2px solid",
                             borderColor: "divider",
+                            bgcolor: normalized.avatar ? 'transparent' : 'primary.main',
                           }}
                         >
-                          {normalized.name.charAt(0).toUpperCase()}
+                          {(normalized.name && normalized.name.length > 0) ? normalized.name.charAt(0).toUpperCase() : 'U'}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="h6" fontWeight={700} mb={0.5}>
@@ -1014,7 +1196,7 @@ export default function FriendsPage() {
               </>
               )}
 
-              {filteredFriends.length === 0 && (
+              {filteredFriends.length === 0 && !loading && (
                 <Card
                   elevation={0}
                   sx={(t) => ({
@@ -1027,17 +1209,22 @@ export default function FriendsPage() {
                     bgcolor: "background.paper",
                   })}
                 >
-                  <SearchIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                  <PeopleIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
                   <Typography variant="h6" color="text.secondary">
-                    Không tìm thấy bạn bè nào
+                    {searchQuery.trim() ? "Không tìm thấy bạn bè nào" : "Chưa có bạn bè nào"}
                   </Typography>
+                  {!searchQuery.trim() && (
+                    <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+                      Hãy kết bạn với mọi người để xem họ ở đây
+                    </Typography>
+                  )}
                 </Card>
               )}
             </Box>
           )}
 
-          {/* Tab 3: Sent Requests */}
-          {tabValue === 3 && (
+          {/* Tab 2: Sent Requests */}
+          {tabValue === 2 && (
             <Box>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -1128,8 +1315,8 @@ export default function FriendsPage() {
             </Box>
           )}
 
-          {/* Tab 4: Search Friends */}
-          {tabValue === 4 && (
+          {/* Tab 3: Search Friends */}
+          {tabValue === 3 && (
             <Box>
               <Card
                 elevation={0}
@@ -1352,8 +1539,8 @@ export default function FriendsPage() {
             </Box>
           )}
 
-          {/* Tab 5: Following */}
-          {tabValue === 5 && (
+          {/* Tab 4: Following */}
+          {tabValue === 4 && (
             <Box>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -1374,7 +1561,7 @@ export default function FriendsPage() {
                 >
                   <PersonIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
                   <Typography variant="h6" color="text.secondary">
-                    Chưa theo dõi ai
+                    Bạn chưa theo dõi ai
                   </Typography>
                 </Card>
               ) : (
@@ -1407,10 +1594,17 @@ export default function FriendsPage() {
                         >
                           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                             <Avatar
-                              src={normalized.avatar}
-                              sx={{ width: 96, height: 96, mb: 2, border: "3px solid", borderColor: "divider" }}
+                              src={normalized.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalized.name || 'User')}&background=667eea&color=fff&size=128`}
+                              sx={{ 
+                                width: 96, 
+                                height: 96, 
+                                mb: 2, 
+                                border: "3px solid", 
+                                borderColor: "divider",
+                                bgcolor: normalized.avatar ? 'transparent' : 'primary.main',
+                              }}
                             >
-                              {normalized.name.charAt(0).toUpperCase()}
+                              {(normalized.name && normalized.name.length > 0) ? normalized.name.charAt(0).toUpperCase() : 'U'}
                             </Avatar>
                             <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
                               {normalized.name}
@@ -1502,10 +1696,118 @@ export default function FriendsPage() {
                         >
                           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                             <Avatar
-                              src={normalized.avatar}
-                              sx={{ width: 96, height: 96, mb: 2, border: "3px solid", borderColor: "divider" }}
+                              src={normalized.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalized.name || 'User')}&background=667eea&color=fff&size=128`}
+                              sx={{ 
+                                width: 96, 
+                                height: 96, 
+                                mb: 2, 
+                                border: "3px solid", 
+                                borderColor: "divider",
+                                bgcolor: normalized.avatar ? 'transparent' : 'primary.main',
+                              }}
                             >
-                              {normalized.name.charAt(0).toUpperCase()}
+                              {(normalized.name && normalized.name.length > 0) ? normalized.name.charAt(0).toUpperCase() : 'U'}
+                            </Avatar>
+                            <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
+                              {normalized.name}
+                            </Typography>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              startIcon={<PersonAddIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFollow(normalized.id);
+                              }}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 600,
+                                borderRadius: 2.5,
+                                mt: 2,
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "&:hover": {
+                                  background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+                                },
+                              }}
+                            >
+                              Theo dõi lại
+                            </Button>
+                          </Box>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </Box>
+          )}
+
+          {/* Tab 6: Followers */}
+          {tabValue === 6 && (
+            <Box>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : followersList.length === 0 ? (
+                <Card
+                  elevation={0}
+                  sx={(t) => ({
+                    borderRadius: 4,
+                    p: 6,
+                    textAlign: "center",
+                    boxShadow: t.shadows[1],
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  })}
+                >
+                  <PersonIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Chưa có người theo dõi
+                  </Typography>
+                </Card>
+              ) : (
+                <Grid container spacing={2.5}>
+                  {followersList.map((user) => {
+                    const normalized = normalizeFriendData(user);
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                        <Card
+                          elevation={0}
+                          onClick={(e) => {
+                            if (e.target.closest('button')) return;
+                            navigate(`/profile/${normalized.id}`);
+                          }}
+                          sx={(t) => ({
+                            borderRadius: 4,
+                            p: 2.5,
+                            boxShadow: t.shadows[1],
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            transition: "all 0.3s ease",
+                            cursor: "pointer",
+                            "&:hover": {
+                              boxShadow: t.shadows[4],
+                              transform: "translateY(-4px)",
+                              borderColor: t.palette.primary.main,
+                            },
+                          })}
+                        >
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <Avatar
+                              src={normalized.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalized.name || 'User')}&background=667eea&color=fff&size=128`}
+                              sx={{ 
+                                width: 96, 
+                                height: 96, 
+                                mb: 2, 
+                                border: "3px solid", 
+                                borderColor: "divider",
+                                bgcolor: normalized.avatar ? 'transparent' : 'primary.main',
+                              }}
+                            >
+                              {(normalized.name && normalized.name.length > 0) ? normalized.name.charAt(0).toUpperCase() : 'U'}
                             </Avatar>
                             <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
                               {normalized.name}

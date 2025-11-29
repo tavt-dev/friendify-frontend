@@ -31,6 +31,8 @@ import {
   Share,
   MoreVert,
   Send,
+  Bookmark,
+  BookmarkBorder,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import MediaCarousel from "./MediaCarousel";
@@ -43,6 +45,7 @@ import {
   likeComment,
   unlikeComment,
 } from "../services/postInteractionService";
+import { savePost, unsavePost } from "../services/postService";
 import { getUserProfileById } from "../services/userService";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { apiFetch } from "../services/apiHelper";
@@ -283,11 +286,13 @@ const Post = forwardRef((props, ref) => {
   const [loadingReply, setLoadingReply] = useState(false);
   const [loadingLike, setLoadingLike] = useState(false);
   const [loadingShare, setLoadingShare] = useState(false);
+  const [loadingSave, setLoadingSave] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "");
   const [editedPrivacy, setEditedPrivacy] = useState(privacy || "PUBLIC");
+  const [isSaved, setIsSaved] = useState(props.post?.isSaved || false);
 
   const longPressTimer = useRef(null);
   const likeButtonRef = useRef(null);
@@ -747,7 +752,10 @@ const Post = forwardRef((props, ref) => {
     if (props.post?.commentCount !== undefined) {
       setCommentCount(props.post.commentCount);
     }
-  }, [props.post?.isLiked, props.post?.likeCount, props.post?.commentCount]);
+    if (props.post?.isSaved !== undefined) {
+      setIsSaved(props.post.isSaved);
+    }
+  }, [props.post?.isLiked, props.post?.likeCount, props.post?.commentCount, props.post?.isSaved]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -767,6 +775,30 @@ const Post = forwardRef((props, ref) => {
   const handleDelete = () => {
     onDelete?.(id);
     handleMenuClose();
+  };
+
+  const handleSavePost = async () => {
+    if (!id || loadingSave) return;
+    
+    setLoadingSave(true);
+    try {
+      if (isSaved) {
+        await unsavePost(id);
+        setIsSaved(false);
+      } else {
+        await savePost(id);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể lưu bài viết. Vui lòng thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoadingSave(false);
+    }
   };
 
   return (
@@ -1265,6 +1297,39 @@ const Post = forwardRef((props, ref) => {
           <Share sx={{ fontSize: { xs: 18, sm: 20 }, mr: { xs: 0.5, sm: 1 } }} />
           <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 700 }}>Chia sẻ</Typography>
         </IconButton>
+
+        {!isOwner && (
+          <IconButton
+            onClick={handleSavePost}
+            disabled={loadingSave}
+            sx={(t) => ({
+              color: isSaved ? "primary.main" : "text.secondary",
+              borderRadius: 3,
+              py: { xs: 1, sm: 1.25, md: 1.5 },
+              px: { xs: 0.5, sm: 1 },
+              flex: 1,
+              "&:hover": { 
+                bgcolor: t.palette.action.hover, 
+                color: "primary.main", 
+                transform: "scale(1.02)" 
+              },
+            })}
+          >
+            {loadingSave ? (
+              <CircularProgress size={18} />
+            ) : isSaved ? (
+              <>
+                <Bookmark sx={{ fontSize: { xs: 18, sm: 20 }, mr: { xs: 0.5, sm: 1 } }} />
+                <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 700 }}>Đã lưu</Typography>
+              </>
+            ) : (
+              <>
+                <BookmarkBorder sx={{ fontSize: { xs: 18, sm: 20 }, mr: { xs: 0.5, sm: 1 } }} />
+                <Typography sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 700 }}>Lưu</Typography>
+              </>
+            )}
+          </IconButton>
+        )}
       </Box>
 
       {/* Comments */}

@@ -2,13 +2,12 @@ import * as React from "react";
 import { styled, alpha } from "@mui/material/styles";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
-  AppBar, Toolbar, Box, Avatar, IconButton, InputBase, Badge,
+  AppBar, Toolbar, Box, Avatar, IconButton, InputBase,
   MenuItem, Menu, Divider, Button, Switch, Typography, Paper, List,
   ListItem, ListItemAvatar, ListItemText, Popper, ClickAwayListener,
   Tooltip
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import MoreIcon from "@mui/icons-material/MoreVert";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
@@ -19,7 +18,6 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import HistoryIcon from "@mui/icons-material/History";
 import { isAuthenticated, logOut } from "../services/identityService";
 import { useUser } from "../contexts/UserContext";
-import NotificationPopover from "./NotificationPopover";
 
 const SEARCH_SUGGESTIONS = [
   { id: 1, type: "user", name: "Sarah Johnson", avatar: "https://i.pravatar.cc/150?img=1" },
@@ -102,12 +100,10 @@ export default function Header({
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchAnchor, setSearchAnchor] = React.useState(null);
-  const [notificationAnchor, setNotificationAnchor] = React.useState(null);
   const searchRef = React.useRef(null);
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
-  const isSearchOpen = Boolean(searchAnchor) && searchQuery.trim().length > 0;
-  const isNotificationOpen = Boolean(notificationAnchor);
+  const isSearchOpen = Boolean(searchAnchor) && searchQuery.trim().length > 0 && isChatPage;
 
   const handleProfileMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMobileMenuOpen = (e) => setMobileMoreAnchorEl(e.currentTarget);
@@ -125,25 +121,115 @@ export default function Header({
   };
   const handleLogout = () => { handleMenuClose(); logOut(); navigate("/login"); };
 
-  const handleSearchFocus = (e) => setSearchAnchor(e.currentTarget);
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+  const handleSearchFocus = (e) => {
+    // If on chat page, show conversation search
+    if (location.pathname === '/chat' || location.pathname.startsWith('/chat/')) {
+      setSearchAnchor(e.currentTarget);
+    }
+  };
+  
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    // If on chat page, show conversation search dropdown
+    if (location.pathname === '/chat' || location.pathname.startsWith('/chat/')) {
+      if (value.trim()) {
+        setSearchAnchor(e.currentTarget);
+      } else {
+        setSearchAnchor(null);
+      }
+    }
+  };
+  
   const handleSearchClose = () => {
     setSearchAnchor(null);
     setSearchQuery("");
   };
 
-  const handleNotificationClick = (e) => setNotificationAnchor(e.currentTarget);
-  const handleNotificationClose = () => setNotificationAnchor(null);
+  const handleSearchSubmit = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
+      // If on chat page, keep conversation search behavior
+      if (isChatPage) {
+        // Conversation search is handled by the dropdown
+        return;
+      }
+      // Otherwise, navigate to search page with query
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchAnchor(null);
+    }
+  };
+
+  const handleSearchClick = () => {
+    if (searchQuery.trim() && !isChatPage) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchAnchor(null);
+    }
+  };
 
   const handleTabClick = (value) => {
     navigate(value);
   };
 
-  const [unreadNotifications, setUnreadNotifications] = React.useState(3);
+  // Search conversations when on chat page
+  const [conversationSearchResults, setConversationSearchResults] = React.useState([]);
+  const [searchingConversations, setSearchingConversations] = React.useState(false);
+  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
 
-  const filteredSuggestions = SEARCH_SUGGESTIONS.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  React.useEffect(() => {
+    if (isChatPage && searchQuery.trim()) {
+      // Import chat service dynamically to avoid circular dependencies
+      import('../services/chatService').then(({ getConversations }) => {
+        setSearchingConversations(true);
+        getConversations()
+          .then((response) => {
+            const responseData = response.data?.result || response.data;
+            let conversationsList = [];
+            if (Array.isArray(responseData)) {
+              conversationsList = responseData;
+            } else if (responseData?.data && Array.isArray(responseData.data)) {
+              conversationsList = responseData.data;
+            }
+            
+            const query = searchQuery.toLowerCase().trim();
+            const filtered = conversationsList.filter((conv) => {
+              const name = (conv.conversationName || 
+                (conv.participants?.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)) 
+                  ? `${conv.participants.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)).lastName || ''} ${conv.participants.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)).firstName || ''}`.trim()
+                  : 'Unknown') || 'Unknown').toLowerCase();
+              const lastMessage = (conv.lastMessage || conv.lastMessageText || '').toLowerCase();
+              return name.includes(query) || lastMessage.includes(query);
+            }).slice(0, 5); // Limit to 5 results
+            
+            setConversationSearchResults(filtered.map(conv => ({
+              id: conv.id || conv.conversationId || conv._id,
+              type: 'conversation',
+              name: conv.conversationName || 
+                (conv.participants?.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)) 
+                  ? `${conv.participants.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)).lastName || ''} ${conv.participants.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId)).firstName || ''}`.trim()
+                  : 'Unknown') || 'Unknown',
+              avatar: conv.conversationAvatar || 
+                (conv.participants?.find(p => p.userId && String(p.userId) !== String(userData?.id || userData?.userId))?.avatar) || 
+                null,
+              subtitle: conv.lastMessage || conv.lastMessageText || 'No messages yet',
+            })));
+            setSearchingConversations(false);
+          })
+          .catch((err) => {
+            console.error('Error searching conversations:', err);
+            setConversationSearchResults([]);
+            setSearchingConversations(false);
+          });
+      });
+    } else {
+      setConversationSearchResults([]);
+    }
+  }, [searchQuery, isChatPage, userData]);
+
+  const filteredSuggestions = isChatPage && searchQuery.trim() 
+    ? conversationSearchResults 
+    : []; // Don't show mock suggestions, navigate to search page instead
 
   const menuId = "primary-profile-menu";
   const mobileMenuId = "primary-profile-menu-mobile";
@@ -260,12 +346,6 @@ export default function Header({
     >
       {isAuthenticated() ? (
         <>
-          <MenuItem onClick={(e) => { handleMobileMenuClose(); handleNotificationClick(e); }} sx={{ py: 1.2 }}>
-            <IconButton size="large" color="inherit" sx={{ "&:hover": { backgroundColor: "action.hover" } }}>
-              <Badge badgeContent={unreadNotifications} color="error"><NotificationsIcon /></Badge>
-            </IconButton>
-            <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Notifications</Typography>
-          </MenuItem>
           <MenuItem onClick={(e) => { handleMobileMenuClose(); handleProfileMenuOpen(e); }} sx={{ py: 1.2 }}>
             <Avatar src={user.avatar} sx={{ width: 28, height: 28 }} />
             <Typography sx={{ ml: 1, fontSize: 14, fontWeight: 500 }}>Profile</Typography>
@@ -345,14 +425,15 @@ export default function Header({
             />
           </IconButton>
 
-          <CompactSearch ref={searchRef}>
+          <CompactSearch ref={searchRef} onClick={handleSearchClick}>
             <SearchIconWrapper><SearchIcon fontSize="small" /></SearchIconWrapper>
             <StyledInputBase
-              placeholder="Search…"
+              placeholder={isChatPage ? "Tìm kiếm cuộc trò chuyện..." : "Tìm kiếm người dùng, bài viết, nhóm..."}
               inputProps={{ "aria-label": "search" }}
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
+              onKeyDown={handleSearchSubmit}
             />
           </CompactSearch>
 
@@ -384,19 +465,37 @@ export default function Header({
                 })}
               >
                 <List sx={{ py: 1 }}>
-                  {filteredSuggestions.length > 0 ? (
+                  {searchingConversations ? (
+                    <ListItem>
+                      <ListItemText
+                        primary="Đang tìm kiếm..."
+                        primaryTypographyProps={{ fontSize: 13, color: "text.secondary" }}
+                      />
+                    </ListItem>
+                  ) : filteredSuggestions.length > 0 ? (
                     filteredSuggestions.map((item) => (
                       <ListItem
                         key={item.id}
                         button
-                        onClick={handleSearchClose}
+                        onClick={() => {
+                          handleSearchClose();
+                          if (item.type === "conversation") {
+                            navigate("/chat");
+                            // Store conversation ID to be selected in ChatPage
+                            sessionStorage.setItem('selectedConversationId', item.id);
+                            // Trigger a custom event to notify ChatPage
+                            window.dispatchEvent(new CustomEvent('selectConversation', { detail: { conversationId: item.id } }));
+                          }
+                        }}
                         sx={{
                           py: 1.5,
                           "&:hover": { bgcolor: "action.hover" },
                         }}
                       >
                         <ListItemAvatar>
-                          {item.type === "user" ? (
+                          {item.type === "conversation" ? (
+                            <Avatar src={item.avatar} sx={{ width: 36, height: 36 }} />
+                          ) : item.type === "user" ? (
                             <Avatar src={item.avatar} sx={{ width: 36, height: 36 }} />
                           ) : item.type === "trending" ? (
                             <Avatar sx={{ width: 36, height: 36, bgcolor: "primary.main" }}>
@@ -435,40 +534,6 @@ export default function Header({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: "auto" }}>
           {isAuthenticated() ? (
             <>
-              <Tooltip title="Notifications" arrow placement="bottom">
-                <IconButton 
-                  size="medium" 
-                  aria-label="notifications" 
-                  color="inherit" 
-                  onClick={handleNotificationClick}
-                  sx={(t) => ({
-                    borderRadius: 2,
-                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": { 
-                      backgroundColor: t.palette.mode === "dark"
-                        ? alpha(t.palette.common.white, 0.1)
-                        : alpha(t.palette.common.black, 0.05),
-                      transform: "scale(1.1)",
-                    },
-                    display: { xs: 'none', md: 'inline-flex' },
-                  })}
-                >
-                  <Badge 
-                    badgeContent={unreadNotifications} 
-                    color="error"
-                    sx={{
-                      "& .MuiBadge-badge": {
-                        fontSize: "0.625rem",
-                        fontWeight: 700,
-                        minWidth: 18,
-                        height: 18,
-                      },
-                    }}
-                  >
-                    <NotificationsIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
               <Tooltip title="Profile" arrow placement="bottom">
                 <IconButton
                   size="medium"
@@ -546,37 +611,6 @@ export default function Header({
             <>
               <IconButton
                 size="medium"
-                aria-label="notifications"
-                color="inherit"
-                onClick={handleNotificationClick}
-                sx={(t) => ({
-                  borderRadius: 2,
-                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                  "&:hover": { 
-                    backgroundColor: t.palette.mode === "dark"
-                      ? alpha(t.palette.common.white, 0.1)
-                      : alpha(t.palette.common.black, 0.05),
-                    transform: "scale(1.1)",
-                  },
-                })}
-              >
-                <Badge 
-                  badgeContent={unreadNotifications} 
-                  color="error"
-                  sx={{
-                    "& .MuiBadge-badge": {
-                      fontSize: "0.625rem",
-                      fontWeight: 700,
-                      minWidth: 18,
-                      height: 18,
-                    },
-                  }}
-                >
-                  <NotificationsIcon />
-                </Badge>
-              </IconButton>
-              <IconButton
-                size="medium"
                 edge="end"
                 aria-label="account of current user"
                 aria-controls={menuId}
@@ -648,11 +682,6 @@ export default function Header({
 
       {MobileMenu}
       {ProfileCardMenu}
-      <NotificationPopover
-        open={isNotificationOpen}
-        anchorEl={notificationAnchor}
-        onClose={handleNotificationClose}
-      />
     </Box>
   );
 }

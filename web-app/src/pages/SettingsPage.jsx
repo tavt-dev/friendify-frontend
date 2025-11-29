@@ -1,5 +1,6 @@
 // src/pages/Settings.jsx
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -9,13 +10,9 @@ import {
   Tabs,
   Tab,
   TextField,
-  Switch,
   Divider,
   Stack,
   IconButton,
-  Select,
-  MenuItem,
-  FormControl,
   Alert,
   Snackbar,
   Dialog,
@@ -23,65 +20,105 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Chip,
+  CircularProgress,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import LockIcon from "@mui/icons-material/Lock";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import SecurityIcon from "@mui/icons-material/Security";
-import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
 import PageLayout from "./PageLayout";
+import { useUser } from "../contexts/UserContext";
+import { getMyInfo, updateProfile, uploadAvatar } from "../services/userService";
+import { changePassword } from "../services/identityService";
+import { isAuthenticated, logOut } from "../services/identityService";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+  const { user, loadUser } = useUser();
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const avatarInputRef = useRef(null);
 
   // Profile Settings
   const [profile, setProfile] = useState({
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
-    phone: "0123456789",
-    bio: "Yêu thích công nghệ và du lịch",
-    location: "Hà Nội, Việt Nam",
-    website: "https://example.com",
-    avatar: "https://i.pravatar.cc/150?img=1",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    bio: "",
+    city: "",
+    country: "",
+    website: "",
+    avatar: "",
   });
 
-  // Privacy Settings
-  const [privacy, setPrivacy] = useState({
-    profileVisibility: "public",
-    showEmail: false,
-    showPhone: false,
-    allowFriendRequests: true,
-    allowMessages: true,
-    allowTagging: true,
-    searchable: true,
+
+  // Password change form
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
-  // Notification Settings
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    friendRequests: true,
-    comments: true,
-    likes: true,
-    messages: true,
-    groupInvites: true,
-  });
+  // Load user profile and settings on mount
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
 
-  // Security Settings
-  const [security, setSecurity] = useState({
-    twoFactorAuth: false,
-    loginAlerts: true,
-    showActiveStatus: true,
-  });
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Load user profile
+        if (user) {
+          setProfile({
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
+            email: user.email || "",
+            phoneNumber: user.phoneNumber || user.phone || "",
+            bio: user.bio || "",
+            city: user.city || "",
+            country: user.country || "",
+            website: user.website || "",
+            avatar: user.avatar || "",
+          });
+        } else {
+          // If user not loaded, fetch it
+          const profileResponse = await getMyInfo();
+          if (profileResponse.data?.result) {
+            const userData = profileResponse.data.result;
+            setProfile({
+              firstName: userData.firstName || "",
+              lastName: userData.lastName || "",
+              email: userData.email || "",
+              phoneNumber: userData.phoneNumber || userData.phone || "",
+              bio: userData.bio || "",
+              city: userData.city || "",
+              country: userData.country || "",
+              website: userData.website || "",
+              avatar: userData.avatar || "",
+            });
+          }
+        }
+
+      } catch (error) {
+        console.error("Error loading settings data:", error);
+        setSnackbar({
+          open: true,
+          message: "Không thể tải dữ liệu cài đặt",
+          severity: "error",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user, navigate]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -91,56 +128,196 @@ export default function SettingsPage() {
     setProfile({ ...profile, [field]: value });
   };
 
-  const handlePrivacyChange = (field, value) => {
-    setPrivacy({ ...privacy, [field]: value });
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const profileData = {
+        firstName: profile.firstName.trim(),
+        lastName: profile.lastName.trim(),
+        bio: profile.bio.trim() || null,
+        phoneNumber: profile.phoneNumber.trim() || null,
+        city: profile.city.trim() || null,
+        country: profile.country.trim() || null,
+        website: profile.website.trim() || null,
+      };
+
+      const response = await updateProfile(profileData);
+      if (response.data) {
+        // Reload user data
+        await loadUser();
+        setSnackbar({
+          open: true,
+          message: "Đã lưu thông tin cá nhân!",
+          severity: "success",
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message || "Không thể lưu thông tin cá nhân";
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleNotificationChange = (field, value) => {
-    setNotifications({ ...notifications, [field]: value });
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setSnackbar({
+        open: true,
+        message: "Vui lòng điền đầy đủ thông tin",
+        severity: "error",
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: "Mật khẩu mới và xác nhận mật khẩu không khớp",
+        severity: "error",
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setSnackbar({
+        open: true,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+        severity: "error",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await changePassword(
+        passwordForm.currentPassword.trim(),
+        passwordForm.newPassword.trim()
+      );
+      
+      // Check if response is successful (status 200-299)
+      if (response && (response.status === 200 || response.status === 201 || response.data)) {
+        setPasswordDialogOpen(false);
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setSnackbar({
+          open: true,
+          message: response.data?.message || "Đã đổi mật khẩu thành công!",
+          severity: "success",
+        });
+      } else {
+        throw new Error("Không thể đổi mật khẩu");
+      }
+    } catch (error) {
+      console.error("Change password error:", error);
+      let errorMessage = "Không thể đổi mật khẩu";
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSecurityChange = (field, value) => {
-    setSecurity({ ...security, [field]: value });
-  };
-
-  const handleSaveProfile = () => {
-    // API call to save profile
-    setSnackbar({ open: true, message: "Đã lưu thông tin cá nhân!", severity: "success" });
-  };
-
-  const handleSavePrivacy = () => {
-    // API call to save privacy settings
-    setSnackbar({ open: true, message: "Đã cập nhật cài đặt quyền riêng tư!", severity: "success" });
-  };
-
-  const handleSaveNotifications = () => {
-    // API call to save notification settings
-    setSnackbar({ open: true, message: "Đã cập nhật cài đặt thông báo!", severity: "success" });
-  };
-
-  const handleSaveSecurity = () => {
-    // API call to save security settings
-    setSnackbar({ open: true, message: "Đã cập nhật cài đặt bảo mật!", severity: "success" });
-  };
-
-  const handleChangePassword = () => {
-    setSnackbar({ open: true, message: "Đã gửi email đặt lại mật khẩu!", severity: "info" });
-  };
-
-  const handleDeleteAccount = () => {
-    setDeleteDialogOpen(false);
-    // API call to delete account
-    setSnackbar({ open: true, message: "Yêu cầu xóa tài khoản đã được gửi!", severity: "warning" });
-  };
 
   const handleAvatarChange = () => {
-    setSnackbar({ open: true, message: "Chức năng đổi ảnh đại diện đang được phát triển!", severity: "info" });
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setSnackbar({
+        open: true,
+        message: "Vui lòng chọn file ảnh",
+        severity: "error",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: "Kích thước file không được vượt quá 5MB",
+        severity: "error",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await uploadAvatar(formData);
+      if (response.data?.result?.avatar) {
+        setProfile({ ...profile, avatar: response.data.result.avatar });
+        await loadUser();
+        setSnackbar({
+          open: true,
+          message: "Đã cập nhật ảnh đại diện!",
+          severity: "success",
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message || "Không thể cập nhật ảnh đại diện";
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+      // Reset input
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
   };
 
   const handleCloseSnackbar = (event, reason) => {
     if (reason === "clickaway") return;
     setSnackbar({ ...snackbar, open: false });
   };
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
@@ -198,8 +375,6 @@ export default function SettingsPage() {
               }}
             >
               <Tab icon={<EditIcon />} iconPosition="start" label="Thông tin cá nhân" />
-              <Tab icon={<LockIcon />} iconPosition="start" label="Quyền riêng tư" />
-              <Tab icon={<NotificationsIcon />} iconPosition="start" label="Thông báo" />
               <Tab icon={<SecurityIcon />} iconPosition="start" label="Bảo mật" />
             </Tabs>
           </Card>
@@ -250,22 +425,30 @@ export default function SettingsPage() {
                 </Box>
                 <Box sx={{ ml: 3 }}>
                   <Typography variant="h6" fontWeight={700}>
-                    {profile.name}
+                    {`${profile.firstName} ${profile.lastName}`.trim() || "Người dùng"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" mb={1}>
                     {profile.email}
                   </Typography>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleAvatarFileChange}
+                  />
                   <Button
                     variant="outlined"
                     size="small"
                     onClick={handleAvatarChange}
+                    disabled={saving}
                     sx={{
                       textTransform: "none",
                       borderRadius: 2,
                       fontWeight: 600,
                     }}
                   >
-                    Thay đổi ảnh đại diện
+                    {saving ? "Đang tải..." : "Thay đổi ảnh đại diện"}
                   </Button>
                 </Box>
               </Box>
@@ -276,9 +459,20 @@ export default function SettingsPage() {
               <Stack spacing={3}>
                 <TextField
                   fullWidth
-                  label="Họ và tên"
-                  value={profile.name}
-                  onChange={(e) => handleProfileChange("name", e.target.value)}
+                  label="Họ"
+                  value={profile.firstName}
+                  onChange={(e) => handleProfileChange("firstName", e.target.value)}
+                  disabled={saving}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { borderRadius: 3 },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Tên"
+                  value={profile.lastName}
+                  onChange={(e) => handleProfileChange("lastName", e.target.value)}
+                  disabled={saving}
                   sx={{
                     "& .MuiOutlinedInput-root": { borderRadius: 3 },
                   }}
@@ -288,16 +482,18 @@ export default function SettingsPage() {
                   label="Email"
                   type="email"
                   value={profile.email}
-                  onChange={(e) => handleProfileChange("email", e.target.value)}
+                  disabled
                   sx={{
                     "& .MuiOutlinedInput-root": { borderRadius: 3 },
                   }}
+                  helperText="Email không thể thay đổi"
                 />
                 <TextField
                   fullWidth
                   label="Số điện thoại"
-                  value={profile.phone}
-                  onChange={(e) => handleProfileChange("phone", e.target.value)}
+                  value={profile.phoneNumber}
+                  onChange={(e) => handleProfileChange("phoneNumber", e.target.value)}
+                  disabled={saving}
                   sx={{
                     "& .MuiOutlinedInput-root": { borderRadius: 3 },
                   }}
@@ -309,24 +505,39 @@ export default function SettingsPage() {
                   rows={3}
                   value={profile.bio}
                   onChange={(e) => handleProfileChange("bio", e.target.value)}
+                  disabled={saving}
                   sx={{
                     "& .MuiOutlinedInput-root": { borderRadius: 3 },
                   }}
                 />
-                <TextField
-                  fullWidth
-                  label="Địa chỉ"
-                  value={profile.location}
-                  onChange={(e) => handleProfileChange("location", e.target.value)}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { borderRadius: 3 },
-                  }}
-                />
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="Thành phố"
+                    value={profile.city}
+                    onChange={(e) => handleProfileChange("city", e.target.value)}
+                    disabled={saving}
+                    sx={{
+                      "& .MuiOutlinedInput-root": { borderRadius: 3 },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Quốc gia"
+                    value={profile.country}
+                    onChange={(e) => handleProfileChange("country", e.target.value)}
+                    disabled={saving}
+                    sx={{
+                      "& .MuiOutlinedInput-root": { borderRadius: 3 },
+                    }}
+                  />
+                </Stack>
                 <TextField
                   fullWidth
                   label="Website"
                   value={profile.website}
                   onChange={(e) => handleProfileChange("website", e.target.value)}
+                  disabled={saving}
                   sx={{
                     "& .MuiOutlinedInput-root": { borderRadius: 3 },
                   }}
@@ -335,19 +546,9 @@ export default function SettingsPage() {
 
               <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 4, gap: 2 }}>
                 <Button
-                  variant="outlined"
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 4,
-                  }}
-                >
-                  Hủy
-                </Button>
-                <Button
                   variant="contained"
                   onClick={handleSaveProfile}
+                  disabled={saving}
                   sx={{
                     textTransform: "none",
                     fontWeight: 600,
@@ -359,296 +560,14 @@ export default function SettingsPage() {
                     },
                   }}
                 >
-                  Lưu thay đổi
+                  {saving ? <CircularProgress size={20} color="inherit" /> : "Lưu thay đổi"}
                 </Button>
               </Box>
             </Card>
           )}
 
-          {/* Tab 1: Privacy Settings */}
+          {/* Tab 1: Security Settings */}
           {tabValue === 1 && (
-            <Card
-              elevation={0}
-              sx={(t) => ({
-                borderRadius: 4,
-                p: 4,
-                boxShadow: t.shadows[1],
-                border: "1px solid",
-                borderColor: "divider",
-                bgcolor: "background.paper",
-              })}
-            >
-              <Typography variant="h6" fontWeight={700} mb={3}>
-                Quyền riêng tư
-              </Typography>
-
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Hiển thị trang cá nhân"
-                    secondary="Ai có thể xem trang cá nhân của bạn"
-                  />
-                  <ListItemSecondaryAction>
-                    <FormControl sx={{ minWidth: 150 }}>
-                      <Select
-                        value={privacy.profileVisibility}
-                        onChange={(e) => handlePrivacyChange("profileVisibility", e.target.value)}
-                        size="small"
-                        sx={{ borderRadius: 2 }}
-                      >
-                        <MenuItem value="public">Công khai</MenuItem>
-                        <MenuItem value="friends">Bạn bè</MenuItem>
-                        <MenuItem value="private">Riêng tư</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Hiển thị email"
-                    secondary="Cho phép người khác xem email của bạn"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.showEmail}
-                      onChange={(e) => handlePrivacyChange("showEmail", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Hiển thị số điện thoại"
-                    secondary="Cho phép người khác xem số điện thoại"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.showPhone}
-                      onChange={(e) => handlePrivacyChange("showPhone", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Cho phép lời mời kết bạn"
-                    secondary="Người khác có thể gửi lời mời kết bạn"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.allowFriendRequests}
-                      onChange={(e) => handlePrivacyChange("allowFriendRequests", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Cho phép tin nhắn"
-                    secondary="Ai có thể gửi tin nhắn cho bạn"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.allowMessages}
-                      onChange={(e) => handlePrivacyChange("allowMessages", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Cho phép gắn thẻ"
-                    secondary="Người khác có thể gắn thẻ bạn trong bài viết"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.allowTagging}
-                      onChange={(e) => handlePrivacyChange("allowTagging", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Cho phép tìm kiếm"
-                    secondary="Hồ sơ của bạn xuất hiện trong kết quả tìm kiếm"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={privacy.searchable}
-                      onChange={(e) => handlePrivacyChange("searchable", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </List>
-
-              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 4 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSavePrivacy}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 4,
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                    },
-                  }}
-                >
-                  Lưu cài đặt
-                </Button>
-              </Box>
-            </Card>
-          )}
-
-          {/* Tab 2: Notification Settings */}
-          {tabValue === 2 && (
-            <Card
-              elevation={0}
-              sx={(t) => ({
-                borderRadius: 4,
-                p: 4,
-                boxShadow: t.shadows[1],
-                border: "1px solid",
-                borderColor: "divider",
-                bgcolor: "background.paper",
-              })}
-            >
-              <Typography variant="h6" fontWeight={700} mb={3}>
-                Cài đặt thông báo
-              </Typography>
-
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Thông báo qua Email"
-                    secondary="Nhận thông báo qua email"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.emailNotifications}
-                      onChange={(e) => handleNotificationChange("emailNotifications", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Thông báo đẩy"
-                    secondary="Nhận thông báo đẩy trên trình duyệt"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.pushNotifications}
-                      onChange={(e) => handleNotificationChange("pushNotifications", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Lời mời kết bạn"
-                    secondary="Thông báo khi có lời mời kết bạn mới"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.friendRequests}
-                      onChange={(e) => handleNotificationChange("friendRequests", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Bình luận"
-                    secondary="Thông báo khi có người bình luận bài viết"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.comments}
-                      onChange={(e) => handleNotificationChange("comments", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Lượt thích"
-                    secondary="Nhận thông báo khi có người thích bài viết"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.likes}
-                      onChange={(e) => handleNotificationChange("likes", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Tin nhắn"
-                    secondary="Thông báo khi có tin nhắn mới"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.messages}
-                      onChange={(e) => handleNotificationChange("messages", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Lời mời nhóm"
-                    secondary="Thông báo khi được mời vào nhóm"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={notifications.groupInvites}
-                      onChange={(e) => handleNotificationChange("groupInvites", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </List>
-
-              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 4 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveNotifications}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 4,
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                    },
-                  }}
-                >
-                  Lưu cài đặt
-                </Button>
-              </Box>
-            </Card>
-          )}
-
-          {/* Tab 3: Security Settings */}
-          {tabValue === 3 && (
             <Card
               elevation={0}
               sx={(t) => ({
@@ -664,52 +583,7 @@ export default function SettingsPage() {
                 Bảo mật
               </Typography>
 
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Xác thực hai yếu tố"
-                    secondary="Thêm lớp bảo mật cho tài khoản của bạn"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={security.twoFactorAuth}
-                      onChange={(e) => handleSecurityChange("twoFactorAuth", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Cảnh báo đăng nhập"
-                    secondary="Nhận thông báo khi có đăng nhập từ thiết bị mới"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={security.loginAlerts}
-                      onChange={(e) => handleSecurityChange("loginAlerts", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-
-                <ListItem>
-                  <ListItemText
-                    primary="Hiển thị trạng thái hoạt động"
-                    secondary="Người khác có thể thấy bạn đang online"
-                  />
-                  <ListItemSecondaryAction>
-                    <Switch
-                      checked={security.showActiveStatus}
-                      onChange={(e) => handleSecurityChange("showActiveStatus", e.target.checked)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </List>
-
-              <Divider sx={{ my: 3 }} />
-
-              <Alert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
+              <Alert severity="info" sx={{ borderRadius: 3 }}>
                 <Typography variant="body2" fontWeight={600} mb={1}>
                   Đổi mật khẩu
                 </Typography>
@@ -719,7 +593,7 @@ export default function SettingsPage() {
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={handleChangePassword}
+                  onClick={() => setPasswordDialogOpen(true)}
                   sx={{
                     textTransform: "none",
                     fontWeight: 600,
@@ -729,116 +603,70 @@ export default function SettingsPage() {
                   Đổi mật khẩu
                 </Button>
               </Alert>
-
-              <Alert severity="warning" sx={{ mb: 3, borderRadius: 3 }}>
-                <Typography variant="body2" fontWeight={600} mb={1}>
-                  Phiên đăng nhập hoạt động
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={2}>
-                  Bạn đang đăng nhập trên 3 thiết bị
-                </Typography>
-                <Stack spacing={1}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="body2">
-                      Chrome trên Windows • Hà Nội
-                    </Typography>
-                    <Chip label="Hiện tại" size="small" color="success" />
-                  </Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="body2">
-                      Safari trên iPhone • TP. Hồ Chí Minh
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      2 giờ trước
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="body2">
-                      Firefox trên MacOS • Đà Nẵng
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      1 ngày trước
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  color="error"
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 2,
-                    mt: 2,
-                  }}
-                >
-                  Đăng xuất tất cả thiết bị khác
-                </Button>
-              </Alert>
-
-              <Alert severity="error" sx={{ borderRadius: 3 }}>
-                <Typography variant="body2" fontWeight={600} mb={1}>
-                  Xóa tài khoản
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={2}>
-                  Hành động này không thể hoàn tác. Tất cả dữ liệu của bạn sẽ bị xóa vĩnh viễn.
-                </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => setDeleteDialogOpen(true)}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 2,
-                  }}
-                >
-                  Xóa tài khoản
-                </Button>
-              </Alert>
-
-              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 4 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveSecurity}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 3,
-                    px: 4,
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                    },
-                  }}
-                >
-                  Lưu cài đặt
-                </Button>
-              </Box>
             </Card>
           )}
         </Box>
       </Box>
 
-      {/* Delete Account Dialog */}
+      {/* Change Password Dialog */}
       <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        open={passwordDialogOpen}
+        onClose={() => !saving && setPasswordDialogOpen(false)}
         PaperProps={{
           sx: { borderRadius: 4, maxWidth: 500 },
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Xác nhận xóa tài khoản</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Đổi mật khẩu</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Bạn có chắc chắn muốn xóa tài khoản? Hành động này không thể hoàn tác và tất cả dữ liệu của bạn sẽ bị xóa vĩnh viễn.
-          </DialogContentText>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Mật khẩu hiện tại"
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(e) =>
+                setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+              }
+              disabled={saving}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Mật khẩu mới"
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(e) =>
+                setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+              }
+              disabled={saving}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Xác nhận mật khẩu mới"
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(e) =>
+                setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+              }
+              disabled={saving}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+              }}
+            />
+          </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
           <Button
-            onClick={() => setDeleteDialogOpen(false)}
+            onClick={() => {
+              setPasswordDialogOpen(false);
+              setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+            }}
+            disabled={saving}
             sx={{
               textTransform: "none",
               fontWeight: 600,
@@ -848,16 +676,20 @@ export default function SettingsPage() {
             Hủy
           </Button>
           <Button
-            onClick={handleDeleteAccount}
-            color="error"
+            onClick={handleChangePassword}
             variant="contained"
+            disabled={saving}
             sx={{
               textTransform: "none",
               fontWeight: 600,
               borderRadius: 2,
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
+              },
             }}
           >
-            Xóa tài khoản
+            {saving ? <CircularProgress size={20} color="inherit" /> : "Đổi mật khẩu"}
           </Button>
         </DialogActions>
       </Dialog>

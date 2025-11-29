@@ -42,6 +42,8 @@ import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PersonIcon from "@mui/icons-material/Person";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import PageLayout from "./PageLayout";
 import CreateChatPopover from "../components/CreateChatPopover";
 import AddMembersDialog from "../components/AddMembersDialog";
@@ -66,6 +68,35 @@ import { useUser } from "../contexts/UserContext";
 import websocketService from "../services/websocketService";
 
 // ---------- Utilities ----------
+// Helper function to highlight search terms in text
+const highlightText = (text, searchQuery) => {
+  if (!searchQuery || !text) return text;
+  
+  const query = searchQuery.trim();
+  if (!query) return text;
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, index) => {
+    if (regex.test(part)) {
+      return (
+        <mark
+          key={index}
+          style={{
+            backgroundColor: 'rgba(255, 235, 59, 0.4)',
+            padding: '2px 0',
+            borderRadius: '2px',
+          }}
+        >
+          {part}
+        </mark>
+      );
+    }
+    return part;
+  });
+};
+
 const normalizeConversation = (item, currentUserId) => {
   if (!item) return null;
   
@@ -187,6 +218,8 @@ export default function ChatPage() {
   const [conversationInfoOpen, setConversationInfoOpen] = useState(false);
   const [addMembersDialogOpen, setAddMembersDialogOpen] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const messageContainerRef = useRef(null);
   const typingTimeoutRef = useRef({});
 
@@ -398,6 +431,38 @@ export default function ChatPage() {
     fetchConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Listen for conversation selection from Header search
+  useEffect(() => {
+    const handleSelectConversation = (event) => {
+      const { conversationId } = event.detail;
+      if (conversationId && conversations.length > 0) {
+        const conversation = conversations.find(c => c.id === conversationId);
+        if (conversation) {
+          setSelectedConversation(conversation);
+          if (isMobile) setShowChatOnMobile(true);
+        }
+      }
+    };
+
+    window.addEventListener('selectConversation', handleSelectConversation);
+    return () => {
+      window.removeEventListener('selectConversation', handleSelectConversation);
+    };
+  }, [conversations, isMobile]);
+
+  // Check for conversation ID from sessionStorage on mount
+  useEffect(() => {
+    const storedConversationId = sessionStorage.getItem('selectedConversationId');
+    if (storedConversationId && conversations.length > 0) {
+      const conversation = conversations.find(c => c.id === storedConversationId);
+      if (conversation) {
+        setSelectedConversation(conversation);
+        if (isMobile) setShowChatOnMobile(true);
+        sessionStorage.removeItem('selectedConversationId');
+      }
+    }
+  }, [conversations, isMobile]);
 
   // Subscribe to all conversations for real-time updates when WebSocket is connected
   useEffect(() => {
@@ -965,6 +1030,32 @@ export default function ChatPage() {
 
   const currentMessages = selectedConversation ? messagesMap[selectedConversation.id] || [] : [];
 
+  // Filter conversations based on search query
+  const filteredConversations = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return conversations;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return conversations.filter((conv) => {
+      const name = (conv.conversationName || "").toLowerCase();
+      const lastMessage = (conv.lastMessage || "").toLowerCase();
+      return name.includes(query) || lastMessage.includes(query);
+    });
+  }, [conversations, searchQuery]);
+
+  // Filter messages based on search query
+  const filteredMessages = React.useMemo(() => {
+    if (!messageSearchQuery.trim()) {
+      return currentMessages;
+    }
+    const query = messageSearchQuery.toLowerCase().trim();
+    return currentMessages.filter((msg) => {
+      const messageText = (msg.message || "").toLowerCase();
+      const senderName = (msg.sender?.name || msg.sender?.username || "").toLowerCase();
+      return messageText.includes(query) || senderName.includes(query);
+    });
+  }, [currentMessages, messageSearchQuery]);
+
   // auto-scroll to bottom when messages change or conversation changes
   useEffect(() => {
     scrollToBottom();
@@ -1399,37 +1490,63 @@ export default function ChatPage() {
               borderBottom: 1,
               borderColor: "divider",
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              flexDirection: "column",
+              gap: 1.5,
               bgcolor: "background.paper",
             }}
           >
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                fontWeight: 600,
-              }}
-            >
-              Chats
-            </Typography>
-            <IconButton
-              color="primary"
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                  fontWeight: 600,
+                }}
+              >
+                Chats
+              </Typography>
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={handleNewChatClick}
+                sx={{
+                  "&:hover": {
+                    transform: "scale(1.1)",
+                  },
+                }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+              <CreateChatPopover
+                anchorEl={newChatAnchorEl}
+                open={Boolean(newChatAnchorEl)}
+                onClose={handleCloseNewChat}
+                onSelectUser={handleSelectNewChatUser}
+              />
+            </Box>
+            <TextField
+              fullWidth
               size="small"
-              onClick={handleNewChatClick}
+              placeholder="Tìm kiếm cuộc trò chuyện..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />,
+                endAdornment: searchQuery && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery("")}
+                    sx={{ p: 0.5 }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                ),
+              }}
               sx={{
-                "&:hover": {
-                  transform: "scale(1.1)",
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 2,
                 },
               }}
-            >
-              <AddIcon fontSize="small" />
-            </IconButton>
-            <CreateChatPopover
-              anchorEl={newChatAnchorEl}
-              open={Boolean(newChatAnchorEl)}
-              onClose={handleCloseNewChat}
-              onSelectUser={handleSelectNewChatUser}
             />
           </Box>
 
@@ -1458,9 +1575,15 @@ export default function ChatPage() {
                   Chưa có cuộc trò chuyện. Bấm nút + để bắt đầu.
                 </Typography>
               </Box>
+            ) : filteredConversations.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: "center" }}>
+                <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                  Không tìm thấy cuộc trò chuyện nào.
+                </Typography>
+              </Box>
             ) : (
               <List sx={{ width: "100%" }}>
-                {conversations.map((conversation) => (
+                {filteredConversations.map((conversation) => (
                   <React.Fragment key={conversation.id}>
                     <ListItem
                       alignItems="flex-start"
@@ -1546,6 +1669,7 @@ export default function ChatPage() {
             display: isMobile && !showChatOnMobile ? 'none' : 'flex',
             flexDirection: "column",
             minHeight: 0,
+            height: "100%",
             width: isMobile ? '100%' : 'auto',
             overflow: "hidden",
           }}
@@ -1559,65 +1683,92 @@ export default function ChatPage() {
                   borderBottom: 1, 
                   borderColor: "divider", 
                   display: "flex", 
-                  alignItems: "center",
+                  flexDirection: "column",
+                  gap: 1.5,
                   bgcolor: "background.paper",
                   flexShrink: 0,
                 }}
               >
-                {isMobile && (
-                  <IconButton 
-                    onClick={handleBackToConversations} 
-                    sx={{ mr: 1 }}
-                    size="small"
-                  >
-                    <ArrowBackIcon />
-                  </IconButton>
-                )}
-                <Tooltip title={wsConnected ? 'Online' : 'Offline'}>
-                  <Badge
-                    overlap="circular"
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    variant="dot"
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        backgroundColor: wsConnected ? 'success.main' : 'error.main',
-                        color: wsConnected ? 'success.main' : 'error.main',
-                        boxShadow: (t) => `0 0 0 2px ${t.palette.mode === 'dark' ? t.palette.background.paper : '#fff'}`,
-                        width: 8,
-                        height: 8,
-                        minWidth: 8,
-                        animation: wsConnected ? 'none' : 'pulse 2s infinite',
-                        '@keyframes pulse': {
-                          '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-                          '50%': { opacity: 0.7, transform: 'scale(1.1)' },
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  {isMobile && (
+                    <IconButton 
+                      onClick={handleBackToConversations} 
+                      sx={{ mr: 1 }}
+                      size="small"
+                    >
+                      <ArrowBackIcon />
+                    </IconButton>
+                  )}
+                  <Tooltip title={wsConnected ? 'Online' : 'Offline'}>
+                    <Badge
+                      overlap="circular"
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                      variant="dot"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          backgroundColor: wsConnected ? 'success.main' : 'error.main',
+                          color: wsConnected ? 'success.main' : 'error.main',
+                          boxShadow: (t) => `0 0 0 2px ${t.palette.mode === 'dark' ? t.palette.background.paper : '#fff'}`,
+                          width: 8,
+                          height: 8,
+                          minWidth: 8,
+                          animation: wsConnected ? 'none' : 'pulse 2s infinite',
+                          '@keyframes pulse': {
+                            '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                            '50%': { opacity: 0.7, transform: 'scale(1.1)' },
+                          },
                         },
-                      },
+                      }}
+                    >
+                      <Avatar 
+                        src={selectedConversation.conversationAvatar} 
+                        sx={{ 
+                          mr: { xs: 1.5, sm: 2 },
+                          width: { xs: 36, sm: 40 },
+                          height: { xs: 36, sm: 40 }
+                        }} 
+                      />
+                    </Badge>
+                  </Tooltip>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                      fontWeight: 600,
                     }}
                   >
-                    <Avatar 
-                      src={selectedConversation.conversationAvatar} 
-                      sx={{ 
-                        mr: { xs: 1.5, sm: 2 },
-                        width: { xs: 36, sm: 40 },
-                        height: { xs: 36, sm: 40 }
-                      }} 
-                    />
-                  </Badge>
-                </Tooltip>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontSize: { xs: '1rem', sm: '1.25rem' },
-                    fontWeight: 600,
-                  }}
-                >
-                  {selectedConversation.conversationName}
-                </Typography>
-                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <IconButton size="small" onClick={handleConversationInfoOpen}>
-                    <InfoIcon fontSize="small" />
-                  </IconButton>
+                    {selectedConversation.conversationName}
+                  </Typography>
+                  <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton size="small" onClick={handleConversationInfoOpen}>
+                      <InfoIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Tìm kiếm tin nhắn..."
+                  value={messageSearchQuery}
+                  onChange={(e) => setMessageSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />,
+                    endAdornment: messageSearchQuery && (
+                      <IconButton
+                        size="small"
+                        onClick={() => setMessageSearchQuery("")}
+                        sx={{ p: 0.5 }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                    },
+                  }}
+                />
               </Box>
 
               <Box
@@ -1639,23 +1790,53 @@ export default function ChatPage() {
                 sx={{
                   flex: 1,
                   minHeight: 0,
-                  overflowY: "auto",
+                  height: 0, // Force flex child to respect parent height
+                  overflowY: "scroll",
                   overflowX: "hidden",
                   p: { xs: 1.5, sm: 2 },
                   display: "flex",
                   flexDirection: "column",
                   position: "relative",
+                  // Firefox scrollbar - Always visible and more prominent
+                  scrollbarWidth: "auto",
+                  scrollbarColor: (t) => t.palette.mode === "dark" 
+                    ? "rgba(255, 255, 255, 0.8) rgba(255, 255, 255, 0.3)" 
+                    : "rgba(0, 0, 0, 0.8) rgba(0, 0, 0, 0.3)",
+                  // Webkit scrollbar (Chrome, Safari, Edge) - Always visible and more prominent
                   "&::-webkit-scrollbar": {
-                    width: "8px",
+                    width: "14px",
+                    WebkitAppearance: "none",
+                    display: "block !important",
                   },
                   "&::-webkit-scrollbar-track": {
-                    background: "transparent",
+                    background: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.15)" 
+                      : "rgba(0, 0, 0, 0.15)",
+                    borderRadius: "7px",
+                    margin: "4px 0",
+                    border: (t) => `1px solid ${t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.1)" 
+                      : "rgba(0, 0, 0, 0.1)"}`,
                   },
                   "&::-webkit-scrollbar-thumb": {
-                    background: (t) => t.palette.mode === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)",
-                    borderRadius: "4px",
+                    background: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.6)" 
+                      : "rgba(0, 0, 0, 0.6)",
+                    borderRadius: "7px",
+                    border: (t) => `2px solid ${t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.15)" 
+                      : "rgba(0, 0, 0, 0.15)"}`,
+                    minHeight: "50px",
+                    transition: "background 0.2s ease",
                     "&:hover": {
-                      background: (t) => t.palette.mode === "dark" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)",
+                      background: (t) => t.palette.mode === "dark" 
+                        ? "rgba(255, 255, 255, 0.8)" 
+                        : "rgba(0, 0, 0, 0.8)",
+                    },
+                    "&:active": {
+                      background: (t) => t.palette.mode === "dark" 
+                        ? "rgba(255, 255, 255, 0.9)" 
+                        : "rgba(0, 0, 0, 0.9)",
                     },
                   },
                 }}
@@ -1663,6 +1844,12 @@ export default function ChatPage() {
                 {loadingMessages[selectedConversation.id] && currentMessages.length === 0 ? (
                   <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1 }}>
                     <CircularProgress size={32} />
+                  </Box>
+                ) : messageSearchQuery && filteredMessages.length === 0 ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1, p: 3 }}>
+                    <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                      Không tìm thấy tin nhắn nào.
+                    </Typography>
                   </Box>
                 ) : (
                 <Box sx={{ 
@@ -1731,7 +1918,7 @@ export default function ChatPage() {
                     </Box>
                   )}
                   
-                  {currentMessages.map((msg) => {
+                  {(messageSearchQuery ? filteredMessages : currentMessages).map((msg) => {
                     // Debug: log message info in dev mode
                     if (import.meta.env.DEV && msg.id === currentMessages[0]?.id) {
                       console.log('🔍 Rendering message:', {
@@ -1824,7 +2011,7 @@ export default function ChatPage() {
                                   wordBreak: "break-word",
                                 }}
                               >
-                                {msg.message}
+                                {messageSearchQuery ? highlightText(msg.message, messageSearchQuery) : msg.message}
                               </Typography>
                               <Stack 
                                 direction="row" 
@@ -2010,9 +2197,58 @@ export default function ChatPage() {
             </Box>
           </Stack>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 0, overflow: "hidden" }}>
           {conversationDetail && (
-            <Box>
+            <Box
+              sx={{
+                maxHeight: "60vh",
+                overflowY: "scroll",
+                overflowX: "hidden",
+                p: 3,
+                // Firefox scrollbar
+                scrollbarWidth: "auto",
+                scrollbarColor: (t) => t.palette.mode === "dark" 
+                  ? "rgba(255, 255, 255, 0.8) rgba(255, 255, 255, 0.3)" 
+                  : "rgba(0, 0, 0, 0.8) rgba(0, 0, 0, 0.3)",
+                // Webkit scrollbar (Chrome, Safari, Edge)
+                "&::-webkit-scrollbar": {
+                  width: "14px",
+                  WebkitAppearance: "none",
+                  display: "block !important",
+                },
+                "&::-webkit-scrollbar-track": {
+                  background: (t) => t.palette.mode === "dark" 
+                    ? "rgba(255, 255, 255, 0.15)" 
+                    : "rgba(0, 0, 0, 0.15)",
+                  borderRadius: "7px",
+                  margin: "4px 0",
+                  border: (t) => `1px solid ${t.palette.mode === "dark" 
+                    ? "rgba(255, 255, 255, 0.1)" 
+                    : "rgba(0, 0, 0, 0.1)"}`,
+                },
+                "&::-webkit-scrollbar-thumb": {
+                  background: (t) => t.palette.mode === "dark" 
+                    ? "rgba(255, 255, 255, 0.6)" 
+                    : "rgba(0, 0, 0, 0.6)",
+                  borderRadius: "7px",
+                  border: (t) => `2px solid ${t.palette.mode === "dark" 
+                    ? "rgba(255, 255, 255, 0.15)" 
+                    : "rgba(0, 0, 0, 0.15)"}`,
+                  minHeight: "50px",
+                  transition: "background 0.2s ease",
+                  "&:hover": {
+                    background: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.8)" 
+                      : "rgba(0, 0, 0, 0.8)",
+                  },
+                  "&:active": {
+                    background: (t) => t.palette.mode === "dark" 
+                      ? "rgba(255, 255, 255, 0.9)" 
+                      : "rgba(0, 0, 0, 0.9)",
+                  },
+                },
+              }}
+            >
               {/* Participants List */}
               <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
                 Participants ({conversationDetail.participants?.length || 0})

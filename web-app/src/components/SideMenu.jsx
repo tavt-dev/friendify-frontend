@@ -16,8 +16,6 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import ChatIcon from "@mui/icons-material/Chat";
 import ChatOutlinedIcon from "@mui/icons-material/ChatBubbleOutline";
-import FlagIcon from "@mui/icons-material/Flag";
-import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkOutlinedIcon from "@mui/icons-material/BookmarkBorder";
 import { Link, useLocation } from "react-router-dom";
@@ -29,7 +27,6 @@ function SideMenu({ onNavigate }) {
     if (p.startsWith("/friends")) return "friends";
     if (p.startsWith("/groups")) return "groups";
     if (p.startsWith("/chat")) return "chat";
-    if (p.startsWith("/pages")) return "pages";
     if (p.startsWith("/saved")) return "saved";
     return "home";
   });
@@ -39,7 +36,6 @@ function SideMenu({ onNavigate }) {
     if (p.startsWith("/friends")) setActiveItem("friends");
     else if (p.startsWith("/groups")) setActiveItem("groups");
     else if (p.startsWith("/chat")) setActiveItem("chat");
-    else if (p.startsWith("/pages")) setActiveItem("pages");
     else if (p.startsWith("/saved")) setActiveItem("saved");
     else setActiveItem("home");
   }, [location.pathname]);
@@ -72,13 +68,6 @@ function SideMenu({ onNavigate }) {
       iconOutlined: GroupOutlinedIcon, 
       text: "Nhóm", 
       to: "/groups" 
-    },
-    { 
-      key: "pages", 
-      icon: FlagIcon, 
-      iconOutlined: FlagOutlinedIcon, 
-      text: "Trang", 
-      to: "/pages" 
     },
     { 
       key: "saved", 

@@ -2,6 +2,7 @@ import { getUserProfileById } from "../services/userService";
 
 /**
  * Get user full name from profile
+ * Vietnamese format: LastName FirstName (like Facebook)
  */
 export const getUserFullName = (profile) => {
   if (!profile) return null;
@@ -9,9 +10,8 @@ export const getUserFullName = (profile) => {
   const firstName = profile.firstName || '';
   const lastName = profile.lastName || '';
   
-  if (firstName && lastName) return `${firstName} ${lastName}`.trim();
-  if (firstName) return firstName;
-  if (lastName) return lastName;
+  // Vietnamese format: LastName FirstName (like Facebook)
+  if (firstName || lastName) return `${lastName} ${firstName}`.trim();
   if (profile.username) return profile.username;
   if (profile.name) return profile.name;
   
@@ -86,41 +86,70 @@ export const normalizeFriendData = (item) => {
     };
   }
   
-  // For friend requests: use senderId (userId of sender)
-  // For sent requests: use recipientId (friendId of recipient)
-  // For friends: use friendId or userId
-  const normalizedId = item.senderId || item.recipientId || item.friendId || item.userId || item.id || item.friend?.id || item.user?.id || 'unknown';
+  // Determine the user ID - prioritize userId field (backend standard):
+  // - For friend requests: senderId (userId field in FriendshipResponse)
+  // - For sent requests: recipientId (friendId field in FriendshipResponse)  
+  // - For friends: friendId (the other person in the friendship)
+  // - For following: followingId (the person being followed)
+  // - For followers: followerId (the person who is following)
+  // - For suggestions/search: userId (ProfileResponse) - this is the primary field
+  const normalizedId = item.userId  // ProfileResponse uses userId as primary identifier
+    || item.senderId 
+    || item.recipientId 
+    || item.followingId 
+    || item.followerId
+    || item.friendId 
+    || item.id 
+    || item.friend?.userId 
+    || item.friend?.id
+    || item.user?.userId 
+    || item.user?.id 
+    || 'unknown';
   
+  // Determine the name:
+  // Priority: friendName (already enriched) > firstName+lastName > username > name
   let normalizedName = null;
   if (item.friendName && !item.friendName.startsWith('User ')) {
     normalizedName = item.friendName;
   } else if (item.firstName || item.lastName) {
-    normalizedName = `${item.firstName || ''} ${item.lastName || ''}`.trim();
-  } else if (item.userName && !item.userName.startsWith('User ')) {
-    normalizedName = item.userName;
-  } else if (item.name && !item.name.startsWith('User ')) {
-    normalizedName = item.name;
+    // Vietnamese format: LastName FirstName
+    normalizedName = `${item.lastName || ''} ${item.firstName || ''}`.trim();
   } else if (item.username) {
     normalizedName = item.username;
+  } else if (item.name && !item.name.startsWith('User ')) {
+    normalizedName = item.name;
+  } else if (item.userName && !item.userName.startsWith('User ')) {
+    normalizedName = item.userName;
+  } else if (item.friend?.firstName || item.friend?.lastName) {
+    normalizedName = `${item.friend?.lastName || ''} ${item.friend?.firstName || ''}`.trim();
   } else if (item.friend?.name) {
     normalizedName = item.friend.name;
+  } else if (item.user?.firstName || item.user?.lastName) {
+    normalizedName = `${item.user?.lastName || ''} ${item.user?.firstName || ''}`.trim();
   } else if (item.user?.name) {
     normalizedName = item.user.name;
-  } else if (item.friend?.firstName || item.friend?.lastName) {
-    normalizedName = `${item.friend?.firstName || ''} ${item.friend?.lastName || ''}`.trim();
   }
   
   if (!normalizedName || normalizedName.trim() === '') {
     normalizedName = normalizedId !== 'unknown' ? 'Người dùng' : 'Unknown';
   }
   
+  // Determine avatar:
+  const normalizedAvatar = item.friendAvatar 
+    || item.userAvatar 
+    || item.avatar 
+    || item.friend?.avatar 
+    || item.user?.avatar 
+    || null;
+  
   return {
     id: normalizedId,
-    name: normalizedName || 'Unknown',
-    avatar: item.friendAvatar || item.userAvatar || item.avatar || item.friend?.avatar || item.user?.avatar || null,
+    name: normalizedName,
+    avatar: normalizedAvatar,
     mutualFriends: item.mutualFriends || 0,
     time: item.createdDate || item.time || item.createdAt || item.updatedAt || '',
     status: item.status || item.friendshipStatus || 'PENDING',
+    // Keep all original fields for reference
     ...item,
   };
 };

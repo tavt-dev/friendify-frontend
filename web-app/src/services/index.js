@@ -4,7 +4,6 @@ export * from './postService';
 export * from './friendService';
 export * from './groupService';
 export * from './chatService';
-export * from './pageService';
 export * from './savedService';
 export * from './settingsService';
 export * from './postInteractionService';

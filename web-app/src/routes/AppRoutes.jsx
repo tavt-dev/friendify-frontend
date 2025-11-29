@@ -5,7 +5,6 @@ import ChatPage from '../pages/ChatPage'
 import FriendsPage from '../pages/FriendsPage'
 import GroupPage from '../pages/GroupPage'
 import GroupDetailPage from '../pages/GroupDetailPage'
-import PagesPage from '../pages/PagesPage'
 import SavedPage from '../pages/SavedPage'
 import SettingsPage from '../pages/SettingsPage'
 import SearchPage from '../pages/SearchPage'
@@ -28,7 +27,6 @@ const AppRoutes = () => {
       <Route path="/friends" element={<FriendsPage />} />
       <Route path="/groups" element={<GroupPage />} />
       <Route path="/groups/:groupId" element={<GroupDetailPage />} />
-      <Route path="/pages" element={<PagesPage />} />
       <Route path="/saved" element={<SavedPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/search" element={<SearchPage />} />
