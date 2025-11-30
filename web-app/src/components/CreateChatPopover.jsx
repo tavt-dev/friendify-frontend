@@ -15,15 +15,21 @@ import {
   InputAdornment,
   IconButton,
   Alert,
+  Tabs,
+  Tab,
+  Chip,
+  Button,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
+import GroupAddIcon from "@mui/icons-material/GroupAdd";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { apiFetch } from "../services/apiHelper";
 import { API_ENDPOINTS } from "../config/apiConfig";
 import { extractArrayFromResponse } from "../utils/apiHelper";
 
-const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
+const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser, onCreateGroup }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
@@ -33,11 +39,16 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
   const listHoverBg = isDark ? alpha("#ffffff", 0.03) : "rgba(0,0,0,0.04)";
   const placeholderColor = isDark ? alpha("#ffffff", 0.6) : theme.palette.text.secondary;
 
+  const [tabValue, setTabValue] = useState(0); // 0: Direct chat, 1: Group
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Group creation state
+  const [groupName, setGroupName] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState([]);
 
   // Search users from API
   const handleSearch = useCallback(
@@ -63,15 +74,20 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
 
         const { items: usersList } = extractArrayFromResponse(response.data);
         
-        // Normalize user data
-        const normalizedUsers = usersList.map(user => ({
-          id: user.id || user.userId || user._id,
-          username: user.username || user.userName || '',
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          avatar: user.avatar || user.avatarUrl || null,
-          email: user.email || null,
-        }));
+        // Normalize user data - prioritize userId field from API
+        const normalizedUsers = usersList.map(user => {
+          // Get userId - prioritize userId field from API response
+          const userId = user.userId || user.id || user._id;
+          return {
+            id: userId, // Use for internal reference
+            userId: userId, // Also include userId field for consistency
+            username: user.username || user.userName || '',
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            avatar: user.avatar || user.avatarUrl || null,
+            email: user.email || null,
+          };
+        });
 
         setSearchResults(normalizedUsers);
       } catch (err) {
@@ -140,6 +156,9 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
       setHasSearched(false);
       setError(null);
       setLoading(false);
+      setTabValue(0);
+      setGroupName("");
+      setSelectedUsers([]);
     }
   }, [open]);
 
@@ -151,8 +170,11 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
   };
 
   const handleUserSelect = (user) => {
+    // Get userId from user object - prioritize userId field, then id
+    const userId = user.userId || user.id || user._id;
+    
     // Validate user has ID
-    if (!user || !user.id) {
+    if (!user || !userId) {
       setError("Người dùng không hợp lệ. Vui lòng chọn lại.");
       return;
     }
@@ -162,19 +184,69 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
       ? `${user.lastName} ${user.firstName}`.trim()
       : user.firstName || user.lastName || '';
     
-    const displayName = fullName || user.username || `User ${user.id}`;
+    const displayName = fullName || user.username || `User ${userId}`;
     
     const normalized = {
-      userId: String(user.id), // Ensure it's a string
+      userId: String(userId), // Ensure it's a string, use userId from user object
       displayName: displayName,
       avatar: user.avatar || null,
     };
-    onSelectUser(normalized);
-    // reset local state
-    setSearchQuery("");
-    setSearchResults([]);
-    setHasSearched(false);
-    onClose();
+    
+    console.log('👤 Selected user normalized:', normalized);
+    
+    // If in group mode, add to selected users
+    if (tabValue === 1) {
+      // Check if already selected
+      const exists = selectedUsers.find(u => String(u.userId || u.id) === String(userId));
+      if (!exists) {
+        setSelectedUsers(prev => [...prev, {
+          ...normalized,
+          id: userId,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        }]);
+      }
+      // Clear search but keep popover open
+      setSearchQuery("");
+      setSearchResults([]);
+      setHasSearched(false);
+    } else {
+      // Direct chat mode - select user and close
+      onSelectUser(normalized);
+      setSearchQuery("");
+      setSearchResults([]);
+      setHasSearched(false);
+      onClose();
+    }
+  };
+
+  const handleRemoveSelectedUser = (userId) => {
+    setSelectedUsers(prev => prev.filter(u => String(u.userId || u.id) !== String(userId)));
+  };
+
+  const handleCreateGroup = () => {
+    if (!groupName.trim()) {
+      setError("Vui lòng nhập tên nhóm.");
+      return;
+    }
+    
+    if (selectedUsers.length < 2) {
+      setError("Vui lòng chọn ít nhất 2 thành viên.");
+      return;
+    }
+
+    if (onCreateGroup) {
+      onCreateGroup({
+        groupName: groupName.trim(),
+        participants: selectedUsers,
+      });
+      // Reset and close
+      setGroupName("");
+      setSelectedUsers([]);
+      setTabValue(0);
+      onClose();
+    }
   };
 
   return (
@@ -199,9 +271,61 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
         },
       }}
     >
-      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: "bold", color: "text.primary" }}>
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: "bold", color: "text.primary" }}>
         Bắt đầu cuộc trò chuyện mới
       </Typography>
+
+      <Tabs 
+        value={tabValue} 
+        onChange={(e, newValue) => setTabValue(newValue)}
+        sx={{ mb: 2, minHeight: 40 }}
+      >
+        <Tab 
+          icon={<PersonAddIcon fontSize="small" />} 
+          iconPosition="start"
+          label="Chat đơn" 
+          sx={{ minHeight: 40, fontSize: '0.875rem' }}
+        />
+        <Tab 
+          icon={<GroupAddIcon fontSize="small" />} 
+          iconPosition="start"
+          label="Tạo nhóm" 
+          sx={{ minHeight: 40, fontSize: '0.875rem' }}
+        />
+      </Tabs>
+
+      {tabValue === 1 && (
+        <>
+          <TextField
+            fullWidth
+            label="Tên nhóm"
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder="Nhập tên nhóm..."
+            sx={{ mb: 2 }}
+            size="small"
+          />
+          
+          {selectedUsers.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                Đã chọn ({selectedUsers.length}):
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {selectedUsers.map((user) => (
+                  <Chip
+                    key={user.userId || user.id}
+                    label={user.displayName || user.username || `User ${user.userId}`}
+                    onDelete={() => handleRemoveSelectedUser(user.userId || user.id)}
+                    avatar={<Avatar src={user.avatar}>{user.displayName?.charAt(0) || 'U'}</Avatar>}
+                    size="small"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </>
+      )}
 
       <TextField
         fullWidth
@@ -312,10 +436,36 @@ const CreateChatPopover = ({ anchorEl, open, onClose, onSelectUser }) => {
 
         {!loading && !error && !hasSearched && (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary">Tìm kiếm người dùng để bắt đầu cuộc trò chuyện</Typography>
+            <Typography color="text.secondary">
+              {tabValue === 0 
+                ? "Tìm kiếm người dùng để bắt đầu cuộc trò chuyện"
+                : "Tìm kiếm người dùng để thêm vào nhóm"}
+            </Typography>
           </Box>
         )}
       </Box>
+
+      {tabValue === 1 && (
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={onClose}
+            size="small"
+          >
+            Hủy
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={handleCreateGroup}
+            disabled={!groupName.trim() || selectedUsers.length < 2}
+            size="small"
+          >
+            Tạo nhóm ({selectedUsers.length})
+          </Button>
+        </Box>
+      )}
     </Popover>
   );
 };
@@ -325,6 +475,7 @@ CreateChatPopover.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSelectUser: PropTypes.func.isRequired,
+  onCreateGroup: PropTypes.func,
 };
 
 export default CreateChatPopover;

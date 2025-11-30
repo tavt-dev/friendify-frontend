@@ -220,6 +220,10 @@ export default function ChatPage() {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupParticipants, setGroupParticipants] = useState([]);
+  const [addGroupMembersDialogOpen, setAddGroupMembersDialogOpen] = useState(false);
   const messageContainerRef = useRef(null);
   const typingTimeoutRef = useRef({});
 
@@ -256,6 +260,100 @@ export default function ChatPage() {
     setNewChatAnchorEl(null);
   };
 
+  // Create group handlers
+  const handleCreateGroupClick = () => {
+    setCreateGroupDialogOpen(true);
+  };
+
+  const handleCloseCreateGroupDialog = () => {
+    setCreateGroupDialogOpen(false);
+    setGroupName("");
+    setGroupParticipants([]);
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || groupParticipants.length < 2) {
+      setError("Vui lòng nhập tên nhóm và chọn ít nhất 2 thành viên.");
+      return;
+    }
+
+    try {
+      const participantIds = groupParticipants.map(p => String(p.userId || p.id).trim()).filter(Boolean);
+      
+      if (participantIds.length < 2) {
+        setError("Vui lòng chọn ít nhất 2 thành viên.");
+        return;
+      }
+
+      console.log('📤 Creating group conversation:', { groupName, participantIds });
+      
+      const response = await createConversation({
+        typeConversation: 'GROUP',
+        participantIds: participantIds,
+        conversationName: groupName.trim()
+      });
+      
+      console.log('📥 Group conversation response:', response);
+      
+      const conversationData = response.data?.result || response.data;
+      
+      if (!conversationData) {
+        setError("Không thể tạo nhóm. Dữ liệu trả về không hợp lệ.");
+        handleCloseCreateGroupDialog();
+        return;
+      }
+
+      const newConversation = normalizeConversation(conversationData, currentUserId);
+      
+      if (!newConversation) {
+        setError("Không thể tạo nhóm. Dữ liệu không hợp lệ.");
+        handleCloseCreateGroupDialog();
+        return;
+      }
+      
+      if (!mountedRef.current) return;
+
+      setConversations((prev) => [newConversation, ...prev]);
+      setSelectedConversation(newConversation);
+      if (isMobile) setShowChatOnMobile(true);
+      
+      handleCloseCreateGroupDialog();
+    } catch (err) {
+      if (!mountedRef.current) return;
+      
+      console.error('❌ Error creating group:', err);
+      
+      if (!err || !err.response) {
+        setError("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.");
+        handleCloseCreateGroupDialog();
+        return;
+      }
+
+      const status = err.response.status;
+      const errorData = err.response.data || {};
+      const errorMessage = errorData.message 
+        || errorData.error 
+        || errorData.msg
+        || errorData.errors?.[0]?.message
+        || (typeof errorData.errors === 'string' ? errorData.errors : null)
+        || errorData.details;
+
+      if (status === 400) {
+        setError(errorMessage || "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại thông tin.");
+      } else if (status === 401) {
+        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      } else if (status === 403) {
+        setError("Bạn không có quyền tạo nhóm.");
+      } else if (status === 500) {
+        setError("Lỗi server. Vui lòng thử lại sau.");
+      } else {
+        setError(errorMessage || "Không thể tạo nhóm. Vui lòng thử lại.");
+      }
+      
+      handleCloseCreateGroupDialog();
+    }
+  };
+
   // When user chooses from CreateChatPopover: create or select conversation
   const handleSelectNewChatUser = async (selectedUser) => {
     // normalized { userId, displayName, avatar }
@@ -278,14 +376,22 @@ export default function ChatPage() {
       }
 
       // Create conversation with participantIds array (backend expects typeConversation and participantIds)
-      const response = await createConversation({
+      console.log('📤 Creating conversation for user:', selectedUser.userId);
+      const requestData = {
         typeConversation: 'DIRECT',
         participantIds: [String(selectedUser.userId).trim()],
-      });
+      };
+      console.log('📤 Request data:', requestData);
+      
+      const response = await createConversation(requestData);
+      console.log('📥 Full response:', response);
+      console.log('📥 Response data:', response.data);
       
       const conversationData = response.data?.result || response.data;
+      console.log('📥 Conversation data:', conversationData);
       
       if (!conversationData) {
+        console.error('❌ No conversation data in response:', response);
         setError("Không thể tạo cuộc trò chuyện. Dữ liệu trả về không hợp lệ.");
         handleCloseNewChat();
         return;
@@ -1442,6 +1548,25 @@ export default function ChatPage() {
     ? 'calc(100vh - 64px - 64px)' // subtract header and bottom nav
     : 'calc(100vh - 64px - 32px)'; // subtract header and padding
 
+  // Helper function to get the most recent message for a conversation
+  const getLastMessageForConversation = (conversation) => {
+    // First check if conversation has lastMessage
+    if (conversation.lastMessage) {
+      return conversation.lastMessage;
+    }
+    
+    // If not, check messagesMap for loaded messages
+    const messages = messagesMap[conversation.id];
+    if (messages && messages.length > 0) {
+      // Messages are sorted by createdDate, so the last one is most recent
+      const lastMsg = messages[messages.length - 1];
+      return lastMsg.message || '';
+    }
+    
+    // Default fallback
+    return '';
+  };
+
   return (
     <PageLayout>
       <Box
@@ -1522,6 +1647,76 @@ export default function ChatPage() {
                 open={Boolean(newChatAnchorEl)}
                 onClose={handleCloseNewChat}
                 onSelectUser={handleSelectNewChatUser}
+                onCreateGroup={async ({ groupName, participants }) => {
+                  try {
+                    const participantIds = participants.map(p => String(p.userId || p.id).trim()).filter(Boolean);
+                    
+                    if (participantIds.length < 2) {
+                      setError("Vui lòng chọn ít nhất 2 thành viên.");
+                      return;
+                    }
+
+                    console.log('📤 Creating group conversation from popover:', { groupName, participantIds });
+                    
+                    const response = await createConversation({
+                      typeConversation: 'GROUP',
+                      participantIds: participantIds,
+                      conversationName: groupName
+                    });
+                    
+                    console.log('📥 Group conversation response:', response);
+                    
+                    const conversationData = response.data?.result || response.data;
+                    
+                    if (!conversationData) {
+                      setError("Không thể tạo nhóm. Dữ liệu trả về không hợp lệ.");
+                      return;
+                    }
+
+                    const newConversation = normalizeConversation(conversationData, currentUserId);
+                    
+                    if (!newConversation) {
+                      setError("Không thể tạo nhóm. Dữ liệu không hợp lệ.");
+                      return;
+                    }
+                    
+                    if (!mountedRef.current) return;
+
+                    setConversations((prev) => [newConversation, ...prev]);
+                    setSelectedConversation(newConversation);
+                    if (isMobile) setShowChatOnMobile(true);
+                  } catch (err) {
+                    if (!mountedRef.current) return;
+                    
+                    console.error('❌ Error creating group from popover:', err);
+                    
+                    if (!err || !err.response) {
+                      setError("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.");
+                      return;
+                    }
+
+                    const status = err.response.status;
+                    const errorData = err.response.data || {};
+                    const errorMessage = errorData.message 
+                      || errorData.error 
+                      || errorData.msg
+                      || errorData.errors?.[0]?.message
+                      || (typeof errorData.errors === 'string' ? errorData.errors : null)
+                      || errorData.details;
+
+                    if (status === 400) {
+                      setError(errorMessage || "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại thông tin.");
+                    } else if (status === 401) {
+                      setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+                    } else if (status === 403) {
+                      setError("Bạn không có quyền tạo nhóm.");
+                    } else if (status === 500) {
+                      setError("Lỗi server. Vui lòng thử lại sau.");
+                    } else {
+                      setError(errorMessage || "Không thể tạo nhóm. Vui lòng thử lại.");
+                    }
+                  }
+                }}
               />
             </Box>
             <TextField
@@ -1647,7 +1842,7 @@ export default function ChatPage() {
                             color="text.primary" 
                             noWrap
                           >
-                            {conversation.lastMessage || "Start a conversation"}
+                            {getLastMessageForConversation(conversation) || "Start a conversation"}
                           </Typography>
                         }
                         primaryTypographyProps={{ fontWeight: conversation.unread > 0 ? "bold" : "normal" }}
@@ -2393,6 +2588,121 @@ export default function ChatPage() {
           selectedConversation?.participants?.map(p => p.userId) || 
           []
         }
+      />
+
+      {/* Create Group Dialog */}
+      <Dialog
+        open={createGroupDialogOpen}
+        onClose={handleCloseCreateGroupDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6">Tạo nhóm mới</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Tên nhóm"
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder="Nhập tên nhóm..."
+            sx={{ mb: 2, mt: 1 }}
+            autoFocus
+          />
+          
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Thành viên ({groupParticipants.length})
+            </Typography>
+            {groupParticipants.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {groupParticipants.map((p) => (
+                  <Chip
+                    key={p.userId || p.id}
+                    label={p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.username || 'User'}
+                    onDelete={() => setGroupParticipants(prev => prev.filter(x => (x.userId || x.id) !== (p.userId || p.id)))}
+                    avatar={<Avatar src={p.avatar}>{p.displayName?.charAt(0) || p.username?.charAt(0) || 'U'}</Avatar>}
+                    size="small"
+                  />
+                ))}
+              </Box>
+            )}
+            <Button
+              startIcon={<GroupAddIcon />}
+              onClick={() => {
+                setAddGroupMembersDialogOpen(true);
+              }}
+              variant="outlined"
+              size="small"
+            >
+              Thêm thành viên
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCreateGroupDialog}>Hủy</Button>
+          <Button
+            onClick={handleCreateGroup}
+            variant="contained"
+            disabled={!groupName.trim() || groupParticipants.length < 2}
+          >
+            Tạo nhóm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Members Dialog for creating group */}
+      <AddMembersDialog
+        open={addGroupMembersDialogOpen}
+        onClose={() => setAddGroupMembersDialogOpen(false)}
+        onAddMembers={async (participantIds, selectedUsers) => {
+          // Add selected users to group participants
+          // If selectedUsers is provided, use their details
+          const newParticipants = participantIds.map((id, index) => {
+            // Try to find in existing participants first
+            const existing = groupParticipants.find(p => String(p.userId || p.id) === String(id));
+            if (existing) return existing;
+            
+            // If selectedUsers provided, use their details
+            if (selectedUsers && selectedUsers[index]) {
+              const user = selectedUsers[index];
+              const fullName = user.firstName && user.lastName 
+                ? `${user.lastName} ${user.firstName}`.trim()
+                : user.firstName || user.lastName || '';
+              const displayName = fullName || user.username || `User ${id}`;
+              
+              return {
+                userId: id,
+                id: id,
+                displayName: displayName,
+                username: user.username || null,
+                firstName: user.firstName || null,
+                lastName: user.lastName || null,
+                avatar: user.avatar || null,
+              };
+            }
+            
+            // Otherwise create basic entry
+            return {
+              userId: id,
+              id: id,
+              displayName: `User ${id}`,
+              username: null,
+              avatar: null,
+            };
+          });
+          
+          setGroupParticipants(prev => {
+            // Avoid duplicates
+            const existingIds = new Set(prev.map(p => String(p.userId || p.id)));
+            const unique = newParticipants.filter(p => !existingIds.has(String(p.userId || p.id)));
+            return [...prev, ...unique];
+          });
+          
+          setAddGroupMembersDialogOpen(false);
+        }}
+        existingParticipantIds={groupParticipants.map(p => p.userId || p.id)}
       />
     </PageLayout>
   );

@@ -57,73 +57,29 @@ export default function SavedPage() {
         return date.toLocaleDateString('vi-VN');
       };
 
-      // Fetch avatars and user info for all unique user IDs (same as HomePage)
+      // Fetch user profiles for all unique user IDs
       const uniqueUserIds = [...new Set(newPosts.map(p => p.userId).filter(Boolean))];
-      const avatarMap = new Map();
       const userInfoMap = new Map();
-      const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=667eea&color=fff&size=128";
       
-      // Batch requests with limit to avoid too many concurrent requests (same as HomePage)
-      if (uniqueUserIds.length > 0) {
-        const batchSize = 5;
-        for (let i = 0; i < uniqueUserIds.length; i += batchSize) {
-          const batch = uniqueUserIds.slice(i, i + batchSize);
-          
-          const avatarPromises = batch
-            .filter(userId => {
-              const strId = String(userId).trim();
-              return strId && strId.length > 0 && strId !== 'undefined' && strId !== 'null';
-            })
-            .map(async (userId) => {
-              try {
-                const cleanUserId = String(userId).trim();
-                
-                // Use getUserProfileById with suppress404 to avoid console errors
-                const response = await getUserProfileById(cleanUserId, true);
-                
-                // Handle response - check if data exists and is not null
-                if (response && response.data !== null && response.data !== undefined) {
-                  const userData = response.data?.result || response.data?.data || response.data;
-                  
-                  // Only process if userData is valid
-                  if (userData && typeof userData === 'object') {
-                    const avatar = userData?.avatar || null;
-                    const finalAvatar = avatar || defaultAvatar;
-                    
-                    // Store avatar
-                    avatarMap.set(userId, finalAvatar);
-                    
-                    // Store firstName and lastName
-                    if (userData?.firstName || userData?.lastName) {
-                      const userInfo = {
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || '',
-                      };
-                      userInfoMap.set(userId, userInfo);
-                    }
-                    return { userId, success: true };
-                  }
-                }
-                // 404 or no data - use default avatar silently
-                avatarMap.set(userId, defaultAvatar);
-                return { userId, success: false, reason: 'no_data' };
-              } catch (error) {
-                // Silently fail and use default avatar - don't log 404/400 errors
-                if (error?.response?.status !== 404 && error?.response?.status !== 400) {
-                  // Only log non-404/400 errors in development
-                  if (process.env.NODE_ENV === 'development') {
-                    console.warn(`Failed to load profile for user ${userId}:`, error);
-                  }
-                }
-                avatarMap.set(userId, defaultAvatar);
-                return { userId, success: false, reason: 'error' };
-              }
-            });
-          
-          // Wait for batch to complete before starting next batch
-          await Promise.allSettled(avatarPromises);
-        }
-      }
+      // Fetch user profiles in parallel
+      await Promise.all(
+        uniqueUserIds.map(async (userId) => {
+          try {
+            const profile = await getUserProfileById(userId, true);
+            const profileData = profile?.data?.result || profile?.data || profile;
+            if (profileData) {
+              userInfoMap.set(userId, {
+                firstName: profileData.firstName || '',
+                lastName: profileData.lastName || '',
+                avatar: profileData.avatar || null,
+                username: profileData.username || '',
+              });
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch profile for userId ${userId}:`, err);
+          }
+        })
+      );
 
       const mappedPosts = newPosts.map((post) => {
         const media = (post.imageUrls || []).map((url) => ({
@@ -134,37 +90,44 @@ export default function SavedPage() {
         
         const created = formatTimeAgo(post.createdDate || post.created);
         
-        // Get userId from multiple possible sources
-        const postUserId = post.userId || post.user?.id || post.user?.userId || post.userId;
+        // Get user info from map or post data
+        const userInfo = userInfoMap.get(post.userId) || {};
         
-        // Get user info from map
-        const userInfo = userInfoMap.get(postUserId) || {};
-        
-        // Priority: userAvatar from post response (most up-to-date) > avatarMap > other fields > default
-        // EXACTLY the same as HomePage - check all possible avatar sources from post
-        let avatar = post.userAvatar ||  // Backend trả về trong PostResponse (highest priority)
-                     post.avatar || 
-                     post.user?.avatar || 
-                     post.userProfile?.avatar ||
-                     avatarMap.get(postUserId) ||  // Fallback to fetched profile avatar
-                     null; // Don't use default avatar here, let Post component handle it
-        
-        // Only use default avatar if absolutely no avatar found
-        // But first check if avatar is empty string and clean it
-        if (!avatar || (typeof avatar === 'string' && avatar.trim() === '')) {
-          avatar = null; // Set to null so Post component can generate initials from name
-        }
-        
-        // Backend đã trả về displayName trong username field (theo PostService.java line 474)
-        // Nhưng chúng ta cần firstName/lastName để hiển thị đúng định dạng
+        // Get display name: lastName firstName if available, otherwise username
         const displayName = userInfo.firstName && userInfo.lastName
           ? `${userInfo.lastName} ${userInfo.firstName}`.trim()
           : userInfo.firstName || userInfo.lastName || post.username || post.userName || post.user?.username || 'Unknown';
         
-        return {
+        // Get display name for default avatar generation
+        const displayNameForAvatar = displayName || 'User';
+        const postDefaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayNameForAvatar)}&background=667eea&color=fff&size=128`;
+        
+        // Priority: userAvatar from post response (most up-to-date) > userInfoMap > other fields > default
+        // Same priority as HomePage - check all possible avatar fields from post response
+        let avatar = post.userAvatar ||  // Backend trả về trong PostResponse (most up-to-date)
+                     post.avatar || 
+                     post.userAvatarUrl ||
+                     post.user?.avatar || 
+                     post.user?.avatarUrl ||
+                     post.userProfile?.avatar ||
+                     post.userProfile?.avatarUrl ||
+                     userInfoMap.get(post.userId)?.avatar ||  // Fallback to fetched profile avatar
+                     postDefaultAvatar;
+        
+        // Clean avatar: if empty or whitespace, set to null so Post component can generate initials
+        if (avatar && typeof avatar === 'string' && avatar.trim() === '') {
+          avatar = null;
+        }
+        
+        // Get userId from multiple possible sources
+        const postUserId = post.userId || post.user?.id || post.user?.userId;
+        
+        // Build formatted post object - put formatted fields AFTER spread to ensure they override
+        const formattedPost = {
+          ...post, // Spread original post data first
           id: post.id,
-          avatar: avatar, // Use avatar from post or null (Post component will generate initials)
-          username: post.username || post.userName || post.user?.username || 'Unknown',
+          avatar: avatar, // Override with formatted avatar
+          username: post.username || post.userName || post.user?.username || userInfo.username || 'Unknown',
           firstName: userInfo.firstName || post.firstName || post.user?.firstName || '',
           lastName: userInfo.lastName || post.lastName || post.user?.lastName || '',
           displayName: displayName,
@@ -177,8 +140,9 @@ export default function SavedPage() {
           commentCount: post.commentCount || 0,
           isLiked: post.isLiked || false,
           isSaved: true, // Mark as saved since these are saved posts
-          ...post,
         };
+        
+        return formattedPost;
       });
       
       if (pageNum === 1) {

@@ -45,7 +45,7 @@ import {
   likeComment,
   unlikeComment,
 } from "../services/postInteractionService";
-import { savePost, unsavePost } from "../services/postService";
+import { savePost, unsavePost, deletePost } from "../services/postService";
 import { getUserProfileById } from "../services/userService";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { apiFetch } from "../services/apiHelper";
@@ -243,7 +243,7 @@ const CommentItem = ({ comment, currentUserId, replyingTo, setReplyingTo, replyT
 
 const Post = forwardRef((props, ref) => {
   const navigate = useNavigate();
-  const { avatar, username, firstName, lastName, displayName, created, content, id, media, userId, privacy } = props.post;
+  const { avatar, username, firstName, lastName, displayName, created, content, id, media, userId, privacy, ownerId, isOwnerPost } = props.post;
   const { onEdit, onDelete, currentUserId } = props;
   
   // Get display name: lastName firstName if available, otherwise username
@@ -259,7 +259,43 @@ const Post = forwardRef((props, ref) => {
     : lastName
     ? lastName[0]?.toUpperCase() || ''
     : username?.charAt(0)?.toUpperCase() || 'U';
-  const isOwner = currentUserId && userId && String(currentUserId) === String(userId);
+  
+  // Kiểm tra owner - ƯU TIÊN dùng isOwnerPost từ backend (chính xác nhất)
+  // Nếu backend không trả về, mới tính toán từ userId
+  const postOwnerId = userId || ownerId;
+  
+  // Normalize IDs để so sánh (chuyển về string và trim, loại bỏ null/undefined)
+  const normalizeId = (id) => {
+    if (id === null || id === undefined) return null;
+    const str = String(id).trim();
+    return str === '' ? null : str;
+  };
+  
+  const normalizedCurrentUserId = normalizeId(currentUserId);
+  const normalizedPostOwnerId = normalizeId(postOwnerId);
+  
+  // Ưu tiên dùng isOwnerPost từ backend, nếu không có thì tính toán
+  const isOwner = isOwnerPost !== undefined 
+    ? Boolean(isOwnerPost)  // Dùng giá trị từ backend
+    : (normalizedCurrentUserId && normalizedPostOwnerId && 
+       normalizedCurrentUserId === normalizedPostOwnerId);  // Fallback: tự tính
+  
+  // Debug log để kiểm tra
+  useEffect(() => {
+    console.log('🔍 Post ownership check:', { 
+      postId: id,
+      isOwnerPostFromBackend: isOwnerPost,
+      isOwnerCalculated: normalizedCurrentUserId && normalizedPostOwnerId && normalizedCurrentUserId === normalizedPostOwnerId,
+      finalIsOwner: isOwner,
+      normalizedCurrentUserId, 
+      normalizedPostOwnerId,
+      rawCurrentUserId: currentUserId,
+      rawPostUserId: postOwnerId,
+      userId,
+      ownerId,
+      fullPostData: props.post
+    });
+  }, [isOwnerPost, normalizedCurrentUserId, normalizedPostOwnerId, isOwner, id, currentUserId, postOwnerId, userId, ownerId]);
 
   const handleUserClick = (e) => {
     e.stopPropagation(); // Prevent event bubbling
@@ -287,7 +323,9 @@ const Post = forwardRef((props, ref) => {
   const [loadingLike, setLoadingLike] = useState(false);
   const [loadingShare, setLoadingShare] = useState(false);
   const [loadingSave, setLoadingSave] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "");
@@ -772,9 +810,35 @@ const Post = forwardRef((props, ref) => {
     setEditedPrivacy(privacy || "PUBLIC");
     setIsEditing(false);
   };
-  const handleDelete = () => {
-    onDelete?.(id);
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
     handleMenuClose();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!id || loadingDelete) return;
+    
+    setLoadingDelete(true);
+    try {
+      await deletePost(id);
+      setDeleteDialogOpen(false);
+      if (onDelete) {
+        onDelete(id);
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể xóa bài viết. Vui lòng thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoadingDelete(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
   };
 
   const handleSavePost = async () => {
@@ -937,16 +1001,18 @@ const Post = forwardRef((props, ref) => {
             </Box>
           </Box>
           {isOwner && (
-            <IconButton
-              onClick={handleMenuOpen}
-              size="small"
-              sx={(t) => ({
-                color: "text.secondary",
-                "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main" },
-              })}
-            >
-              <MoreVert />
-            </IconButton>
+            <Tooltip title="Tùy chọn">
+              <IconButton
+                onClick={handleMenuOpen}
+                size="small"
+                sx={(t) => ({
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: t.palette.action.hover, color: "primary.main" },
+                })}
+              >
+                <MoreVert />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
       </Box>
@@ -1451,7 +1517,7 @@ const Post = forwardRef((props, ref) => {
           ✏️ Sửa bài viết
         </MenuItem>
         <MenuItem
-          onClick={handleDelete}
+          onClick={handleDeleteClick}
           sx={(t) => ({
             fontSize: 14,
             py: 1.5,
@@ -1567,6 +1633,69 @@ const Post = forwardRef((props, ref) => {
             })}
           >
             {loadingShare ? <CircularProgress size={20} /> : "Chia sẻ"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: (t) => ({
+            borderRadius: 4,
+            bgcolor: "background.paper",
+            border: "1px solid",
+            borderColor: "divider",
+          }),
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 20, pb: 1 }}>
+          Xác nhận xóa bài viết
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ fontSize: 15, color: "text.primary" }}>
+            Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể hoàn tác.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button
+            onClick={handleDeleteCancel}
+            disabled={loadingDelete}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: 3,
+              px: 3,
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={loadingDelete}
+            variant="contained"
+            color="error"
+            sx={(t) => ({
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: 3,
+              px: 3.5,
+              bgcolor: t.palette.error.main,
+              "&:hover": {
+                bgcolor: t.palette.error.dark,
+                transform: "translateY(-2px)",
+              },
+              "&:disabled": {
+                bgcolor: "action.disabledBackground",
+                color: "text.disabled",
+              },
+              transition: "all 0.3s ease",
+            })}
+          >
+            {loadingDelete ? <CircularProgress size={20} /> : "Xóa"}
           </Button>
         </DialogActions>
       </Dialog>

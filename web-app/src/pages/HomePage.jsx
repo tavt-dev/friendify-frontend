@@ -6,7 +6,7 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { logOut } from "../services/identityService";
-import { getPublicPosts, updatePost, deletePost } from "../services/postService";
+import { getPublicPosts, updatePost, updatePostWithJson, deletePost } from "../services/postService";
 import { useUser } from "../contexts/UserContext";
 import { getApiUrl, API_ENDPOINTS } from "../config/apiConfig";
 import { getToken } from "../services/localStorageService";
@@ -83,12 +83,21 @@ export default function HomePage() {
   const handleEditPost = async (postId, newContent, newPrivacy) => {
     try {
       setLoading(true);
+      
+      // Tìm post hiện tại để lấy imageUrls (giữ nguyên ảnh cũ)
+      const currentPost = posts.find(p => p.id === postId);
+      const existingImageUrls = currentPost?.media?.map(m => m.url) || 
+                                 currentPost?.imageUrls || 
+                                 [];
+      
       const postData = {
-        content: newContent,
-        privacy: newPrivacy,
+        content: newContent || '',
+        privacy: newPrivacy || 'PUBLIC',
+        imageUrls: existingImageUrls, // Giữ nguyên ảnh cũ
       };
       
-      const response = await updatePost(postId, postData);
+      // Dùng JSON endpoint khi chỉ cập nhật content và privacy (không có ảnh mới)
+      const response = await updatePostWithJson(postId, postData);
       const updatedPost = response.data?.result || response.data;
       
       if (updatedPost) {
@@ -106,7 +115,12 @@ export default function HomePage() {
         setSnackbarOpen(true);
       }
     } catch (error) {
-      setSnackbarMessage("Không thể cập nhật bài viết. Vui lòng thử lại.");
+      console.error("Error updating post:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          "Không thể cập nhật bài viết. Vui lòng thử lại.";
+      setSnackbarMessage(errorMessage);
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {

@@ -529,10 +529,14 @@ export default function FriendsPage() {
   const getFriendshipStatus = (userId) => {
     if (!userId) return 'NONE';
     
+    // Normalize userId to string for comparison
     const normalizedUserId = String(userId).trim();
+    
+    // Check if user is already a friend (using userId)
     const isFriend = friendsList.some(id => String(id).trim() === normalizedUserId);
     if (isFriend) return 'ACCEPTED';
     
+    // Check if request has been sent (using userId)
     const hasSentRequest = sentRequestsList.some(id => String(id).trim() === normalizedUserId);
     if (hasSentRequest) return 'PENDING';
     
@@ -552,9 +556,12 @@ export default function FriendsPage() {
       const { items: results } = extractArrayFromResponse(response.data);
       
       const resultsWithStatus = results.map(user => {
-        const userId = user.id || user.userId;
+        // Prioritize userId field from API response
+        const userId = user.userId || user.id;
         return {
           ...user,
+          userId: userId, // Ensure userId field is present
+          id: userId, // Also keep id for backward compatibility
           friendshipStatus: getFriendshipStatus(userId),
         };
       });
@@ -656,10 +663,12 @@ export default function FriendsPage() {
       }
       
       setSearchResults((prev) => prev.map((user) => {
-        const id = String(user.id || user.userId).trim();
-        if (id === normalizedUserId) {
+        // Use userId field for comparison
+        const userId = String(user.userId || user.id).trim();
+        if (userId === normalizedUserId) {
           return { 
             ...user, 
+            userId: userId, // Ensure userId is present
             friendshipStatus: 'PENDING', 
             status: 'PENDING',
             requestSent: true
@@ -681,10 +690,11 @@ export default function FriendsPage() {
 
   const handleUnfriend = async (friendId) => {
     try {
+      // friendId should be userId
       await removeFriend(friendId);
       setAllFriends((prev) => prev.filter((friend) => {
-        const id = friend.friendId || friend.id || friend.userId;
-        return id !== friendId;
+        const userId = friend.userId || friend.friendId || friend.id;
+        return String(userId).trim() !== String(friendId).trim();
       }));
       setFriendsList((prev) => prev.filter(id => String(id).trim() !== String(friendId).trim()));
       setSnackbar({ open: true, message: "Đã hủy kết bạn!", severity: "warning" });
@@ -925,9 +935,8 @@ export default function FriendsPage() {
                 <Grid container spacing={2.5}>
                   {friendRequests.map((request, index) => {
                     const normalized = normalizeFriendData(request);
-                    const uniqueKey = normalized.id || request.id || `friend-request-${index}`;
-                    // Use senderId for friend requests (the person who sent the request)
-                    const profileId = request.senderId || normalized.id;
+                    const userId = normalized.userId || normalized.id || request.senderId || request.userId;
+                    const uniqueKey = userId || `friend-request-${index}`;
                     return (
                     <Grid item xs={12} sm={6} md={4} key={uniqueKey}>
                       <Card
@@ -936,7 +945,7 @@ export default function FriendsPage() {
                           if (e.target.closest('button')) {
                             return;
                           }
-                          navigate(`/profile/${profileId}`);
+                          navigate(`/profile/${userId}`);
                         }}
                         sx={(t) => ({
                           borderRadius: 4,
@@ -989,7 +998,7 @@ export default function FriendsPage() {
                               startIcon={<CheckIcon />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const senderId = request.senderId || normalized.id;
+                                const senderId = request.senderId || request.userId || normalized.userId || normalized.id;
                                 handleAcceptRequest(senderId);
                               }}
                               sx={{
@@ -1009,7 +1018,7 @@ export default function FriendsPage() {
                               variant="outlined"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const senderId = request.senderId || normalized.id;
+                                const senderId = request.senderId || request.userId || normalized.userId || normalized.id;
                                 handleDeclineRequest(senderId);
                               }}
                               sx={{
@@ -1085,17 +1094,18 @@ export default function FriendsPage() {
               </Card>
 
               <Grid container spacing={2.5}>
-                {filteredFriends.map((friend) => {
+                  {filteredFriends.map((friend) => {
                   const normalized = normalizeFriendData(friend);
+                  const userId = normalized.userId || normalized.id; // Use userId for navigation
                   return (
-                  <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                  <Grid item xs={12} sm={6} md={4} key={userId}>
                     <Card
                       elevation={0}
                       onClick={(e) => {
                         if (e.target.closest('button')) {
                           return;
                         }
-                        navigate(`/profile/${normalized.id}`);
+                        navigate(`/profile/${userId}`);
                       }}
                       sx={(t) => ({
                         borderRadius: 4,
@@ -1170,7 +1180,7 @@ export default function FriendsPage() {
                           variant="outlined"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleUnfriend(normalized.id);
+                            handleUnfriend(userId);
                           }}
                           sx={{
                             textTransform: "none",
@@ -1252,7 +1262,8 @@ export default function FriendsPage() {
                 <Grid container spacing={2.5}>
                   {sentRequests.map((request, index) => {
                     const normalized = normalizeFriendData(request);
-                    const uniqueKey = normalized.id || request.id || `sent-request-${index}`;
+                    const userId = normalized.userId || normalized.id || request.recipientId || request.friendId;
+                    const uniqueKey = userId || `sent-request-${index}`;
                     return (
                     <Grid item xs={12} sm={6} md={4} key={uniqueKey}>
                       <Card
@@ -1404,12 +1415,18 @@ export default function FriendsPage() {
               ) : (
                 <Grid container spacing={2.5}>
                   {searchResults.map((user) => {
-                    const userId = user.id || user.userId;
+                    // Prioritize userId field from API response
+                    const userId = user.userId || user.id;
                     const userName = user.firstName && user.lastName 
                       ? `${user.lastName} ${user.firstName}`.trim() 
                       : user.username || user.name || 'Unknown';
                     const userAvatar = user.avatar || null;
                     const friendshipStatus = user.friendshipStatus || user.status || 'NONE';
+                    
+                    if (!userId) {
+                      console.warn('Search result missing userId:', user);
+                      return null;
+                    }
                     
                     return (
                       <Grid item xs={12} sm={6} md={4} key={userId}>
@@ -1568,13 +1585,14 @@ export default function FriendsPage() {
                 <Grid container spacing={2.5}>
                   {followingList.map((user) => {
                     const normalized = normalizeFriendData(user);
+                    const userId = normalized.userId || normalized.id || user.followingId || user.userId;
                     return (
-                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                      <Grid item xs={12} sm={6} md={4} key={userId}>
                         <Card
                           elevation={0}
                           onClick={(e) => {
                             if (e.target.closest('button')) return;
-                            navigate(`/profile/${normalized.id}`);
+                            navigate(`/profile/${userId}`);
                           }}
                           sx={(t) => ({
                             borderRadius: 4,
@@ -1614,7 +1632,7 @@ export default function FriendsPage() {
                               variant="outlined"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleUnfollow(normalized.id);
+                                handleUnfollow(userId);
                               }}
                               sx={{
                                 textTransform: "none",
@@ -1670,13 +1688,14 @@ export default function FriendsPage() {
                 <Grid container spacing={2.5}>
                   {followersList.map((user) => {
                     const normalized = normalizeFriendData(user);
+                    const userId = normalized.userId || normalized.id || user.followerId || user.userId;
                     return (
-                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
+                      <Grid item xs={12} sm={6} md={4} key={userId}>
                         <Card
                           elevation={0}
                           onClick={(e) => {
                             if (e.target.closest('button')) return;
-                            navigate(`/profile/${normalized.id}`);
+                            navigate(`/profile/${userId}`);
                           }}
                           sx={(t) => ({
                             borderRadius: 4,
@@ -1717,108 +1736,7 @@ export default function FriendsPage() {
                               startIcon={<PersonAddIcon />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleFollow(normalized.id);
-                              }}
-                              sx={{
-                                textTransform: "none",
-                                fontWeight: 600,
-                                borderRadius: 2.5,
-                                mt: 2,
-                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                "&:hover": {
-                                  background: "linear-gradient(135deg, #5568d3 0%, #63428a 100%)",
-                                },
-                              }}
-                            >
-                              Theo dõi lại
-                            </Button>
-                          </Box>
-                        </Card>
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              )}
-            </Box>
-          )}
-
-          {/* Tab 6: Followers */}
-          {tabValue === 6 && (
-            <Box>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : followersList.length === 0 ? (
-                <Card
-                  elevation={0}
-                  sx={(t) => ({
-                    borderRadius: 4,
-                    p: 6,
-                    textAlign: "center",
-                    boxShadow: t.shadows[1],
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  })}
-                >
-                  <PersonIcon sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    Chưa có người theo dõi
-                  </Typography>
-                </Card>
-              ) : (
-                <Grid container spacing={2.5}>
-                  {followersList.map((user) => {
-                    const normalized = normalizeFriendData(user);
-                    return (
-                      <Grid item xs={12} sm={6} md={4} key={normalized.id}>
-                        <Card
-                          elevation={0}
-                          onClick={(e) => {
-                            if (e.target.closest('button')) return;
-                            navigate(`/profile/${normalized.id}`);
-                          }}
-                          sx={(t) => ({
-                            borderRadius: 4,
-                            p: 2.5,
-                            boxShadow: t.shadows[1],
-                            border: "1px solid",
-                            borderColor: "divider",
-                            bgcolor: "background.paper",
-                            transition: "all 0.3s ease",
-                            cursor: "pointer",
-                            "&:hover": {
-                              boxShadow: t.shadows[4],
-                              transform: "translateY(-4px)",
-                              borderColor: t.palette.primary.main,
-                            },
-                          })}
-                        >
-                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <Avatar
-                              src={normalized.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalized.name || 'User')}&background=667eea&color=fff&size=128`}
-                              sx={{ 
-                                width: 96, 
-                                height: 96, 
-                                mb: 2, 
-                                border: "3px solid", 
-                                borderColor: "divider",
-                                bgcolor: normalized.avatar ? 'transparent' : 'primary.main',
-                              }}
-                            >
-                              {(normalized.name && normalized.name.length > 0) ? normalized.name.charAt(0).toUpperCase() : 'U'}
-                            </Avatar>
-                            <Typography variant="h6" fontWeight={700} mb={0.5} textAlign="center">
-                              {normalized.name}
-                            </Typography>
-                            <Button
-                              fullWidth
-                              variant="contained"
-                              startIcon={<PersonAddIcon />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleFollow(normalized.id);
+                                handleFollow(userId);
                               }}
                               sx={{
                                 textTransform: "none",

@@ -125,10 +125,22 @@ export const getUnreadCount = async (conversationId) => {
  * @param {Object} conversationData - Conversation data { typeConversation: 'DIRECT' | 'GROUP', participantIds: string[] }
  */
 export const createConversation = async (conversationData) => {
-  return apiFetch(API_ENDPOINTS.CHAT.CREATE_CONVERSATION, {
-    method: 'POST',
-    body: JSON.stringify(conversationData),
-  });
+  console.log('📤 Creating conversation with data:', conversationData);
+  console.log('📤 Endpoint:', API_ENDPOINTS.CHAT.CREATE_CONVERSATION);
+  
+  try {
+    const response = await apiFetch(API_ENDPOINTS.CHAT.CREATE_CONVERSATION, {
+      method: 'POST',
+      body: JSON.stringify(conversationData),
+    });
+    
+    console.log('✅ Conversation created successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Error creating conversation:', error);
+    console.error('❌ Error details:', error.response?.data);
+    throw error;
+  }
 };
 
 /**

@@ -213,18 +213,32 @@ export default function ChatWidget() {
 
   const handleCreateDirectChat = async (selectedUser) => {
     try {
+      // Ensure userId is a string and not empty
+      const userId = String(selectedUser.userId || selectedUser.id || '').trim();
+      
+      if (!userId) {
+        console.error('❌ Invalid userId:', selectedUser);
+        return;
+      }
+      
+      console.log('📤 Creating direct chat with userId:', userId);
       const response = await createConversation({
         typeConversation: 'DIRECT',
-        participantIds: [selectedUser.userId]
+        participantIds: [userId]
       });
+      
+      console.log('📥 Conversation response:', response);
       
       if (response?.data?.result) {
         const newConv = response.data.result;
         setConversations(prev => [newConv, ...prev.slice(0, 4)]);
         await handleSelectConversation(newConv);
+      } else {
+        console.error('❌ No conversation data in response:', response);
       }
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      console.error('❌ Error creating conversation:', error);
+      console.error('❌ Error details:', error.response?.data);
     }
   };
 
@@ -718,6 +732,7 @@ export default function ChatWidget() {
     </>
   );
 }
+
 
 
 

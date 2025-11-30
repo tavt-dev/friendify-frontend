@@ -59,14 +59,16 @@ export const enrichRequestWithProfile = async (request, userId, isSender = false
 
 /**
  * Extract friend IDs from friends list
+ * Prioritize userId field from API response
  */
 export const extractFriendIds = (friends) => {
   const friendIds = new Set();
   friends.forEach(f => {
-    const friendId = f.friendId || f.id || f.userId;
-    const userId = f.userId || f.id;
-    if (friendId) friendIds.add(String(friendId).trim());
-    if (userId) friendIds.add(String(userId).trim());
+    // Prioritize userId field (backend standard)
+    const userId = f.userId || f.friendId || f.id;
+    if (userId) {
+      friendIds.add(String(userId).trim());
+    }
   });
   return Array.from(friendIds);
 };
@@ -87,22 +89,23 @@ export const normalizeFriendData = (item) => {
   }
   
   // Determine the user ID - prioritize userId field (backend standard):
+  // Backend uses userId as the primary identifier for users
   // - For friend requests: senderId (userId field in FriendshipResponse)
   // - For sent requests: recipientId (friendId field in FriendshipResponse)  
   // - For friends: friendId (the other person in the friendship)
   // - For following: followingId (the person being followed)
   // - For followers: followerId (the person who is following)
   // - For suggestions/search: userId (ProfileResponse) - this is the primary field
-  const normalizedId = item.userId  // ProfileResponse uses userId as primary identifier
+  const normalizedId = item.userId  // ProfileResponse uses userId as primary identifier - ALWAYS PRIORITIZE THIS
     || item.senderId 
     || item.recipientId 
     || item.followingId 
     || item.followerId
     || item.friendId 
-    || item.id 
-    || item.friend?.userId 
+    || item.friend?.userId
+    || item.user?.userId
+    || item.id  // Fallback to id only if userId is not available
     || item.friend?.id
-    || item.user?.userId 
     || item.user?.id 
     || 'unknown';
   
@@ -143,7 +146,8 @@ export const normalizeFriendData = (item) => {
     || null;
   
   return {
-    id: normalizedId,
+    id: normalizedId, // For backward compatibility
+    userId: normalizedId, // Always include userId field for consistency
     name: normalizedName,
     avatar: normalizedAvatar,
     mutualFriends: item.mutualFriends || 0,

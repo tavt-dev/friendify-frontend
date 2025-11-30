@@ -64,18 +64,23 @@ const AddMembersDialog = ({ open, onClose, onAddMembers, existingParticipantIds 
         const { items: usersList } = extractArrayFromResponse(response.data);
         
         // Normalize user data and filter out existing participants
+        // Prioritize userId field from API response
         const normalizedUsers = usersList
-          .map(user => ({
-            id: user.id || user.userId || user._id,
-            username: user.username || user.userName || '',
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            avatar: user.avatar || user.avatarUrl || null,
-            email: user.email || null,
-          }))
+          .map(user => {
+            const userId = user.userId || user.id || user._id;
+            return {
+              id: userId,
+              userId: userId, // Also include userId field for consistency
+              username: user.username || user.userName || '',
+              firstName: user.firstName || '',
+              lastName: user.lastName || '',
+              avatar: user.avatar || user.avatarUrl || null,
+              email: user.email || null,
+            };
+          })
           .filter(user => {
             // Filter out users who are already participants
-            const userId = String(user.id);
+            const userId = String(user.userId || user.id);
             return !existingParticipantIds.some(existingId => String(existingId) === userId);
           });
 
@@ -167,8 +172,22 @@ const AddMembersDialog = ({ open, onClose, onAddMembers, existingParticipantIds 
       return;
     }
 
-    const participantIds = selectedUsers.map(user => String(user.id));
-    onAddMembers(participantIds);
+    // Return both participantIds and user details for better UX
+    const participantIds = selectedUsers.map(user => {
+      const userId = user.userId || user.id || user._id;
+      return String(userId);
+    });
+    
+    // Also pass user details if available (for creating group)
+    if (typeof onAddMembers === 'function') {
+      // Check if onAddMembers accepts 2 parameters (ids and users)
+      try {
+        onAddMembers(participantIds, selectedUsers);
+      } catch (e) {
+        // Fallback to single parameter
+        onAddMembers(participantIds);
+      }
+    }
     onClose();
   };
 
